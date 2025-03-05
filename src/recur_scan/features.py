@@ -1,3 +1,5 @@
+from collections import Counter
+
 from recur_scan.transactions import Transaction
 
 
@@ -19,3 +21,12 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         "n_transactions_same_amount": get_n_transactions_same_amount(transaction, all_transactions),
         "percent_transactions_same_amount": get_percent_transactions_same_amount(transaction, all_transactions),
     }
+
+
+def get_most_frequent_names(all_transactions: list[Transaction]) -> list[str]:
+    """Get the most frequent names in the recurring transactions"""
+    if not all_transactions:
+        return []
+    name_counter = Counter(t.name for t in all_transactions)
+    most_common_names = name_counter.most_common()
+    return [name for name, count in most_common_names]
