@@ -1,7 +1,12 @@
 # test features
 import pytest
 
-from recur_scan.features import get_n_transactions_same_amount, get_percent_transactions_same_amount
+from recur_scan.features import (
+    get_day_of_week_features,
+    get_features,
+    get_n_transactions_same_amount,
+    get_percent_transactions_same_amount,
+)
 from recur_scan.transactions import Transaction
 
 
@@ -27,3 +32,37 @@ def test_get_percent_transactions_same_amount(transactions) -> None:
     Tests that the function calculates the right percentage of transactions with matching amounts.
     """
     assert pytest.approx(get_percent_transactions_same_amount(transactions[0], transactions)) == 2 / 3
+
+
+def test_get_day_of_week_features(transactions) -> None:
+    """Test that get_day_of_week_features returns the correct day of the month and weekday."""
+    # Transaction on January 1, 2024, which is a Monday
+    result = get_day_of_week_features(transactions[0])
+    assert result["day_of_month"] == 1
+    assert result["weekday"] == 0  # Monday = 0
+
+    # Transaction on January 2, 2024, which is a Tuesday
+    result = get_day_of_week_features(transactions[1])
+    assert result["day_of_month"] == 2
+    assert result["weekday"] == 1  # Tuesday = 1
+
+
+def test_get_features(transactions) -> None:
+    """Test that get_features returns the correct dictionary of features."""
+    result = get_features(transactions[0], transactions)
+    expected = {
+        "n_transactions_same_amount": 2,
+        "percent_transactions_same_amount": 2 / 3,
+        "day_of_month": 1,
+        "weekday": 0,
+    }
+    assert result == expected
+
+    result = get_features(transactions[2], transactions)
+    expected = {
+        "n_transactions_same_amount": 1,
+        "percent_transactions_same_amount": 1 / 3,
+        "day_of_month": 3,
+        "weekday": 2,
+    }
+    assert result == expected

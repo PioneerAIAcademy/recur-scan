@@ -28,8 +28,8 @@ from recur_scan.transactions import group_transactions, read_labeled_transaction
 n_cv_folds = 3  # number of cross-validation folds, could be 5
 n_hpo_iters = 20  # number of hyperparameter optimization iterations
 
-in_path = "your csv file goes here"
-out_dir = "your output directory goes here"
+in_path = "C:\\Users\\Israel Asimi\\Downloads\\asimi_labeler.csv"
+out_dir = "C:\\Users\\Israel Asimi\\Downloads\\model_output\\"
 
 # %%
 # parse script arguments from command line
