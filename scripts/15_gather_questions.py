@@ -43,6 +43,7 @@ for file in files:
         logger.error(f"Error converting amount to float in file {file}:")
         logger.error(e)
         # Get the problematic rows
+        df = pd.read_csv(os.path.join(input_dir, file))
         mask = pd.to_numeric(df["amount"], errors="coerce").isna()
         logger.error("\nProblematic rows:")
         logger.error(df[mask])
