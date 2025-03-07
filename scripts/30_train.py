@@ -29,7 +29,7 @@ n_cv_folds = 3  # number of cross-validation folds, could be 5
 n_hpo_iters = 20  # number of hyperparameter optimization iterations
 
 in_path = "/mnt/c/Users/NERISS-CITY/Documents/praise_labeler_32.csv"
-out_dir = "/mnt/c/Users/NERISS-CITY/Documents/praise_output_transaction"
+out_dir = "/mnt/c/Users/NERISS-CITY/Documents/praise_output_transaction1"
 
 # %%
 # parse script arguments from command line
