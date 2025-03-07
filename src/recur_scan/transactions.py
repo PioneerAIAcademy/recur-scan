@@ -1,4 +1,5 @@
 import csv
+import datetime
 from collections import defaultdict
 from dataclasses import asdict, dataclass, fields
 
@@ -8,7 +9,7 @@ class Transaction:
     id: int  # unique identifier
     user_id: str  # user id
     name: str  # vendor name
-    date: str  # date of the transaction
+    date: datetime.date  # date of the transaction
     amount: float  # amount of the transaction
 
 
@@ -16,7 +17,12 @@ class Transaction:
 type GroupedTransactions = dict[tuple[str, str], list[Transaction]]
 
 
+# this is the MAIN function to parse transactions from a CSV file,
+# optionally extracting labels. If it is present, then extract_labels is True,
+# else False by default its false.
 def _parse_transactions(path: str, extract_labels: bool = False) -> tuple[list[Transaction], list[int]]:
+    # that is if recurring column is present in the CSV file.
+    # If it is present, then extract_labels is True, else False by default its false
     """
     Parse transactions from a CSV file, optionally extracting labels.
     """
@@ -26,12 +32,14 @@ def _parse_transactions(path: str, extract_labels: bool = False) -> tuple[list[T
     with open(path, newline="") as f:
         reader = csv.DictReader(f)
         for ix, row in enumerate(reader):
+            # Convert the date string to a date object (adjust the format as needed)
+            date_obj = datetime.datetime.strptime(row["date"], "%Y-%m-%d").date()
             transactions.append(
                 Transaction(
                     id=ix,
                     user_id=row["user_id"],
                     name=row["name"],
-                    date=row["date"],
+                    date=date_obj,
                     amount=float(row["amount"]),
                 )
             )
@@ -41,30 +49,51 @@ def _parse_transactions(path: str, extract_labels: bool = False) -> tuple[list[T
     return transactions, labels
 
 
+# 1 function to read labeled transactions (to get Transactions and labels) from the above functions
 def read_labeled_transactions(path: str) -> tuple[list[Transaction], list[int]]:
     """
     Read labeled transactions from a CSV file.
     """
-    transactions, labels = _parse_transactions(path, extract_labels=True)
+    transactions, labels = _parse_transactions(
+        path, extract_labels=True
+    )  # here its marked as True to extract labels from the CSV file.
     return transactions, labels
+
+
+## the above function can be used as follows:
+# This is used to train a machine learning model that predicts whether a transaction is recurring.
 
 
 def read_unlabeled_transactions(path: str) -> list[Transaction]:
     """
     Read unlabeled transactions from a CSV file.
     """
-    transactions, _ = _parse_transactions(path)
+    transactions, _ = _parse_transactions(
+        path
+    )  # here its not present which is automatically marked as False to not extract labels from the CSV file.
     return transactions
+
+
+# the function above is use as read_unlabeled_transactions() to read
+# this file without expecting labels. This is used to predict whether a transaction is recurring.
+# You load new transactions without knowing if they are recurring.
+# You pass them into a trained model to make predictions.
 
 
 def group_transactions(transactions: list[Transaction]) -> GroupedTransactions:
     """
-    Group transactions by user_id and name.
+    Group transactions by user_id and name:  to see how often each user transacts with a specific vendor.
     """
     grouped_transactions = defaultdict(list)
     for transaction in transactions:
         grouped_transactions[(transaction.user_id, transaction.name)].append(transaction)
     return dict(grouped_transactions)
+
+
+# the function above is used to group transactions by user_id and name.
+# This is useful to see how often each user transacts with a specific vendor.
+# This information can be used as a feature in your machine learning model.
+# You can detect patterns (e.g., a user making frequent payments to Netflix might be a recurring transaction).
 
 
 def write_transactions(output_path: str, transactions: list[Transaction], y: list[int]) -> None:
