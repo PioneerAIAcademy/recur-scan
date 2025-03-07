@@ -1,7 +1,7 @@
 # test features
 import pytest
 
-from recur_scan.features import get_n_transactions_same_amount, get_percent_transactions_same_amount
+from recur_scan.features import get_n_transactions_same_amount, get_percent_transactions_same_amount, get_time_interval_between_transactions, get_mobile_company
 from recur_scan.transactions import Transaction
 
 
@@ -27,3 +27,22 @@ def test_get_percent_transactions_same_amount(transactions) -> None:
     Tests that the function calculates the right percentage of transactions with matching amounts.
     """
     assert pytest.approx(get_percent_transactions_same_amount(transactions[0], transactions)) == 2 / 3
+
+
+def test_get_time_interval_between_transactions(transactions) -> None:
+    """
+    Test that get_time_interval_between_transactions returns the correct average time interval between transactions with the same amount.
+    """
+    assert get_time_interval_between_transactions(transactions[0], transactions) == 1.0
+    assert get_time_interval_between_transactions(transactions[2], transactions) == 365.0
+
+
+def test_get_mobile_company(transactions) -> None:
+    """
+    Test that get_mobile_company returns True for mobile company transactions and False otherwise.
+    """
+    assert get_mobile_company(transactions[3]) is True  # T-Mobile
+    assert get_mobile_company(transactions[4]) is True  # AT&T
+    assert get_mobile_company(transactions[5]) is True  # Verizon
+    assert get_mobile_company(transactions[0]) is False  # vendor1
+
