@@ -4,6 +4,8 @@ from math import isclose
 import pytest
 
 from recur_scan.features import (
+    get_max_transaction_amount,
+    get_min_transaction_amount,
     get_n_transactions_same_amount,
     get_n_transactions_same_vendor,
     get_percent_transactions_same_amount,
@@ -47,6 +49,30 @@ def test_get_n_transactions_same_vendor(transactions) -> None:
     """Test that get_n_transactions_same_vendor returns the correct number of transactions with the same vendor."""
     assert get_n_transactions_same_vendor(transactions[0], transactions) == 8
     assert get_n_transactions_same_vendor(transactions[3], transactions) == 1
+
+
+def test_get_max_transaction_amount():
+    """
+    Test that get_max_transaction_amount returns the correct maximum amount of all transactions.
+    """
+    transactions = [
+        Transaction(id=1, user_id="user1", name="VendorA", date="2023-01-01", amount=100.0),
+        Transaction(id=2, user_id="user1", name="VendorB", date="2023-01-02", amount=200.0),
+        Transaction(id=3, user_id="user2", name="VendorA", date="2023-01-03", amount=300.0),
+    ]
+    assert get_max_transaction_amount(transactions) == 300.0
+
+
+def test_get_min_transaction_amount():
+    """
+    Test that get_min_transaction_amount returns the correct minimum amount of all transactions.
+    """
+    transactions = [
+        Transaction(id=1, user_id="user1", name="VendorA", date="2023-01-01", amount=100.0),
+        Transaction(id=2, user_id="user1", name="VendorB", date="2023-01-02", amount=200.0),
+        Transaction(id=3, user_id="user2", name="VendorA", date="2023-01-03", amount=300.0),
+    ]
+    assert get_min_transaction_amount(transactions) == 100.0
 
 
 def test_get_transaction_intervals_single_transaction():

@@ -22,6 +22,20 @@ def get_n_transactions_same_vendor(transaction: Transaction, all_transactions: l
     return len([t for t in all_transactions if t.name == transaction.name])
 
 
+def get_max_transaction_amount(all_transactions: list[Transaction]) -> float:
+    """Get the maximum transaction amount"""
+    if not all_transactions:
+        return 0.0
+    return max(t.amount for t in all_transactions)
+
+
+def get_min_transaction_amount(all_transactions: list[Transaction]) -> float:
+    """Get the minimum transaction amount"""
+    if not all_transactions:
+        return 0.0
+    return min(t.amount for t in all_transactions)
+
+
 def get_transaction_intervals(transactions: list[Transaction]) -> dict[str, float]:
     """
     Extracts time-based features for recurring transactions.
