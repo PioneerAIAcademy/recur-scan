@@ -32,8 +32,6 @@ def test_get_percent_transactions_same_amount(transactions) -> None:
     Tests that the function calculates the right percentage of transactions with matching amounts.
     """
     assert pytest.approx(get_percent_transactions_same_amount(transactions[0], transactions)) == 2 / 3
-
-
 def test_get_day_of_week_features(transactions) -> None:
     """Test that get_day_of_week_features returns the correct day of the month and weekday."""
     # Transaction on January 1, 2024, which is a Monday
@@ -55,6 +53,10 @@ def test_get_features(transactions) -> None:
         "percent_transactions_same_amount": 2 / 3,
         "day_of_month": 1,
         "weekday": 0,
+        "week_of_year": 1,
+        "frequency": 1.0,  
+        "date_variability": 0,
+
     }
     assert result == expected
 
@@ -64,5 +66,9 @@ def test_get_features(transactions) -> None:
         "percent_transactions_same_amount": 1 / 3,
         "day_of_month": 3,
         "weekday": 2,
+        "week_of_year": 1,  
+        "frequency": 1.0,  
+        "date_variability": 0,
+
     }
     assert result == expected
