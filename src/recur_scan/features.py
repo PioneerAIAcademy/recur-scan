@@ -55,7 +55,7 @@ def is_valid_recurring_transaction(transaction: Transaction) -> bool:
     - For 'Apple': Amount must end with '.99'.
     - For 'Brigit': Amount must be either 9.99 or 14.99.
     """
-    vendor_name = transaction.name.lower()  # Normalize vendor name to lowercase for case-insensitive comparison
+    vendor_name = transaction.name.lower() 
     amount = transaction.amount
 
     always_recurring_vendors = {
@@ -71,17 +71,14 @@ def is_valid_recurring_transaction(transaction: Transaction) -> bool:
     }
 
     if vendor_name == "apple":
-        # Check if the amount ends with .99
         return abs(amount - int(amount)) >= 0.98 and abs(amount - int(amount)) <= 0.99
     elif vendor_name == "brigit":
-        # Check if the amount is either 9.99 or 14.99
         return amount in {9.99, 14.99}
     elif vendor_name == "cleo ai":
         return amount in {3.99, 6.99}
     elif vendor_name == "credit genie":
         return amount in {3.49, 4.99}
     elif vendor_name in always_recurring_vendors:
-        # Always mark as recurring for these vendors
         return True
     else:
         # For other vendors, assume the transaction is valid for recurring
@@ -90,7 +87,7 @@ def is_valid_recurring_transaction(transaction: Transaction) -> bool:
 def get_amount_features(transaction: Transaction) -> dict[str, float]:
     return {
         "is_amount_rounded": int(transaction.amount == round(transaction.amount)),
-        "amount_category": int(transaction.amount // 10),  # Bin amounts into $10 categories
+        "amount_category": int(transaction.amount // 10),
     }
 
 def get_vendor_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float]:
