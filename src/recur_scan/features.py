@@ -92,12 +92,24 @@ def get_transaction_intervals(transactions: list[Transaction]) -> dict[str, floa
     }
 
 
+def is_recurring_mobile_transaction(transaction: Transaction) -> bool:
+    """
+    Check if the transaction is from a known mobile company.
+    All transactions from these companies are considered recurring.
+    """
+    mobile_companies = {"T-Mobile", "AT&T", "Verizon", "Boost Mobile", "Tello Mobile"}
+    return transaction.name in mobile_companies  # Always return True if it's a mobile company
+
+
 def get_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float | int | bool]:
     """Extract features for a given transaction."""
     features = {
         "n_transactions_same_amount": get_n_transactions_same_amount(transaction, all_transactions),
         "percent_transactions_same_amount": get_percent_transactions_same_amount(transaction, all_transactions),
         "n_transactions_same_vendor": get_n_transactions_same_vendor(transaction, all_transactions),
+        "max_transaction_amount": get_max_transaction_amount(all_transactions),
+        "min_transaction_amount": get_min_transaction_amount(all_transactions),
+        "is_recurring_mobile_transaction": is_recurring_mobile_transaction(transaction),
     }
     # Add transaction intervals features
     intervals_features = get_transaction_intervals(all_transactions)

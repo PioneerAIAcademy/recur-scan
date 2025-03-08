@@ -10,6 +10,7 @@ from recur_scan.features import (
     get_n_transactions_same_vendor,
     get_percent_transactions_same_amount,
     get_transaction_intervals,
+    is_recurring_mobile_transaction,
 )
 from recur_scan.transactions import Transaction
 
@@ -56,9 +57,9 @@ def test_get_max_transaction_amount():
     Test that get_max_transaction_amount returns the correct maximum amount of all transactions.
     """
     transactions = [
-        Transaction(id=1, user_id="user1", name="VendorA", date="2023-01-01", amount=100.0),
-        Transaction(id=2, user_id="user1", name="VendorB", date="2023-01-02", amount=200.0),
-        Transaction(id=3, user_id="user2", name="VendorA", date="2023-01-03", amount=300.0),
+        Transaction(id=1, user_id="user1", name="vendor1", date="2023-01-01", amount=100.0),
+        Transaction(id=2, user_id="user1", name="vendor2", date="2023-01-02", amount=200.0),
+        Transaction(id=3, user_id="user2", name="vendor1", date="2023-01-03", amount=300.0),
     ]
     assert get_max_transaction_amount(transactions) == 300.0
 
@@ -68,11 +69,34 @@ def test_get_min_transaction_amount():
     Test that get_min_transaction_amount returns the correct minimum amount of all transactions.
     """
     transactions = [
-        Transaction(id=1, user_id="user1", name="VendorA", date="2023-01-01", amount=100.0),
-        Transaction(id=2, user_id="user1", name="VendorB", date="2023-01-02", amount=200.0),
-        Transaction(id=3, user_id="user2", name="VendorA", date="2023-01-03", amount=300.0),
+        Transaction(id=1, user_id="user1", name="vendor1", date="2023-01-01", amount=100.0),
+        Transaction(id=2, user_id="user1", name="vendor2", date="2023-01-02", amount=200.0),
+        Transaction(id=3, user_id="user2", name="vendor1", date="2023-01-03", amount=300.0),
     ]
     assert get_min_transaction_amount(transactions) == 100.0
+
+
+def test_is_recurring_mobile_transaction() -> None:
+    """
+    Test that is_recurring_mobile_transaction returns True for mobile company transactions and False otherwise.
+    """
+    test_transactions = [
+        Transaction(id=1, user_id="user1", name="T-Mobile", amount=50, date="2024-01-02"),  # Mobile company
+        Transaction(id=2, user_id="user1", name="AT&T", amount=60, date="2024-01-03"),  # Mobile company
+        Transaction(id=3, user_id="user1", name="Verizon", amount=70, date="2024-01-04"),  # Mobile company
+        Transaction(id=4, user_id="user1", name="Boost Mobile", amount=80, date="2024-02-01"),  # Mobile company
+        Transaction(id=5, user_id="user1", name="Tello Mobile", amount=90, date="2024-03-01"),  # Mobile company
+        Transaction(id=6, user_id="user1", name="Amazon", amount=100, date="2024-01-01"),  # NOT a mobile company
+        Transaction(id=7, user_id="user1", name="Walmart", amount=110, date="2024-02-15"),  # NOT a mobile company
+    ]
+
+    assert is_recurring_mobile_transaction(test_transactions[0]) is True  # T-Mobile
+    assert is_recurring_mobile_transaction(test_transactions[1]) is True  # AT&T
+    assert is_recurring_mobile_transaction(test_transactions[2]) is True  # Verizon
+    assert is_recurring_mobile_transaction(test_transactions[3]) is True  # Boost Mobile
+    assert is_recurring_mobile_transaction(test_transactions[4]) is True  # Tello Mobile
+    assert is_recurring_mobile_transaction(test_transactions[5]) is False  # Amazon (not a mobile company)
+    assert is_recurring_mobile_transaction(test_transactions[6]) is False  # Walmart (not a mobile company)
 
 
 def test_get_transaction_intervals_single_transaction():
