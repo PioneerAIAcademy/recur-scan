@@ -1,5 +1,4 @@
 import datetime
-import itertools
 import statistics
 
 from recur_scan.transactions import Transaction
@@ -42,12 +41,14 @@ def is_recurring_merchant(transaction: Transaction) -> bool:
         "hbo max",
         "amazon prime",
     }
+    # Changed from merchant to name
     merchant_name = transaction.name.lower()
     return any(keyword in merchant_name for keyword in recurring_keywords)
 
 
 def get_n_transactions_same_merchant_amount(transaction: Transaction, all_transactions: list[Transaction]) -> int:
     """Get the number of transactions with the same merchant and amount"""
+    # Changed from merchant to name
     return len([t for t in all_transactions if t.name == transaction.name and t.amount == transaction.amount])
 
 
@@ -63,6 +64,7 @@ def get_percent_transactions_same_merchant_amount(
 
 def get_avg_days_between_same_merchant_amount(transaction: Transaction, all_transactions: list[Transaction]) -> float:
     """Calculate the average days between transactions with the same merchant and amount"""
+    # Changed from merchant to name
     same_transactions = sorted(
         [t for t in all_transactions if t.name == transaction.name and t.amount == transaction.amount],
         key=lambda x: x.date,
@@ -74,7 +76,7 @@ def get_avg_days_between_same_merchant_amount(transaction: Transaction, all_tran
             datetime.datetime.strptime(t2.date, "%Y-%m-%d").date()
             - datetime.datetime.strptime(t1.date, "%Y-%m-%d").date()
         ).days
-        for t1, t2 in itertools.pairwise(same_transactions)
+        for t1, t2 in zip(same_transactions[:-1], same_transactions[1:], strict=False)
     ]
     return sum(intervals) / len(intervals) if intervals else 0.0
 
@@ -83,6 +85,7 @@ def get_stddev_days_between_same_merchant_amount(
     transaction: Transaction, all_transactions: list[Transaction]
 ) -> float:
     """Calculate the standard deviation of days between transactions with the same merchant and amount"""
+    # Changed from merchant to name
     same_transactions = sorted(
         [t for t in all_transactions if t.name == transaction.name and t.amount == transaction.amount],
         key=lambda x: x.date,
@@ -94,7 +97,7 @@ def get_stddev_days_between_same_merchant_amount(
             datetime.datetime.strptime(t2.date, "%Y-%m-%d").date()
             - datetime.datetime.strptime(t1.date, "%Y-%m-%d").date()
         ).days
-        for t1, t2 in itertools.pairwise(same_transactions)
+        for t1, t2 in zip(same_transactions[:-1], same_transactions[1:], strict=False)
     ]
     try:
         return statistics.stdev(intervals)
@@ -104,6 +107,7 @@ def get_stddev_days_between_same_merchant_amount(
 
 def get_days_since_last_same_merchant_amount(transaction: Transaction, all_transactions: list[Transaction]) -> int:
     """Get the number of days since the last transaction with the same merchant and amount"""
+    # Changed from merchant to name
     same_transactions = [
         t
         for t in all_transactions
@@ -139,14 +143,16 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
     }
 
 
+# Example Usage
 if __name__ == "__main__":
     transactions = [
-        Transaction(id=1, user_id="1", amount=50.99, name="AT&T", date="2023-01-01"),
-        Transaction(id=2, user_id="1", amount=30.00, name="Google Play", date="2023-01-15"),
-        Transaction(id=3, user_id="1", amount=50.99, name="AT&T", date="2023-02-01"),
-        Transaction(id=4, user_id="1", amount=20.00, name="Amazon Prime", date="2023-02-15"),
-        Transaction(id=5, user_id="1", amount=50.99, name="AT&T", date="2023-03-01"),
-        Transaction(id=6, user_id="1", amount=9.99, name="Disney+", date="2023-03-15"),
+        Transaction(amount=50.99, name="AT&T", date=datetime.date(2023, 1, 1)),
+        Transaction(amount=30.00, name="Google Play", date=datetime.date(2023, 1, 15)),
+        Transaction(amount=50.99, name="AT&T", date=datetime.date(2023, 2, 1)),
+        Transaction(amount=20.00, name="Amazon Prime", date=datetime.date(2023, 2, 15)),
+        Transaction(amount=50.99, name="AT&T", date=datetime.date(2023, 3, 1)),
+        Transaction(amount=9.99, name="Disney+", date=datetime.date(2023, 3, 15)),
     ]
+
     features = get_features(transactions[0], transactions)
     print(features)
