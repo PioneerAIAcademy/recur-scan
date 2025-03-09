@@ -28,8 +28,8 @@ from recur_scan.transactions import group_transactions, read_labeled_transaction
 n_cv_folds = 3  # number of cross-validation folds, could be 5
 n_hpo_iters = 20  # number of hyperparameter optimization iterations
 
-in_path = "your csv file goes here"
-out_dir = "your output directory goes here"
+in_path = "/mnt/c/Users/clack/Documents/precious - labeler_33.csv"
+out_dir = "/mnt/c/Users/clack/Documents/precious_output_transaction"
 
 # %%
 # parse script arguments from command line
@@ -45,7 +45,7 @@ out_dir = args.output
 os.makedirs(out_dir, exist_ok=True)
 
 # %%
-#
+# e
 # LOAD AND PREPARE THE DATA
 #
 
