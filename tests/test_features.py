@@ -4,8 +4,11 @@ from math import isclose
 import pytest
 
 from recur_scan.features import (
+    get_day,
+    get_day_of_week,
     get_max_transaction_amount,
     get_min_transaction_amount,
+    get_month,
     get_n_transactions_same_amount,
     get_n_transactions_same_vendor,
     get_percent_transactions_same_amount,
@@ -172,3 +175,30 @@ def test_get_transaction_intervals_multiple_transactions():
     assert result["monthly_recurrence"] == expected["monthly_recurrence"]
     assert result["same_weekday"] == expected["same_weekday"]
     assert result["same_amount"] == expected["same_amount"]
+
+
+def test_get_day():
+    """Test that get_day returns the correct day for the transaction date."""
+    transaction = Transaction(id=1, user_id="user1", name="vendor1", amount=100, date="2025-03-10")
+    assert get_day(transaction) == 10
+
+    transaction_invalid = Transaction(id=2, user_id="user1", name="vendor1", amount=100, date="invalid-date")
+    assert get_day(transaction_invalid) == -1
+
+
+def test_get_month():
+    """Test that get_month returns the correct month for the transaction date."""
+    transaction = Transaction(id=1, user_id="user1", name="vendor1", amount=100, date="2025-03-10")
+    assert get_month(transaction) == 3
+
+    transaction_invalid = Transaction(id=2, user_id="user1", name="vendor1", amount=100, date="invalid-date")
+    assert get_month(transaction_invalid) == -1
+
+
+def test_get_day_of_week():
+    """Test that get_day_of_week returns the correct day of the week for the transaction date."""
+    transaction = Transaction(id=1, user_id="user1", name="vendor1", amount=100, date="2025-03-10")
+    assert get_day_of_week(transaction) == 0  # 0 = Monday
+
+    transaction_invalid = Transaction(id=2, user_id="user1", name="vendor1", amount=100, date="invalid-date")
+    assert get_day_of_week(transaction_invalid) == -1

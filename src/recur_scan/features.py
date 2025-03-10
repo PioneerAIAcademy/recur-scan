@@ -101,6 +101,32 @@ def is_recurring_mobile_transaction(transaction: Transaction) -> bool:
     return transaction.name in mobile_companies  # Always return True if it's a mobile company
 
 
+def get_day_of_week(transaction: Transaction) -> int:
+    """Get the day of the week for the transaction date"""
+    try:
+        return datetime.strptime(transaction.date, "%Y-%m-%d").weekday()
+    except ValueError:
+        return -1
+
+
+def get_month(transaction: Transaction) -> int:
+    """Get the month for the transaction date"""
+    try:
+        return datetime.strptime(transaction.date, "%Y-%m-%d").month
+    except ValueError:
+        # Handle invalid date format
+        return -1
+
+
+def get_day(transaction: Transaction) -> int:
+    """Get the day for the transaction date"""
+    try:
+        return datetime.strptime(transaction.date, "%Y-%m-%d").day
+    except ValueError:
+        # Handle invalid date format
+        return -1
+
+
 def get_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float | int | bool]:
     """Extract features for a given transaction."""
     features = {
@@ -110,6 +136,9 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         "max_transaction_amount": get_max_transaction_amount(all_transactions),
         "min_transaction_amount": get_min_transaction_amount(all_transactions),
         "is_recurring_mobile_transaction": is_recurring_mobile_transaction(transaction),
+        "day_of_week": get_day_of_week(transaction),
+        "month": get_month(transaction),
+        "day": get_day(transaction),
     }
     # Add transaction intervals features
     intervals_features = get_transaction_intervals(all_transactions)
