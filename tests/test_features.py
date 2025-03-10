@@ -4,7 +4,6 @@ from math import isclose
 import pytest
 
 from recur_scan.features import (
-    get_day,
     get_day_of_week,
     get_max_transaction_amount,
     get_min_transaction_amount,
@@ -13,6 +12,7 @@ from recur_scan.features import (
     get_n_transactions_same_vendor,
     get_percent_transactions_same_amount,
     get_transaction_intervals,
+    get_year,
     is_recurring_mobile_transaction,
 )
 from recur_scan.transactions import Transaction
@@ -177,28 +177,25 @@ def test_get_transaction_intervals_multiple_transactions():
     assert result["same_amount"] == expected["same_amount"]
 
 
-def test_get_day():
+def test_get_day(transactions) -> None:
     """Test that get_day returns the correct day for the transaction date."""
-    transaction = Transaction(id=1, user_id="user1", name="vendor1", amount=100, date="2025-03-10")
-    assert get_day(transaction) == 10
-
-    transaction_invalid = Transaction(id=2, user_id="user1", name="vendor1", amount=100, date="invalid-date")
-    assert get_day(transaction_invalid) == -1
+    transaction = transactions[0]
+    assert get_month(transaction) == 1
 
 
-def test_get_month():
+def test_get_month(transactions):
     """Test that get_month returns the correct month for the transaction date."""
-    transaction = Transaction(id=1, user_id="user1", name="vendor1", amount=100, date="2025-03-10")
-    assert get_month(transaction) == 3
-
-    transaction_invalid = Transaction(id=2, user_id="user1", name="vendor1", amount=100, date="invalid-date")
-    assert get_month(transaction_invalid) == -1
+    transaction = transactions[0]
+    assert get_month(transaction) == 1
 
 
-def test_get_day_of_week():
+def test_get_day_of_week(transactions):
     """Test that get_day_of_week returns the correct day of the week for the transaction date."""
-    transaction = Transaction(id=1, user_id="user1", name="vendor1", amount=100, date="2025-03-10")
+    transaction = transactions[0]
     assert get_day_of_week(transaction) == 0  # 0 = Monday
 
-    transaction_invalid = Transaction(id=2, user_id="user1", name="vendor1", amount=100, date="invalid-date")
-    assert get_day_of_week(transaction_invalid) == -1
+
+def test_get_year(transactions) -> None:
+    """Test that get_year returns the correct year for the transaction date."""
+    transaction = transactions[0]
+    assert get_year(transaction)

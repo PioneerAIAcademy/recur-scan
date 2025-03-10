@@ -127,6 +127,15 @@ def get_day(transaction: Transaction) -> int:
         return -1
 
 
+def get_year(transaction: Transaction) -> int:
+    """Get the year for the transaction date"""
+    try:
+        return datetime.strptime(transaction.date, "%Y-%m-%d").year
+    except ValueError:
+        # Handle invalid date format
+        return -1
+
+
 def get_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float | int | bool]:
     """Extract features for a given transaction."""
     features = {
@@ -139,6 +148,7 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         "day_of_week": get_day_of_week(transaction),
         "month": get_month(transaction),
         "day": get_day(transaction),
+        "year": get_year(transaction),
     }
     # Add transaction intervals features
     intervals_features = get_transaction_intervals(all_transactions)
