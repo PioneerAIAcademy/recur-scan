@@ -1,4 +1,5 @@
 import datetime
+import itertools
 import statistics
 
 from recur_scan.transactions import Transaction
@@ -76,7 +77,7 @@ def get_avg_days_between_same_merchant_amount(transaction: Transaction, all_tran
             datetime.datetime.strptime(t2.date, "%Y-%m-%d").date()
             - datetime.datetime.strptime(t1.date, "%Y-%m-%d").date()
         ).days
-        for t1, t2 in zip(same_transactions[:-1], same_transactions[1:], strict=False)
+        for t1, t2 in itertools.pairwise(same_transactions)
     ]
     return sum(intervals) / len(intervals) if intervals else 0.0
 
@@ -97,7 +98,7 @@ def get_stddev_days_between_same_merchant_amount(
             datetime.datetime.strptime(t2.date, "%Y-%m-%d").date()
             - datetime.datetime.strptime(t1.date, "%Y-%m-%d").date()
         ).days
-        for t1, t2 in zip(same_transactions[:-1], same_transactions[1:], strict=False)
+        for t1, t2 in itertools.pairwise(same_transactions)
     ]
     try:
         return statistics.stdev(intervals)
@@ -156,4 +157,4 @@ if __name__ == "__main__":
 
     features = get_features(transactions[0], transactions)
     print(features)
-#comment
+# comment
