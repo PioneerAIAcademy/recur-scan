@@ -212,9 +212,9 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
             transaction, all_transactions
         ),
         "days_since_last_same_merchant_amount": get_days_since_last_same_merchant_amount(transaction, all_transactions),
-        "recurring_frequency": get_recurring_frequency(transaction, all_transactions),  # New feature
-        "is_always_recurring": get_is_always_recurring(transaction, all_transactions),  # New feature
-        "is_insurance": get_is_insurance(transaction),  # New feature
-        "is_utility": get_is_utility(transaction),  # New feature
-        "is_phone": get_is_phone(transaction),  # New feature
+        "recurring_frequency": get_recurring_frequency(transaction, all_transactions),
+        "is_always_recurring": get_is_always_recurring(transaction, all_transactions),
+        "is_insurance": get_is_insurance(transaction),
+        "is_utility": get_is_utility(transaction),
+        "is_phone": get_is_phone(transaction),
     }
