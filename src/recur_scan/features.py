@@ -7,7 +7,7 @@ from recur_scan.transactions import Transaction
 
 def get_n_transactions_same_amount(transaction: Transaction, all_transactions: list[Transaction]) -> int:
     """Get the number of transactions in all_transactions with the same amount as transaction"""
-    return len([t for t in all_transactions if t.amount == transaction.amount])
+    return sum(1 for t in all_transactions if t.amount == transaction.amount)
 
 
 def get_percent_transactions_same_amount(transaction: Transaction, all_transactions: list[Transaction]) -> float:
@@ -41,16 +41,31 @@ def is_recurring_merchant(transaction: Transaction) -> bool:
         "disney mobile",
         "hbo max",
         "amazon prime",
+        "youtube",
+        "netflix",
+        "spotify",
+        "hulu",
+        "la fitness",
+        "cleo ai",
+        "atlas",
+        "google storage",
+        "youtube premium",
+        "afterpay",
+        "amazon+",
+        "walmart+",
+        "amazonprime",
+        "duke energy",
+        "adobe",
+        "charter comm",
+        "boostmobile",
     }
-    # Changed from merchant to name
     merchant_name = transaction.name.lower()
     return any(keyword in merchant_name for keyword in recurring_keywords)
 
 
 def get_n_transactions_same_merchant_amount(transaction: Transaction, all_transactions: list[Transaction]) -> int:
     """Get the number of transactions with the same merchant and amount"""
-    # Changed from merchant to name
-    return len([t for t in all_transactions if t.name == transaction.name and t.amount == transaction.amount])
+    return sum(1 for t in all_transactions if t.name == transaction.name and t.amount == transaction.amount)
 
 
 def get_percent_transactions_same_merchant_amount(
@@ -65,7 +80,6 @@ def get_percent_transactions_same_merchant_amount(
 
 def get_avg_days_between_same_merchant_amount(transaction: Transaction, all_transactions: list[Transaction]) -> float:
     """Calculate the average days between transactions with the same merchant and amount"""
-    # Changed from merchant to name
     same_transactions = sorted(
         [t for t in all_transactions if t.name == transaction.name and t.amount == transaction.amount],
         key=lambda x: x.date,
@@ -86,7 +100,6 @@ def get_stddev_days_between_same_merchant_amount(
     transaction: Transaction, all_transactions: list[Transaction]
 ) -> float:
     """Calculate the standard deviation of days between transactions with the same merchant and amount"""
-    # Changed from merchant to name
     same_transactions = sorted(
         [t for t in all_transactions if t.name == transaction.name and t.amount == transaction.amount],
         key=lambda x: x.date,
@@ -108,7 +121,6 @@ def get_stddev_days_between_same_merchant_amount(
 
 def get_days_since_last_same_merchant_amount(transaction: Transaction, all_transactions: list[Transaction]) -> int:
     """Get the number of days since the last transaction with the same merchant and amount"""
-    # Changed from merchant to name
     same_transactions = [
         t
         for t in all_transactions
@@ -121,7 +133,39 @@ def get_days_since_last_same_merchant_amount(transaction: Transaction, all_trans
     return (transaction_date - last_date).days
 
 
-def get_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float | int | bool]:
+def get_recurring_frequency(transaction: Transaction, all_transactions: list[Transaction]) -> str:
+    """Determine if the transaction is recurring daily, weekly, or monthly"""
+    same_transactions = sorted(
+        [t for t in all_transactions if t.name == transaction.name and t.amount == transaction.amount],
+        key=lambda x: x.date,
+    )
+    if len(same_transactions) < 2:
+        return "none"
+
+    intervals = [
+        (
+            datetime.datetime.strptime(t2.date, "%Y-%m-%d").date()
+            - datetime.datetime.strptime(t1.date, "%Y-%m-%d").date()
+        ).days
+        for t1, t2 in itertools.pairwise(same_transactions)
+    ]
+
+    if not intervals:
+        return "none"
+
+    avg_interval = sum(intervals) / len(intervals)
+
+    if avg_interval <= 1:
+        return "daily"
+    elif avg_interval <= 7:
+        return "weekly"
+    elif avg_interval <= 30:
+        return "monthly"
+    else:
+        return "none"
+
+
+def get_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float | int | bool | str]:
     """Extract features for a given transaction"""
     return {
         "amount": transaction.amount,
@@ -141,7 +185,5 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
             transaction, all_transactions
         ),
         "days_since_last_same_merchant_amount": get_days_since_last_same_merchant_amount(transaction, all_transactions),
+        "recurring_frequency": get_recurring_frequency(transaction, all_transactions),  # New feature
     }
-
-
-# comment
