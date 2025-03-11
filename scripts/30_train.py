@@ -7,6 +7,14 @@ model to predict which transactions are recurring. It uses the feature extractio
 module from recur_scan.features to prepare the input data.
 """
 
+# Add the root directory to the Python path
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+# Print the Python path for debugging
+print("Python Path:", sys.path)
+
 # %%
 import argparse
 import json
@@ -25,10 +33,10 @@ from recur_scan.transactions import group_transactions, read_labeled_transaction
 # %%
 # configure the script
 
-n_cv_folds = 3  # number of cross-validation folds, could be 5
-n_hpo_iters = 20  # number of hyperparameter optimization iterations
+n_cv_folds = 2  # reduced number of cross-validation folds
+n_hpo_iters = 5  # reduced number of hyperparameter optimization iterations
 
-in_path = "your csv file goes here"
+in_path = "scripts/recur_scan_train - train.csv"  # path to the input CSV file containing transactions
 out_dir = "your output directory goes here"
 
 # %%
@@ -54,6 +62,9 @@ os.makedirs(out_dir, exist_ok=True)
 transactions, y = read_labeled_transactions(in_path)
 logger.info(f"Read {len(transactions)} transactions with {len(y)} labels")
 
+# Print the attributes of the first transaction for debugging
+print("Attributes of the first transaction:", vars(transactions[0]))
+
 # %%
 # group transactions by user_id and name
 
@@ -78,11 +89,11 @@ logger.info(f"Converted {len(features)} features into a {X.shape} matrix")
 
 # Define parameter grid
 param_dist = {
-    "n_estimators": [100, 200, 500, 1000],
-    "max_depth": [10, 20, 30, None],
-    "min_samples_split": [2, 5, 10],
-    "min_samples_leaf": [1, 2, 4],
-    "max_features": ["sqrt", "log2", None],
+    "n_estimators": [100, 200],  # reduced number of options
+    "max_depth": [10, 20],  # reduced number of options
+    "min_samples_split": [2, 5],  # reduced number of options
+    "min_samples_leaf": [1, 2],  # reduced number of options
+    "max_features": ["sqrt", "log2"],  # reduced number of options
     "bootstrap": [True, False],
 }
 
