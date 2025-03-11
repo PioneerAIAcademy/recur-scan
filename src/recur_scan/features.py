@@ -144,17 +144,4 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
     }
 
 
-# Example Usage
-if __name__ == "__main__":
-    transactions = [
-        Transaction(id=1, user_id="1", amount=50.99, name="AT&T", date="2023-01-01"),
-        Transaction(id=2, user_id="1", amount=30.00, name="Google Play", date="2023-01-15"),
-        Transaction(id=3, user_id="1", amount=50.99, name="AT&T", date="2023-02-01"),
-        Transaction(id=4, user_id="1", amount=20.00, name="Amazon Prime", date="2023-02-15"),
-        Transaction(id=5, user_id="1", amount=50.99, name="AT&T", date="2023-03-01"),
-        Transaction(id=6, user_id="1", amount=9.99, name="Disney+", date="2023-03-15"),
-    ]
-
-    features = get_features(transactions[0], transactions)
-    print(features)
 # comment
