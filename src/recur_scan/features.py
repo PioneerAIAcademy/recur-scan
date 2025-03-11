@@ -165,6 +165,33 @@ def get_recurring_frequency(transaction: Transaction, all_transactions: list[Tra
         return "none"
 
 
+def get_is_always_recurring(transaction: Transaction, all_transactions: list[Transaction]) -> bool:
+    """Determine if the transaction is always recurring"""
+    same_transactions = [t for t in all_transactions if t.name == transaction.name and t.amount == transaction.amount]
+    return len(same_transactions) > 1
+
+
+def get_is_insurance(transaction: Transaction) -> bool:
+    """Determine if the transaction is related to insurance"""
+    insurance_keywords = {"insurance", "ins", "policy"}
+    merchant_name = transaction.name.lower()
+    return any(keyword in merchant_name for keyword in insurance_keywords)
+
+
+def get_is_utility(transaction: Transaction) -> bool:
+    """Determine if the transaction is related to utilities"""
+    utility_keywords = {"utility", "utilities", "electric", "water", "gas", "power", "energy"}
+    merchant_name = transaction.name.lower()
+    return any(keyword in merchant_name for keyword in utility_keywords)
+
+
+def get_is_phone(transaction: Transaction) -> bool:
+    """Determine if the transaction is related to phone services"""
+    phone_keywords = {"phone", "mobile", "cellular", "wireless", "telecom"}
+    merchant_name = transaction.name.lower()
+    return any(keyword in merchant_name for keyword in phone_keywords)
+
+
 def get_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float | int | bool | str]:
     """Extract features for a given transaction"""
     return {
@@ -186,4 +213,8 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         ),
         "days_since_last_same_merchant_amount": get_days_since_last_same_merchant_amount(transaction, all_transactions),
         "recurring_frequency": get_recurring_frequency(transaction, all_transactions),  # New feature
+        "is_always_recurring": get_is_always_recurring(transaction, all_transactions),  # New feature
+        "is_insurance": get_is_insurance(transaction),  # New feature
+        "is_utility": get_is_utility(transaction),  # New feature
+        "is_phone": get_is_phone(transaction),  # New feature
     }
