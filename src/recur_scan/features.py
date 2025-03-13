@@ -110,6 +110,18 @@ def get_time_features(transaction: Transaction, all_transactions: list[Transacti
         "days_until_next_transaction": days_until_next,
     }
 
+def get_user_recurrence_rate(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float]:
+    user_transactions = [t for t in all_transactions if t.user_id == transaction.user_id]
+    if len(user_transactions) < 2:
+        return {"user_recurrence_rate": 0.0}
+
+    recurring_count = sum(1 for t in user_transactions if is_valid_recurring_transaction(t))
+    user_recurrence_rate = recurring_count / len(user_transactions)
+
+    return {
+        "user_recurrence_rate": user_recurrence_rate,
+    }
+    
 def get_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float | int]:
     return {
         "n_transactions_same_amount": get_n_transactions_same_amount(transaction, all_transactions),
@@ -119,6 +131,7 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         **get_amount_features(transaction),
         **get_vendor_features(transaction, all_transactions),
         **get_time_features(transaction, all_transactions),
+        **get_user_recurrence_rate(transaction, all_transactions),
         "is_recurring": is_valid_recurring_transaction(transaction),
 
     }

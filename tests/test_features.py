@@ -9,7 +9,7 @@ from recur_scan.features import (
     get_frequency_features,
     get_time_features,
     get_vendor_features,
-    get_amount_features
+    get_amount_features,
 )
 from recur_scan.transactions import Transaction
 
