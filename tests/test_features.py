@@ -8,6 +8,7 @@ from recur_scan.features import (
     get_n_transactions_same_amount,
     get_percent_transactions_same_amount,
     get_transaction_intervals,
+    is_known_recurring_vendor,
 )
 from recur_scan.transactions import Transaction
 
@@ -127,3 +128,31 @@ def test_get_transaction_intervals_multiple_transactions():
     assert result["monthly_recurrence"] == expected["monthly_recurrence"]
     assert result["same_weekday"] == expected["same_weekday"]
     assert result["same_amount"] == expected["same_amount"]
+
+
+def test_is_known_recurring_vendor_known():
+    """
+    Test that a transaction from a known vendor returns 1.
+    """
+    transaction = Transaction(
+        id=1,
+        user_id="user1",
+        name="Netflix",  # "Netflix" is in the list (case-insensitive check)
+        date=datetime.datetime.strptime("2024-01-01", "%Y-%m-%d").date(),
+        amount=9.99,
+    )
+    assert is_known_recurring_vendor(transaction) == 1
+
+
+def test_is_known_recurring_vendor_not_known():
+    """
+    Test that a transaction from an unknown vendor returns 0.
+    """
+    transaction = Transaction(
+        id=2,
+        user_id="user1",
+        name="Local Restaurant",  # Not in the known vendors list
+        date=datetime.datetime.strptime("2024-01-01", "%Y-%m-%d").date(),
+        amount=50.00,
+    )
+    assert is_known_recurring_vendor(transaction) == 0

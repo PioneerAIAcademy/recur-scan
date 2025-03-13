@@ -13,11 +13,13 @@ import json
 import os
 
 import joblib
+
+## AI imports
 from loguru import logger
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_extraction import DictVectorizer
 from sklearn.metrics import confusion_matrix, f1_score, precision_score, recall_score
-from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold
+from sklearn.model_selection import StratifiedKFold
 
 from recur_scan.features import get_features
 from recur_scan.transactions import group_transactions, read_labeled_transactions, write_transactions
@@ -28,6 +30,8 @@ from recur_scan.transactions import group_transactions, read_labeled_transaction
 n_cv_folds = 3  # number of cross-validation folds, could be 5
 n_hpo_iters = 20  # number of hyperparameter optimization iterations
 
+# "C:\Users\nnatu\Downloads\recur_scan_train.csv"
+# "C:/Users/nnatu/Downloads/frank_labeler_17.csv"
 in_path = "C:/Users/nnatu/Downloads/frank_labeler_17.csv"
 out_dir = "C:/recur-scan/results/"
 
@@ -75,39 +79,41 @@ logger.info(f"Converted {len(features)} features into a {X.shape} matrix")
 #
 # HYPERPARAMETER OPTIMIZATION
 #
-
+# -----------------------------------------------------
 # Define parameter grid
-param_dist = {
-    "n_estimators": [100, 200, 500, 1000],
-    "max_depth": [10, 20, 30, None],
-    "min_samples_split": [2, 5, 10],
-    "min_samples_leaf": [1, 2, 4],
-    "max_features": ["sqrt", "log2", None],
-    "bootstrap": [True, False],
-}
+# param_dist = {
+#     "n_estimators": [100, 200, 500, 1000],
+#     "max_depth": [10, 20, 30, None],
+#     "min_samples_split": [2, 5, 10],
+#     "min_samples_leaf": [1, 2, 4],
+#     "max_features": ["sqrt", "log2", None],
+#     "bootstrap": [True, False],
+# }
 
-# Random search
-model = RandomForestClassifier(random_state=42)
-random_search = RandomizedSearchCV(
-    model, param_dist, n_iter=n_hpo_iters, cv=n_cv_folds, scoring="f1", n_jobs=-1, verbose=1
-)
-random_search.fit(X, y)
+# # Random search
+# model = RandomForestClassifier(random_state=42)
+# random_search = RandomizedSearchCV(
+#     model, param_dist, n_iter=n_hpo_iters, cv=n_cv_folds, scoring="f1", n_jobs=-1, verbose=1
+# )
+# random_search.fit(X, y)
 
-print("Best Hyperparameters:")
-for param, value in random_search.best_params_.items():
-    print(f"  {param}: {value}")
+# print("Best Hyperparameters:")
+# for param, value in random_search.best_params_.items():
+#     print(f"  {param}: {value}")
 
-best_params = random_search.best_params_
+# best_params = random_search.best_params_
+
+# ---------------------------------------------------------------------------------
 
 # consider setting the best params yourself someday instead of using the random search
-# best_params = {
-#     "n_estimators": 500,
-#     "min_samples_split": 5,
-#     "min_samples_leaf": 2,
-#     "max_features": None,
-#     "max_depth": 20,
-#     "bootstrap": False,
-# }
+best_params = {
+    "n_estimators": 1000,
+    "min_samples_split": 2,
+    "min_samples_leaf": 2,
+    "max_features": None,
+    "max_depth": None,
+    "bootstrap": False,
+}
 
 # %%
 #
@@ -220,3 +226,111 @@ logger.info(f"Found {len(misclassified)} misclassified transactions (variance er
 write_transactions(os.path.join(out_dir, "variance_errors.csv"), misclassified, y)
 
 # %%
+
+
+## AI TRAINING VERSION
+
+# # Split into training (80%) and testing (20%) sets
+# X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# print(f"Training data size: {len(X_train)} transactions")
+# print(f"Testing data size: {len(X_test)} transactions")
+
+# models = RandomForestClassifier(n_estimators=1000, random_state=42)
+# models.fit(X_train, y_train)
+
+# joblib.dump(models, os.path.join(out_dir, "model.joblib"))
+# # save the best params to a json file
+# print("Model training complete and saved!")
+
+# # Evaluate model on test data
+# y_pred = models.predict(X_test)
+
+# # calculate the precision, recall, and f1 score for the positive class
+# precision = precision_score(y_test, y_pred)
+# recall = recall_score(y_test, y_pred)
+# f1 = f1_score(y_test, y_pred)
+
+
+# # confusion matrix
+# print("                   Predicted Non-Recurring  Predicted Recurring")
+# print("Actual Non-Recurring", end="")
+# cm = confusion_matrix(y_test, y_pred)
+
+# print(f"     {cm[0][0]:<20} {cm[0][1]}")
+# print("Actual Recurring    ", end="")
+# print(f"     {cm[1][0]:<20} {cm[1][1]}")
+
+# misclassified = [transactions[i] for i, yp in enumerate(y_pred) if yp != y[i]]
+# logger.info(f"Found {len(misclassified)} misclassified transactions (bias error)")
+
+
+# # save the misclassified transactions to a csv file in the output directory
+# write_transactions(os.path.join(out_dir, "bias_errors.csv"), misclassified, y)
+
+# # %%
+# #
+# # USE CROSS-VALIDATION TO GET THE VARIANCE ERRORS
+# #
+
+# kf = StratifiedKFold(n_splits=n_cv_folds, shuffle=True, random_state=42)
+# misclassified = []
+# precisions = []
+# recalls = []
+# f1s = []
+
+# for fold, (train_idx, val_idx) in enumerate(kf.split(X, y)):
+#     logger.info(f"Fold {fold + 1} of {n_cv_folds}")
+#     # Get training and validation data
+#     X_train = [X[i] for i in train_idx]  # type: ignore
+#     X_test = [X[i] for i in val_idx]  # type: ignore
+#     y_train = [y[i] for i in train_idx]
+#     y_test = [y[i] for i in val_idx]
+#     transactions_val = [transactions[i] for i in val_idx]  # Keep the original transaction instances for this fold
+
+#     # Train the model
+#     model = RandomForestClassifier(n_estimators=1000, random_state=42)
+#     model.fit(X_train, y_train)
+
+#     # Make predictions
+#     y_pred = model.predict(X_test)
+
+#     # Find misclassified instances
+#     misclassified_fold = [transactions_val[i] for i in range(len(y_test)) if y_test[i] != y_pred[i]]
+#     misclassified.extend(misclassified_fold)
+
+#     # Report recall, precision, and f1 score
+#     precision = precision_score(y_test, y_pred)
+#     recall = recall_score(y_test, y_pred)
+#     f1 = f1_score(y_test, y_pred)
+#     precisions.append(precision)
+#     recalls.append(recall)
+#     f1s.append(f1)
+#     print(f"Fold {fold + 1} Precision: {precision:.2f}, Recall: {recall:.2f}, F1 Score: {f1:.2f}")
+#     print(f"Misclassified Instances in Fold {fold + 1}: {len(misclassified_fold)}")
+
+# print(f"Precision: {precision:.2f}")
+# print(f"Recall: {recall:.2f}")
+# print(f"Model F1 Score: {f1:.2f}")
+
+# logger.info(f"Found {len(misclassified)} misclassified transactions (variance errors)")
+
+# write_transactions(os.path.join(out_dir, "variance_errors.csv"), misclassified, y)
+
+
+# plt.figure(figsize=(6, 4))
+# sns.heatmap(
+#     cm,
+#     annot=True,
+#     fmt="d",
+#     cmap="Blues",
+#     xticklabels=["Not Recurring", "Recurring"],
+#     yticklabels=["Not Recurring", "Recurring"],
+# )
+# plt.xlabel("Predicted")
+# plt.ylabel("Actual")
+# plt.title("Confusion Matrix")
+# plt.show()
+
+
+## END OF AI TRAINING VERSION

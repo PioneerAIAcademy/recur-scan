@@ -1,3 +1,4 @@
+import re
 from statistics import mean, stdev
 
 from recur_scan.transactions import Transaction
@@ -61,8 +62,11 @@ def get_transaction_intervals(transactions: list[Transaction]) -> dict[str, floa
 
     # check if payment amounts are within ±5% of each other
     amounts = [trans.amount for trans in transactions]
-    base_amount = amounts[0]
-    consistent_amount = sum(1 for amt in amounts if abs(amt - base_amount) / base_amount <= 0.05) / len(amounts)
+    if not amounts or all(a == 0 for a in amounts):  # Prevent ZeroDivisionError
+        consistent_amount = 0.0
+    else:
+        base_amount = amounts[0] if amounts[0] > 0 else 1  # Avoid division by zero
+        consistent_amount = sum(1 for amt in amounts if abs(amt - base_amount) / base_amount <= 0.05) / len(amounts)
 
     return {
         "avg_days_between_transactions": avg_days,
@@ -71,6 +75,70 @@ def get_transaction_intervals(transactions: list[Transaction]) -> dict[str, floa
         "same_weekday": same_weekday,
         "same_amount": consistent_amount,
     }
+
+
+def is_known_recurring_vendor(transaction: Transaction) -> int:
+    """
+    Checks if the transaction vendor is a well-known subscription or
+    utility company using regex.
+    Returns 1 if it's a known recurring vendor, else 0.
+    """
+    known_recurring_keywords = [
+        "netflix",
+        "spotify",
+        "amazon prime",
+        "apple music",
+        "amazon music",
+        "google play",
+        "hulu",
+        "disney+",
+        "sirius xm",
+        "pandora",
+        "youtube premium",
+        "cable",
+        "internet",
+        "phone",
+        "electric",
+        "gas",
+        "water",
+        "sewer",
+        "trash",
+        "hoa",
+        "rent",
+        "mortgage",
+        "car payment",
+        "insurance",
+        "student loan",
+        "credit card",
+        "health insurance",
+        "life insurance",
+        "car insurance",
+        "home insurance",
+        "renters insurance",
+        "adobe",
+        "microsoft",
+        "verizon",
+        "at&t",
+        "afterpay",
+        "walmart+",
+        "t-mobile",
+        "charter comm",
+        "energy",
+        "boostmobile",
+        "fitness",
+        "utilities",
+        "membership",
+        "water",
+        "light",
+        "x-box",
+        "spectrum",
+    ]
+
+    vendor_name = transaction.name.lower()
+    # Create a regex pattern to match any of the known recurring keywords
+    pattern = r"\b(" + "|".join(re.escape(keyword) for keyword in known_recurring_keywords) + r")\b"
+    # Check if the vendor name matches the pattern
+    return 1 if re.search(pattern, vendor_name, re.IGNORECASE) else 0
 
 
 def get_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float | int]:
@@ -83,4 +151,5 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         "n_transactions_same_amount": get_n_transactions_same_amount(transaction, all_transactions),
         "percent_transactions_same_amount": get_percent_transactions_same_amount(transaction, all_transactions),
         **time_features,  # Merges new time-based features
+        "known_recurring_vendor": is_known_recurring_vendor(transaction),
     }
