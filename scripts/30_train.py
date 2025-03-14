@@ -30,7 +30,7 @@ do_hyperparameter_optimization = False  # set to False to use the default hyperp
 n_hpo_iters = 20  # number of hyperparameter optimization iterations
 
 in_path = "data/recur_scan.csv"
-out_dir = "data/main_result.csv"
+out_dir = "data/main_result"
 
 # %%
 # parse script arguments from command line

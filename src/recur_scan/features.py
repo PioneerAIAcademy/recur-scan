@@ -1,6 +1,7 @@
 from recur_scan.transactions import Transaction
 from datetime import datetime
 import re
+import numpy as np
 
 
 def get_n_transactions_same_amount(transaction: Transaction, all_transactions: list[Transaction]) -> int:
@@ -60,6 +61,14 @@ def get_transaction_frequency(transaction: Transaction, all_transactions: list[T
         return 0.0
     return 1 / (sum(intervals) / len(intervals))
 
+def get_transaction_amount_variance(transaction: Transaction, all_transactions: list[Transaction]) -> float:
+    """Calculate the variance in transaction amounts for the same vendor"""
+    vendor_transactions = [t.amount for t in all_transactions if t.name == transaction.name]
+    if len(vendor_transactions) < 2:
+        return 0.0
+    return float(np.var(vendor_transactions))
+
+
 def get_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float | int | bool | list[str]]:
     return {
         "n_transactions_same_amount": get_n_transactions_same_amount(transaction, all_transactions),
@@ -70,5 +79,6 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         "ends_in_99": get_ends_in_99(transaction),
         "transaction_frequency": get_transaction_frequency(transaction, all_transactions),
         "amount": transaction.amount,
-
+        "transaction_amount_variance": get_transaction_amount_variance(transaction, all_transactions),
+        
     }
