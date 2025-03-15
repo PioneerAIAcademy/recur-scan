@@ -1,3 +1,4 @@
+import re
 import statistics
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta
@@ -53,9 +54,7 @@ def is_recurring(transaction: Transaction, all_transactions: list[Transaction]) 
                     transactions[i - 1].date, "%Y-%m-%d"
                 )
                 if (
-                    transactions[i].amount == transactions[i - 1].amount
-                    or transactions[i].amount == 1
-                    or str(transactions[i].amount).endswith(".99")
+                    transactions[i].amount == transactions[i - 1].amount or str(transactions[i].amount).endswith(".99")
                 ) and (
                     (timedelta(days=6) <= date_diff <= timedelta(days=8))
                     or (timedelta(days=13) <= date_diff <= timedelta(days=15))
@@ -147,6 +146,58 @@ def get_days_since_last_same_merchant_amount(transaction: Transaction, all_trans
     return (datetime.strptime(transaction.date, "%Y-%m-%d").date() - last_date).days
 
 
+def get_is_always_recurring(transaction: Transaction) -> bool:
+    always_recurring_vendors = {"google storage", "netflix", "hulu", "spotify"}
+    return transaction.name.lower() in always_recurring_vendors
+
+
+def get_is_insurance(transaction: Transaction) -> bool:
+    match = re.search(r"\b(insurance|insur|insuranc)\b", transaction.name, re.IGNORECASE)
+    return bool(match)
+
+
+def get_is_utility(transaction: Transaction) -> bool:
+    match = re.search(r"\b(utility|utilit|energy)\b", transaction.name, re.IGNORECASE)
+    return bool(match)
+
+
+def get_is_phone(transaction: Transaction) -> bool:
+    match = re.search(r"\b(at&t|t-mobile|verizon)\b", transaction.name, re.IGNORECASE)
+    return bool(match)
+
+
+def _get_days(date: str) -> int:
+    return (datetime.strptime(date, "%Y-%m-%d") - datetime(1970, 1, 1)).days
+
+
+def get_n_transactions_days_apart(
+    transaction: Transaction, all_transactions: list[Transaction], n_days_apart: int, n_days_off: int
+) -> int:
+    n_txs = 0
+    transaction_days = _get_days(transaction.date)
+    for t in all_transactions:
+        t_days = _get_days(t.date)
+        days_diff = abs(t_days - transaction_days)
+        if days_diff < n_days_apart - n_days_off:
+            continue
+        remainder = days_diff % n_days_apart
+        if remainder <= n_days_off or (n_days_apart - remainder) <= n_days_off:
+            n_txs += 1
+    return n_txs
+
+
+def _get_day(date: str) -> int:
+    return int(date.split("-")[2])
+
+
+def get_n_transactions_same_day(transaction: Transaction, all_transactions: list[Transaction], n_days_off: int) -> int:
+    return len([
+        t
+        for t in all_transactions
+        if abs(_get_day(t.date) - _get_day(transaction.date)) <= n_days_off and t != transaction
+    ])
+
+
 def get_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float | int | bool]:
     return {
         "amount": transaction.amount,
@@ -171,4 +222,15 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         "min_transaction_amount": get_min_transaction_amount(all_transactions),
         "most_frequent_names": len(get_most_frequent_names(all_transactions)),
         "is_recurring": is_recurring(transaction, all_transactions),
+        "same_day_exact": get_n_transactions_same_day(transaction, all_transactions, 0),
+        "same_day_off_by_1": get_n_transactions_same_day(transaction, all_transactions, 1),
+        "same_day_off_by_2": get_n_transactions_same_day(transaction, all_transactions, 2),
+        "14_days_apart_exact": get_n_transactions_days_apart(transaction, all_transactions, 14, 0),
+        "14_days_apart_off_by_1": get_n_transactions_days_apart(transaction, all_transactions, 14, 1),
+        "7_days_apart_exact": get_n_transactions_days_apart(transaction, all_transactions, 7, 0),
+        "7_days_apart_off_by_1": get_n_transactions_days_apart(transaction, all_transactions, 7, 1),
+        "is_insurance": get_is_insurance(transaction),
+        "is_utility": get_is_utility(transaction),
+        "is_phone": get_is_phone(transaction),
+        "is_always_recurring": get_is_always_recurring(transaction),
     }
