@@ -29,7 +29,7 @@ n_cv_folds = 3  # number of cross-validation folds, could be 5
 do_hyperparameter_optimization = True  # set to False to use the default hyperparameters
 n_hpo_iters = 20  # number of hyperparameter optimization iterations
 
-in_path = "/mnt/c/Users/NERISS-CITY/Documents/recur_scan_train.csv"
+in_path = "/mnt/c/Users/NERISS-CITY/Documents/recur_scan_train1.csv"
 out_dir = "/mnt/c/Users/NERISS-CITY/Documents/praise_output_transaction2"
 
 # %%
