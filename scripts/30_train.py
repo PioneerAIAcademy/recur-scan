@@ -29,7 +29,7 @@ n_cv_folds = 3  # number of cross-validation folds, could be 5
 do_hyperparameter_optimization = False  # set to False to use the default hyperparameters
 n_hpo_iters = 20  # number of hyperparameter optimization iterations
 
-in_path = "data/recur_scan.csv"
+in_path = "data/recur_scan1.csv"
 out_dir = "data/main_result"
 
 # %%

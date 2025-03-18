@@ -9,7 +9,7 @@ from recur_scan.features import (
     get_is_phone,
     get_ends_in_99,
     get_transaction_frequency,
-    get_transaction_amount_variance,
+    get_dispersion_transaction_amount,
 )
 from recur_scan.transactions import Transaction
 
@@ -80,9 +80,9 @@ def test_get_transaction_frequency(transactions) -> None:
     assert get_transaction_frequency(transactions[0], transactions) > 0
     assert get_transaction_frequency(Transaction(id=12, user_id="user1", name="vendor3", amount=99.99, date="2024-01-08"), transactions) == 0.0
 
-def test_get_transaction_amount_variance(transactions) -> None:
-    """Test get_transaction_amount_variance."""
-    assert get_transaction_amount_variance(transactions[0], transactions) == 0.0
-    assert get_transaction_amount_variance(Transaction(id=12, user_id="user1", name="vendor3", amount=99.99, date="2024-01-08"), transactions) == 0.0
+def test_get_dispersion_transaction_amount(transactions) -> None:
+    """Test get dispersion in transaction amounts for the same vendor"""
+    assert get_dispersion_transaction_amount(transactions[0], transactions) == 0.0
+    assert get_dispersion_transaction_amount(Transaction(id=12, user_id="user1", name="vendor3", amount=99.99, date="2024-01-08"), transactions) == 0.0
 
 
