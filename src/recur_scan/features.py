@@ -205,7 +205,26 @@ def get_user_vendor_recurrence_rate(transaction: Transaction, all_transactions: 
     recurring_count = sum(1 for t in user_vendor_transactions if is_valid_recurring_transaction(t))
     recurrence_rate = recurring_count / len(user_vendor_transactions)
 
-    return {"user_vendor_recurrence_rate": recurrence_rate}  
+    return {"user_vendor_recurrence_rate": recurrence_rate} 
+
+def get_user_vendor_interaction_count(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, int]:
+    user_vendor_transactions = [
+        t for t in all_transactions 
+        if t.user_id == transaction.user_id and t.name == transaction.name
+    ]
+    return {"user_vendor_interaction_count": len(user_vendor_transactions)} 
+ 
+
+def get_amount_category(transaction: Transaction) -> dict[str, int]:
+    amount = transaction.amount
+    if amount < 10:
+        return {"amount_category": 0}
+    elif 10 <= amount < 20:
+        return {"amount_category": 1}
+    elif 20 <= amount < 50:
+        return {"amount_category": 2}
+    else:
+        return {"amount_category": 3}   
         
 def get_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float | int]:
     return {
@@ -216,6 +235,8 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         **get_vendor_transaction_frequency(transaction, all_transactions),
         **get_user_vendor_transaction_count(transaction, all_transactions),
         **get_user_vendor_recurrence_rate(transaction, all_transactions),
+        **get_user_vendor_interaction_count(transaction, all_transactions),
+        **get_amount_category(transaction),
         # Existing features
         "n_transactions_same_amount": get_n_transactions_same_amount(transaction, all_transactions),
         "percent_transactions_same_amount": get_percent_transactions_same_amount(transaction, all_transactions),

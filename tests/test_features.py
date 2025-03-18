@@ -19,6 +19,7 @@ from recur_scan.features import (
     get_vendor_transaction_frequency,
     get_user_vendor_transaction_count,
     get_user_vendor_recurrence_rate,
+    get_user_vendor_interaction_count
 )
 from recur_scan.transactions import Transaction
 
@@ -128,6 +129,7 @@ def test_get_features(transactions) -> None:
         "vendor_transaction_frequency": 1.0,
         "user_vendor_transaction_count": 3,
         "user_vendor_recurrence_rate": 1.0,
+        'user_vendor_interaction_count': 3
     }
     assert result == expected
 
@@ -187,3 +189,14 @@ def test_get_user_vendor_recurrence_rate(transactions) -> None:
     """Test that get_user_vendor_recurrence_rate returns the correct recurrence rate for a user-vendor pair."""
     result = get_user_vendor_recurrence_rate(transactions[0], transactions)
     assert result["user_vendor_recurrence_rate"] == 1.0  # All transactions are recurring for user1 and vendor1
+    
+def test_get_user_vendor_interaction_count(transactions) -> None:
+    """Test that get_user_vendor_interaction_count returns the correct count of interactions for a user-vendor pair."""
+    # Test case 1: User1 and Vendor1 (3 interactions)
+    result = get_user_vendor_interaction_count(transactions[0], transactions)
+    assert result["user_vendor_interaction_count"] == 3  # 3 transactions for user1 and vendor1
+
+    # Test case 2: User1 and a non-existent vendor (0 interactions)
+    non_existent_vendor_transaction = Transaction(id=4, user_id="user1", name="vendor2", amount=50, date="2024-01-04")
+    result = get_user_vendor_interaction_count(non_existent_vendor_transaction, transactions)
+    assert result["user_vendor_interaction_count"] == 0  # No transactions for user1 and vendor2
