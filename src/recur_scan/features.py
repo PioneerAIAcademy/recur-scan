@@ -13,20 +13,20 @@ def get_percent_transactions_same_amount(transaction: Transaction, all_transacti
     n_same_amount = len([t for t in all_transactions if t.amount == transaction.amount])
     return n_same_amount / len(all_transactions) 
 
-def get_day_of_week_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, int]:
-    date_obj = datetime.datetime.strptime(transaction.date, "%Y-%m-%d")
-    merchant_transactions = [t for t in all_transactions if t.name == transaction.name]
-    dates = sorted([datetime.datetime.strptime(t.date, "%Y-%m-%d") for t in merchant_transactions])
-    last_transaction_date = dates[-2] if len(dates) > 1 else None
-    days_since_last = (date_obj - last_transaction_date).days if last_transaction_date else 0
+# def get_day_of_week_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, int]:
+#     date_obj = datetime.datetime.strptime(transaction.date, "%Y-%m-%d")
+#     merchant_transactions = [t for t in all_transactions if t.name == transaction.name]
+#     dates = sorted([datetime.datetime.strptime(t.date, "%Y-%m-%d") for t in merchant_transactions])
+#     last_transaction_date = dates[-2] if len(dates) > 1 else None
+#     days_since_last = (date_obj - last_transaction_date).days if last_transaction_date else 0
 
-    return {
-        "day_of_month": date_obj.day,
-        "weekday": date_obj.weekday(),  # Monday = 0, Sunday = 6
-        "week_of_year": date_obj.isocalendar()[1],
-        "is_weekend": int(date_obj.weekday() >= 5),  # 1 if weekend, 0 otherwise
-        "days_since_last_transaction": days_since_last,
-    } 
+#     return {
+#         "day_of_month": date_obj.day,
+#         "weekday": date_obj.weekday(),  # Monday = 0, Sunday = 6
+#         "week_of_year": date_obj.isocalendar()[1],
+#         "is_weekend": int(date_obj.weekday() >= 5),  # 1 if weekend, 0 otherwise
+#         "days_since_last_transaction": days_since_last,
+#     } 
 
 def get_frequency_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float]:
     merchant_transactions = [t for t in all_transactions if t.name == transaction.name]
@@ -219,7 +219,7 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         # Existing features
         "n_transactions_same_amount": get_n_transactions_same_amount(transaction, all_transactions),
         "percent_transactions_same_amount": get_percent_transactions_same_amount(transaction, all_transactions),
-        **get_day_of_week_features(transaction, all_transactions),
+        # **get_day_of_week_features(transaction, all_transactions),
         **get_frequency_features(transaction, all_transactions),
         **get_amount_features(transaction),
         **get_vendor_features(transaction, all_transactions),
