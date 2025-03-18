@@ -135,9 +135,88 @@ def get_user_specific_features(transaction: Transaction, all_transactions: list[
         "user_recurring_transaction_count": recurring_count,
         "user_recurring_transaction_rate": user_recurring_transaction_rate,
     }
+    
+def get_user_recurring_vendor_count(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, int]:
+    user_transactions = [t for t in all_transactions if t.user_id == transaction.user_id]
+    recurring_vendors = set(t.name for t in user_transactions if is_valid_recurring_transaction(t))
+    return {"user_recurring_vendor_count": len(recurring_vendors)} 
+
+def get_user_transaction_frequency(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float]:
+    user_transactions = [t for t in all_transactions if t.user_id == transaction.user_id]
+    if len(user_transactions) < 2:
+        return {"user_transaction_frequency": 0.0}
+
+    # Sort transactions by date
+    user_transactions_sorted = sorted(user_transactions, key=lambda t: t.date)
+    dates = [datetime.datetime.strptime(t.date, "%Y-%m-%d") for t in user_transactions_sorted]
+
+    # Calculate the average time between transactions
+    date_diffs = [(dates[i + 1] - dates[i]).days for i in range(len(dates) - 1)]
+    avg_frequency = sum(date_diffs) / len(date_diffs)
+
+    return {"user_transaction_frequency": avg_frequency}
+
+def get_vendor_amount_std(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float]:
+    vendor_transactions = [t for t in all_transactions if t.name == transaction.name]
+    if len(vendor_transactions) < 2:
+        return {"vendor_amount_std": 0.0}
+
+    amounts = [t.amount for t in vendor_transactions]
+    mean_amount = sum(amounts) / len(amounts)
+    std_amount = (sum((x - mean_amount) ** 2 for x in amounts) / len(amounts)) ** 0.5
+
+    return {"vendor_amount_std": std_amount}
+
+def get_vendor_recurring_user_count(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, int]:
+    vendor_transactions = [t for t in all_transactions if t.name == transaction.name]
+    recurring_users = set(t.user_id for t in vendor_transactions if is_valid_recurring_transaction(t))
+    return {"vendor_recurring_user_count": len(recurring_users)}
+
+def get_vendor_transaction_frequency(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float]:
+    vendor_transactions = [t for t in all_transactions if t.name == transaction.name]
+    if len(vendor_transactions) < 2:
+        return {"vendor_transaction_frequency": 0.0}
+
+    # Sort transactions by date
+    vendor_transactions_sorted = sorted(vendor_transactions, key=lambda t: t.date)
+    dates = [datetime.datetime.strptime(t.date, "%Y-%m-%d") for t in vendor_transactions_sorted]
+
+    # Calculate the average time between transactions
+    date_diffs = [(dates[i + 1] - dates[i]).days for i in range(len(dates) - 1)]
+    avg_frequency = sum(date_diffs) / len(date_diffs)
+
+    return {"vendor_transaction_frequency": avg_frequency}
+
+def get_user_vendor_transaction_count(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, int]:
+    user_vendor_transactions = [
+        t for t in all_transactions 
+        if t.user_id == transaction.user_id and t.name == transaction.name
+    ]
+    return {"user_vendor_transaction_count": len(user_vendor_transactions)}
+
+def get_user_vendor_recurrence_rate(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float]:
+    user_vendor_transactions = [
+        t for t in all_transactions 
+        if t.user_id == transaction.user_id and t.name == transaction.name
+    ]
+    if len(user_vendor_transactions) < 1:
+        return {"user_vendor_recurrence_rate": 0.0}
+
+    recurring_count = sum(1 for t in user_vendor_transactions if is_valid_recurring_transaction(t))
+    recurrence_rate = recurring_count / len(user_vendor_transactions)
+
+    return {"user_vendor_recurrence_rate": recurrence_rate}  
         
 def get_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float | int]:
     return {
+        **get_user_recurring_vendor_count(transaction, all_transactions),
+        **get_user_transaction_frequency(transaction, all_transactions),
+        **get_vendor_amount_std(transaction, all_transactions),
+        **get_vendor_recurring_user_count(transaction, all_transactions),
+        **get_vendor_transaction_frequency(transaction, all_transactions),
+        **get_user_vendor_transaction_count(transaction, all_transactions),
+        **get_user_vendor_recurrence_rate(transaction, all_transactions),
+        # Existing features
         "n_transactions_same_amount": get_n_transactions_same_amount(transaction, all_transactions),
         "percent_transactions_same_amount": get_percent_transactions_same_amount(transaction, all_transactions),
         **get_day_of_week_features(transaction, all_transactions),

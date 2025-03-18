@@ -28,7 +28,7 @@ from recur_scan.transactions import group_transactions, read_labeled_transaction
 n_cv_folds = 3  # number of cross-validation folds, could be 5
 n_hpo_iters = 20  # number of hyperparameter optimization iterations
 
-in_path = "C:\\Users\\Israel Asimi\\Downloads\\asimi_labeler1.csv"
+in_path = "C:\\Users\\Israel Asimi\\Downloads\\asimi_labeler2.csv"
 out_dir = "C:\\Users\\Israel Asimi\\Desktop\\model_outputs\\"
 
 # %%
@@ -54,6 +54,11 @@ os.makedirs(out_dir, exist_ok=True)
 transactions, y = read_labeled_transactions(in_path)
 logger.info(f"Read {len(transactions)} transactions with {len(y)} labels")
 
+assert len(transactions) == len(y), "Transactions and labels must have the same length"
+transactions = transactions[:20000]
+y = y[:20000]
+logger.info(f"Truncated to {len(transactions)} transactions and {len(y)} labels")
+
 # %%
 # group transactions by user_id and name
 
@@ -78,8 +83,8 @@ logger.info(f"Converted {len(features)} features into a {X.shape} matrix")
 
 # Define parameter grid
 param_dist = {
-    "n_estimators": [100, 200, 500, 1000],
-    "max_depth": [10, 20, 30, None],
+    "n_estimators": [100, 200, 500],
+    "max_depth": [10, 20, None],
     "min_samples_split": [2, 5, 10],
     "min_samples_leaf": [1, 2, 4],
     "max_features": ["sqrt", "log2", None],
