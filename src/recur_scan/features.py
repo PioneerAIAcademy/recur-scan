@@ -124,15 +124,6 @@ def get_mobile_transaction(transaction: Transaction) -> bool:
     mobile_companies = {"T-Mobile", "AT&T", "Verizon", "Boost Mobile", "Tello Mobile"}  # Define a set of mobile companies
     return transaction.name in mobile_companies  # Check if the transaction name is in the set
 
-def get_is_phone(transaction: Transaction) -> bool:
-    """Check if the transaction is a phone payment."""
-    match = re.search(r"\b(at&t|t-mobile|verizon)\b", transaction.name, re.IGNORECASE)  # Use regex to match phone-related terms
-    return bool(match)  # Return True if a match is found
-
-def get_ends_in_99(transaction: Transaction) -> bool:
-    """Check if the transaction amount ends in 99"""
-    return (transaction.amount * 100) % 100 == 99  # Check if the amount ends in 99
-
 def get_transaction_frequency(transaction: Transaction, all_transactions: list[Transaction]) -> float:
     """Calculate the frequency of transactions for the same vendor"""
     vendor_transactions = [t for t in all_transactions if t.name == transaction.name]  # Filter transactions by vendor name
