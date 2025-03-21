@@ -1,85 +1,96 @@
-# test features
-import pytest
+import unittest
 
+# Import the functions to be tested
 from recur_scan.features import (
-    get_ends_in_99,
-    get_is_insurance,
-    get_is_phone,
-    get_is_utility,
-    get_n_transactions_days_apart,
-    get_n_transactions_same_amount,
-    get_n_transactions_same_day,
-    get_percent_transactions_same_amount,
+    classify_subscription_tier,
+    count_transactions_by_amount,
+    get_amount_features,
+    get_features,
+    get_monthly_spending_trend,
+    get_recurrence_patterns,
+    get_recurring_consistency_score,
+    get_refund_features,
+    get_user_behavior_features,
+    validate_recurring_transaction,
 )
 from recur_scan.transactions import Transaction
 
 
-@pytest.fixture
-def transactions():
-    """Fixture providing test transactions."""
-    return [
-        Transaction(id=1, user_id="user1", name="Allstate Insurance", amount=100, date="2024-01-01"),
-        Transaction(id=2, user_id="user1", name="AT&T", amount=100, date="2024-01-01"),
-        Transaction(id=3, user_id="user1", name="Duke Energy", amount=200, date="2024-01-02"),
-        Transaction(id=4, user_id="user1", name="HighEnergy Soft Drinks", amount=2.99, date="2024-01-03"),
-    ]
+class TestTransactionFeatures(unittest.TestCase):
+    def setUp(self):
+        # Sample transactions for testing
+        self.transactions = [
+            Transaction(name="Netflix", amount=15.49, date="2023-01-01", user_id=1),
+            Transaction(name="Netflix", amount=15.49, date="2023-02-01", user_id=1),
+            Transaction(name="Netflix", amount=15.49, date="2023-03-01", user_id=1),
+            Transaction(name="Spotify", amount=9.99, date="2023-01-01", user_id=1),
+            Transaction(name="Spotify", amount=9.99, date="2023-02-01", user_id=1),
+            Transaction(name="Amazon Prime", amount=12.99, date="2023-01-01", user_id=1),
+        ]
+
+    def test_count_transactions_by_amount(self):
+        transaction = self.transactions[0]  # Netflix, 15.49
+        count, pct = count_transactions_by_amount(transaction, self.transactions)
+        assert count == 3  # 3 Netflix transactions with amount 15.49
+        assert abs(pct - 0.5) < 1e-6  # 3 out of 6 transactions
+
+    def test_get_recurrence_patterns(self):
+        transaction = self.transactions[0]  # Netflix, 15.49
+        patterns = get_recurrence_patterns(transaction, self.transactions)
+        assert patterns["is_monthly"] == 1  # Monthly recurrence
+        assert abs(patterns["avg_days_between"] - 30.0) < 1e-6  # Average days between transactions
+        assert abs(patterns["std_days_between"] - 0.0) < 1e-6  # No deviation
+        assert patterns["recurrence_score"] > 0.9  # High recurrence score
+
+    def test_get_recurring_consistency_score(self):
+        transaction = self.transactions[0]  # Netflix, 15.49
+        score = get_recurring_consistency_score(transaction, self.transactions)
+        assert score["recurring_consistency_score"] >= 0.9  # High consistency score
+
+    def test_validate_recurring_transaction(self):
+        transaction = self.transactions[0]  # Netflix, 15.49
+        assert validate_recurring_transaction(transaction)  # Netflix is in RECURRING_VENDORS
+
+    def test_classify_subscription_tier(self):
+        transaction = self.transactions[0]  # Netflix, 15.49
+        tier = classify_subscription_tier(transaction)
+        assert tier == "Standard"  # Netflix Standard tier
+
+    def test_get_amount_features(self):
+        transaction = self.transactions[0]  # Netflix, 15.49
+        features = get_amount_features(transaction, self.transactions)
+        assert features["is_fixed_amount_recurring"] == 1  # Fixed amount
+        assert abs(features["amount_fluctuation"] - 0.0) < 1e-6  # No fluctuation
+        assert features["price_cluster"] == 0  # Cluster 0
+
+    def test_get_user_behavior_features(self):
+        transaction = self.transactions[0]  # Netflix, 15.49
+        features = get_user_behavior_features(transaction, self.transactions)
+        assert abs(features["user_avg_spent"] - 13.24) < 1e-2  # Average spending
+        assert abs(features["user_total_spent"] - 79.44) < 1e-2  # Total spending
+        assert features["user_subscription_count"] == 3  # 3 subscriptions
+
+    def test_get_refund_features(self):
+        transaction = self.transactions[0]  # Netflix, 15.49
+        refund_transaction = Transaction(name="Netflix", amount=-15.49, date="2023-01-02", user_id=1)
+        transactions_with_refund = [*self.transactions, refund_transaction]  # Fix RUF005
+        features = get_refund_features(transaction, transactions_with_refund)
+        assert abs(features["refund_rate"] - (1 / 7)) < 1e-6  # 1 refund out of 7 transactions
+        assert abs(features["avg_refund_time_lag"] - 1.0) < 1e-6  # 1 day lag
+
+    def test_get_monthly_spending_trend(self):
+        transaction = self.transactions[0]  # Netflix, 15.49, January 2023
+        features = get_monthly_spending_trend(transaction, self.transactions)
+        assert abs(features["monthly_spending_trend"] - 38.47) < 1e-2  # Total spending in January 2023
+
+    def test_get_features(self):
+        transaction = self.transactions[0]  # Netflix, 15.49
+        features = get_features(transaction, self.transactions)
+        assert features["n_transactions_same_amount"] == 3  # 3 transactions with same amount
+        assert abs(features["percent_transactions_same_amount"] - 0.5) < 1e-6  # 3 out of 6
+        assert features["subscription_tier"] == "Standard"  # Netflix Standard tier
+        assert features["is_valid_recurring_transaction"] == 1  # Valid recurring transaction
 
 
-def test_get_n_transactions_same_amount(transactions) -> None:
-    """Test that get_n_transactions_same_amount returns the correct number of transactions with the same amount."""
-    assert get_n_transactions_same_amount(transactions[0], transactions) == 2
-    assert get_n_transactions_same_amount(transactions[2], transactions) == 1
-
-
-def test_get_percent_transactions_same_amount(transactions) -> None:
-    """
-    Test that get_percent_transactions_same_amount returns correct percentage.
-    Tests that the function calculates the right percentage of transactions with matching amounts.
-    """
-    assert pytest.approx(get_percent_transactions_same_amount(transactions[0], transactions)) == 2 / 4
-
-
-def test_get_ends_in_99(transactions) -> None:
-    """Test that get_ends_in_99 returns True for amounts ending in 99."""
-    assert not get_ends_in_99(transactions[0])
-    assert get_ends_in_99(transactions[3])
-
-
-def test_get_n_transactions_same_day(transactions) -> None:
-    """Test that get_n_transactions_same_day returns the correct number of transactions on the same day."""
-    assert get_n_transactions_same_day(transactions[0], transactions, 0) == 2
-    assert get_n_transactions_same_day(transactions[0], transactions, 1) == 3
-    assert get_n_transactions_same_day(transactions[2], transactions, 0) == 1
-
-
-def test_get_n_transactions_days_apart() -> None:
-    """Test get_n_transactions_days_apart."""
-    transactions = [
-        Transaction(id=1, user_id="user1", name="name1", amount=2.99, date="2024-01-01"),
-        Transaction(id=2, user_id="user1", name="name1", amount=2.99, date="2024-01-02"),
-        Transaction(id=3, user_id="user1", name="name1", amount=2.99, date="2024-01-14"),
-        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-15"),
-        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-16"),
-        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-29"),
-        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-31"),
-    ]
-    assert get_n_transactions_days_apart(transactions[0], transactions, 14, 0) == 2
-    assert get_n_transactions_days_apart(transactions[0], transactions, 14, 1) == 4
-
-
-def test_get_is_insurance(transactions) -> None:
-    """Test get_is_insurance."""
-    assert get_is_insurance(transactions[0])
-    assert not get_is_insurance(transactions[1])
-
-
-def test_get_is_phone(transactions) -> None:
-    """Test get_is_phone."""
-    assert get_is_phone(transactions[1])
-    assert not get_is_phone(transactions[2])
-
-
-def test_get_is_utility(transactions) -> None:
-    """Test get_is_utility."""
-    assert get_is_utility(transactions[2])
-    assert not get_is_utility(transactions[3])
+if __name__ == "__main__":
+    unittest.main()
