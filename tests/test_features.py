@@ -2,19 +2,19 @@
 import pytest
 
 from recur_scan.features import (
-    get_n_transactions_same_amount, 
-    get_percent_transactions_same_amount, 
-    get_time_interval_between_transactions, 
-    get_mobile_transaction,       
+    get_dispersion_transaction_amount,
     get_ends_in_99,
-    get_transaction_frequency,
-    get_dispersion_transaction_amount,  
     get_is_always_recurring,
     get_is_insurance,
     get_is_phone,
     get_is_utility,
-    get_n_transactions_days_apart,    
+    get_mobile_transaction,
+    get_n_transactions_days_apart,
+    get_n_transactions_same_amount,
     get_n_transactions_same_day,
+    get_percent_transactions_same_amount,
+    get_time_interval_between_transactions,
+    get_transaction_frequency,
 )
 from recur_scan.transactions import Transaction
 
@@ -31,7 +31,8 @@ def transactions():
 
 
 def test_get_n_transactions_same_amount(transactions) -> None:
-    """Test that get_n_transactions_same_amount returns the correct number of transactions with the same amount."""
+    """Test that get_n_transactions_same_amount returns the correct number of transactions
+    with the same amount."""
     assert get_n_transactions_same_amount(transactions[0], transactions) == 2
     assert get_n_transactions_same_amount(transactions[2], transactions) == 1
 
@@ -46,7 +47,8 @@ def test_get_percent_transactions_same_amount(transactions) -> None:
 
 def test_get_time_interval_between_transactions(transactions) -> None:
     """
-    Test that get_time_interval_between_transactions returns the correct average time interval between transactions with the same amount.
+    Test that get_time_interval_between_transactions returns the correct average time interval between
+    transactions with the same amount.
     """
     transactions = [
         Transaction(id=1, user_id="user1", name="vendor1", amount=100, date="2024-01-01"),
@@ -63,6 +65,7 @@ def test_get_time_interval_between_transactions(transactions) -> None:
     ]
     assert get_time_interval_between_transactions(transactions[0], transactions) == 12.5
     assert get_time_interval_between_transactions(transactions[2], transactions) == 365.0
+
 
 def test_get_mobile_transaction(transactions) -> None:
     """
@@ -85,6 +88,7 @@ def test_get_mobile_transaction(transactions) -> None:
     assert get_mobile_transaction(transactions[4]) is True  # AT&T
     assert get_mobile_transaction(transactions[5]) is True  # Verizon
     assert get_mobile_transaction(transactions[0]) is False  # vendor1
+
 
 def test_get_n_transactions_same_day(transactions) -> None:
     """Test that get_n_transactions_same_day returns the correct number of transactions on the same day."""
@@ -113,32 +117,47 @@ def test_get_is_insurance(transactions) -> None:
     assert get_is_insurance(transactions[0])
     assert not get_is_insurance(transactions[1])
 
+
 def test_get_is_phone(transactions) -> None:
     """Test get_is_phone."""
     assert get_is_phone(transactions[1])
     assert not get_is_phone(transactions[2])
+
 
 def test_get_ends_in_99(transactions) -> None:
     """Test get_ends_in_99."""
     assert not get_ends_in_99(transactions[0])
     assert get_ends_in_99(transactions[3])
 
+
 def test_get_transaction_frequency(transactions) -> None:
     """Test get_transaction_frequency."""
     assert get_transaction_frequency(transactions[0], transactions) == 0.0
-    assert get_transaction_frequency(Transaction(id=12, user_id="user1", name="vendor3", amount=99.99, date="2024-01-08"), transactions) == 0.0
+    assert (
+        get_transaction_frequency(
+            Transaction(id=12, user_id="user1", name="vendor3", amount=99.99, date="2024-01-08"), transactions
+        )
+        == 0.0
+    )
+
 
 def test_get_dispersion_transaction_amount(transactions) -> None:
     """Test get dispersion in transaction amounts for the same vendor"""
     assert get_dispersion_transaction_amount(transactions[0], transactions) == 0.0
-    assert get_dispersion_transaction_amount(Transaction(id=12, user_id="user1", name="vendor3", amount=99.99, date="2024-01-08"), transactions) == 0.0
+    assert (
+        get_dispersion_transaction_amount(
+            Transaction(id=12, user_id="user1", name="vendor3", amount=99.99, date="2024-01-08"), transactions
+        )
+        == 0.0
+    )
+
 
 def test_get_is_utility(transactions) -> None:
     """Test get_is_utility."""
     assert get_is_utility(transactions[2])
     assert not get_is_utility(transactions[3])
 
+
 def test_get_is_always_recurring(transactions) -> None:
     """Test get_is_always_recurring."""
     assert not get_is_always_recurring(transactions[0])
-

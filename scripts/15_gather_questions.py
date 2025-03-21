@@ -42,7 +42,7 @@ for file in files:
         pd.to_numeric(df["amount"], errors="raise")
     except ValueError as e:
         logger.error(f"Error converting amount to float in file {file}:")
-        logger.error(e)        
+        logger.error(e)
         # Get the problematic rows
         if df is not None:
             mask = pd.to_numeric(df["amount"], errors="coerce").isna()
