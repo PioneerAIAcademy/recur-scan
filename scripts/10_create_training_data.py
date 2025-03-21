@@ -151,7 +151,6 @@ print(total_transactions, total_transactions / n_accounts, total_transactions / 
 # min_transactions_per_labeler and max_transactions_per_labeler
 
 constraints_satisfied = False
-labeler_to_user_ids: dict[int, list[str]] = {}
 while not constraints_satisfied:
     # Initialize dictionaries and sets
     user_id_to_labelers: dict[str, list[int]] = {user_id: [] for user_id in selected_user_ids}

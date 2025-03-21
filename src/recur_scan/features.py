@@ -2,7 +2,7 @@ import re
 from datetime import date, datetime
 from functools import lru_cache
 from recur_scan.transactions import Transaction
-import numpy as np  # Import numpy for numerical operations
+import numpy as np 
 
 def get_is_always_recurring(transaction: Transaction) -> bool:
     """Check if the transaction is always recurring because of the vendor name - check lowercase match"""
