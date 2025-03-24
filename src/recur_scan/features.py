@@ -4,6 +4,11 @@ import statistics
 
 from recur_scan.transactions import Transaction
 
+# Allowed feature value type
+FeatureValue = float | int | bool | str
+
+# ------------------------- Original Feature Functions -------------------------
+
 
 def get_n_transactions_same_amount(transaction: Transaction, all_transactions: list[Transaction]) -> int:
     """Get the number of transactions in all_transactions with the same amount as transaction"""
@@ -46,9 +51,10 @@ def is_recurring_merchant(transaction: Transaction) -> bool:
         "spotify",
         "hulu",
         "la fitness",
-        "cleo ai",
+        "cleo ai",  # existing keyword
         "atlas",
         "google storage",
+        "google drive",
         "youtube premium",
         "afterpay",
         "amazon+",
@@ -56,8 +62,13 @@ def is_recurring_merchant(transaction: Transaction) -> bool:
         "amazonprime",
         "duke energy",
         "adobe",
-        "charter comm",
-        "boostmobile",
+        "Healthy.line",
+        "Canva Pty Limite",
+        # Additional recurring companies:
+        "brigit",
+        "cleo",  # note: may match "cleo ai" as well
+        "microsoft",
+        "earnin",
     }
     merchant_name = transaction.name.lower()
     return any(keyword in merchant_name for keyword in recurring_keywords)
@@ -192,9 +203,89 @@ def get_is_phone(transaction: Transaction) -> bool:
     return any(keyword in merchant_name for keyword in phone_keywords)
 
 
-def get_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float | int | bool | str]:
-    """Extract features for a given transaction"""
+# ------------------------- New Feature Function -------------------------
+
+
+def is_subscription_amount(transaction: Transaction) -> bool:
+    """Check if the transaction amount is one of the common subscription amounts"""
+    subscription_amounts = {0.99, 1.99, 2.99, 4.99, 9.99, 10.99, 11.99, 12.99, 14.99, 19.99}
+    return round(transaction.amount, 2) in subscription_amounts
+
+
+# ------------------------- Additional Feature Functions -------------------------
+
+
+def get_additional_features(
+    transaction: Transaction, all_transactions: list[Transaction]
+) -> dict[str, float | int | bool]:
+    """Extract additional temporal and merchant consistency features that are not already included."""
+    # Temporal features
+    trans_date = datetime.datetime.strptime(transaction.date, "%Y-%m-%d").date()
+    day_of_week: int = trans_date.weekday()  # Monday = 0, Sunday = 6
+    day_of_month: int = trans_date.day
+    is_weekend: bool = day_of_week >= 5
+    is_end_of_month: bool = day_of_month >= 28  # Rough flag for end-of-month
+
+    # Merchant frequency (regardless of amount)
+    same_merchant_transactions = sorted(
+        [t for t in all_transactions if t.name == transaction.name], key=lambda x: x.date
+    )
+    if same_merchant_transactions:
+        first_date = datetime.datetime.strptime(same_merchant_transactions[0].date, "%Y-%m-%d").date()
+        days_since_first: int = (trans_date - first_date).days
+    else:
+        days_since_first = 0
+
+    intervals = []
+    for t1, t2 in itertools.pairwise(same_merchant_transactions):
+        d1 = datetime.datetime.strptime(t1.date, "%Y-%m-%d").date()
+        d2 = datetime.datetime.strptime(t2.date, "%Y-%m-%d").date()
+        intervals.append((d2 - d1).days)
+    min_interval: int = min(intervals) if intervals else 0
+    max_interval: int = max(intervals) if intervals else 0
+
+    # Merchant-specific frequency (all transactions for this merchant)
+    merchant_total_count: int = sum(1 for t in all_transactions if t.name == transaction.name)
+    merchant_recent_count: int = sum(
+        1
+        for t in all_transactions
+        if t.name == transaction.name
+        and (trans_date - datetime.datetime.strptime(t.date, "%Y-%m-%d").date()).days <= 30
+    )
+
+    # Amount consistency for the merchant (across all transactions regardless of amount)
+    merchant_amounts = [t.amount for t in all_transactions if t.name == transaction.name]
+    if merchant_amounts:
+        amount_stddev: float = statistics.stdev(merchant_amounts) if len(merchant_amounts) > 1 else 0.0
+        merchant_avg: float = statistics.mean(merchant_amounts)
+    else:
+        amount_stddev = 0.0
+        merchant_avg = 0.0
+    relative_amount_difference: float = (
+        abs(transaction.amount - merchant_avg) / merchant_avg if merchant_avg != 0 else 0.0
+    )
+
     return {
+        "day_of_week": day_of_week,
+        "day_of_month": day_of_month,
+        "is_weekend": is_weekend,
+        "is_end_of_month": is_end_of_month,
+        "days_since_first_occurrence": days_since_first,
+        "min_days_between": min_interval,
+        "max_days_between": max_interval,
+        "merchant_total_count": merchant_total_count,
+        "merchant_recent_count": merchant_recent_count,
+        "merchant_amount_stddev": amount_stddev,
+        "relative_amount_difference": relative_amount_difference,
+    }
+
+
+# ------------------------- Combined Feature Extraction -------------------------
+
+
+def get_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, FeatureValue]:
+    """Extract features for a given transaction"""
+    features: dict[str, FeatureValue] = {
         "amount": transaction.amount,
         "amount_ends_in_99": amount_ends_in_99(transaction),
         "amount_ends_in_00": amount_ends_in_00(transaction),
@@ -217,4 +308,8 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         "is_insurance": get_is_insurance(transaction),
         "is_utility": get_is_utility(transaction),
         "is_phone": get_is_phone(transaction),
+        "is_subscription_amount": is_subscription_amount(transaction),
     }
+    additional_features: dict[str, float | int | bool] = get_additional_features(transaction, all_transactions)
+    features.update(additional_features)
+    return features
