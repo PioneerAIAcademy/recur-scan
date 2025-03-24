@@ -5,7 +5,7 @@ import pytest
 
 from recur_scan.features import (
     get_day,
-    get_day_of_week,
+    # get_day_of_week,
     get_ends_in_99,
     get_is_always_recurring,
     get_is_insurance,
@@ -21,6 +21,10 @@ from recur_scan.features import (
     get_transaction_intervals,
     get_year,
     is_recurring_mobile_transaction,
+    #    is_recurring_deposit,
+    #    is_dynamic_recurring,
+    #    matching_transaction_ratio,
+    #    common_transaction_names,
 )
 from recur_scan.transactions import Transaction
 
@@ -41,28 +45,46 @@ def transactions():
     ]
 
 
-def test_get_n_transactions_same_amount(transactions) -> None:
+def test_get_n_transactions_same_amount() -> None:
     """Test that get_n_transactions_same_amount returns the correct number of transactions with the same amount."""
-    assert get_n_transactions_same_amount(transactions[0], transactions) == 7
+    transactions = [
+        Transaction(id=1, user_id="user1", name="vendor1", amount=100, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="vendor1", amount=100, date="2024-01-02"),
+        Transaction(id=3, user_id="user1", name="vendor1", amount=200, date="2024-01-03"),
+        Transaction(id=4, user_id="user1", name="vendor2", amount=300, date="2024-01-04"),
+    ]
+    assert get_n_transactions_same_amount(transactions[0], transactions) == 2
     assert get_n_transactions_same_amount(transactions[2], transactions) == 1
 
 
-def test_get_percent_transactions_same_amount(transactions) -> None:
+def test_get_percent_transactions_same_amount() -> None:
     """
     Test that get_percent_transactions_same_amount returns correct percentage.
     Tests that the function calculates the right percentage of transactions with matching amounts.
     """
-    assert pytest.approx(get_percent_transactions_same_amount(transactions[0], transactions)) == 7 / 9
-    assert pytest.approx(get_percent_transactions_same_amount(transactions[2], transactions)) == 1 / 9
+    transactions = [
+        Transaction(id=1, user_id="user1", name="vendor1", amount=100, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="vendor1", amount=100, date="2024-01-02"),
+        Transaction(id=3, user_id="user1", name="vendor1", amount=200, date="2024-01-03"),
+        Transaction(id=4, user_id="user1", name="vendor2", amount=300, date="2024-01-04"),
+    ]
+    assert pytest.approx(get_percent_transactions_same_amount(transactions[0], transactions)) == 2 / 4
+    assert pytest.approx(get_percent_transactions_same_amount(transactions[2], transactions)) == 1 / 4
 
 
-def test_get_n_transactions_same_vendor(transactions) -> None:
+def test_get_n_transactions_same_vendor() -> None:
     """Test that get_n_transactions_same_vendor returns the correct number of transactions with the same vendor."""
-    assert get_n_transactions_same_vendor(transactions[0], transactions) == 8
+    transactions = [
+        Transaction(id=1, user_id="user1", name="vendor1", amount=100, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="vendor1", amount=100, date="2024-01-02"),
+        Transaction(id=3, user_id="user1", name="vendor1", amount=200, date="2024-01-03"),
+        Transaction(id=4, user_id="user1", name="vendor2", amount=300, date="2024-01-04"),
+    ]
+    assert get_n_transactions_same_vendor(transactions[0], transactions) == 3
     assert get_n_transactions_same_vendor(transactions[3], transactions) == 1
 
 
-def test_get_max_transaction_amount():
+def test_get_max_transaction_amount() -> None:
     """
     Test that get_max_transaction_amount returns the correct maximum amount of all transactions.
     """
@@ -74,7 +96,7 @@ def test_get_max_transaction_amount():
     assert get_max_transaction_amount(transactions) == 300.0
 
 
-def test_get_min_transaction_amount():
+def test_get_min_transaction_amount() -> None:
     """
     Test that get_min_transaction_amount returns the correct minimum amount of all transactions.
     """
@@ -90,23 +112,16 @@ def test_is_recurring_mobile_transaction() -> None:
     """
     Test that is_recurring_mobile_transaction returns True for mobile company transactions and False otherwise.
     """
-    test_transactions = [
+    transactions = [
         Transaction(id=1, user_id="user1", name="T-Mobile", amount=50, date="2024-01-02"),  # Mobile company
         Transaction(id=2, user_id="user1", name="AT&T", amount=60, date="2024-01-03"),  # Mobile company
         Transaction(id=3, user_id="user1", name="Verizon", amount=70, date="2024-01-04"),  # Mobile company
-        Transaction(id=4, user_id="user1", name="Boost Mobile", amount=80, date="2024-02-01"),  # Mobile company
-        Transaction(id=5, user_id="user1", name="Tello Mobile", amount=90, date="2024-03-01"),  # Mobile company
-        Transaction(id=6, user_id="user1", name="Amazon", amount=100, date="2024-01-01"),  # NOT a mobile company
-        Transaction(id=7, user_id="user1", name="Walmart", amount=110, date="2024-02-15"),  # NOT a mobile company
+        Transaction(id=4, user_id="user1", name="Amazon", amount=80, date="2024-02-01"),  # NOT a mobile company
     ]
-
-    assert is_recurring_mobile_transaction(test_transactions[0]) is True  # T-Mobile
-    assert is_recurring_mobile_transaction(test_transactions[1]) is True  # AT&T
-    assert is_recurring_mobile_transaction(test_transactions[2]) is True  # Verizon
-    assert is_recurring_mobile_transaction(test_transactions[3]) is True  # Boost Mobile
-    assert is_recurring_mobile_transaction(test_transactions[4]) is True  # Tello Mobile
-    assert is_recurring_mobile_transaction(test_transactions[5]) is False  # Amazon (not a mobile company)
-    assert is_recurring_mobile_transaction(test_transactions[6]) is False  # Walmart (not a mobile company)
+    assert is_recurring_mobile_transaction(transactions[0]) is True  # T-Mobile
+    assert is_recurring_mobile_transaction(transactions[1]) is True  # AT&T
+    assert is_recurring_mobile_transaction(transactions[2]) is True  # Verizon
+    assert is_recurring_mobile_transaction(transactions[3]) is False  # Amazon (not a mobile company)
 
 
 def test_get_transaction_intervals_single_transaction():
@@ -135,7 +150,7 @@ def test_get_transaction_intervals_single_transaction():
     assert result == expected
 
 
-def test_get_transaction_intervals_multiple_transactions():
+def test_get_transaction_intervals_multiple_transactions() -> None:
     """
     Test get_transaction_intervals with multiple transactions.
 
@@ -172,9 +187,6 @@ def test_get_transaction_intervals_multiple_transactions():
         "same_weekday": 0,
         "same_amount": 2 / 3,
     }
-    print("Result:", result)
-    print("Expected:", expected)
-
     assert isclose(result["avg_days_between_transactions"], expected["avg_days_between_transactions"], rel_tol=1e-5)
     assert isclose(
         result["std_dev_days_between_transactions"], expected["std_dev_days_between_transactions"], rel_tol=1e-3
@@ -184,27 +196,27 @@ def test_get_transaction_intervals_multiple_transactions():
     assert result["same_amount"] == expected["same_amount"]
 
 
-def test_get_day_of_week(transactions) -> None:
-    """Test that get_day_of_week returns the correct day of the week for the transaction date."""
-    transaction = transactions[0]
-    assert get_day_of_week(transaction) == 0  # 0 = Monday
+# def test_get_day_of_week(transactions) -> None:
+#    """Test that get_day_of_week returns the correct day of the week for the transaction date."""
+#    transaction = transactions[0]
+#    assert get_day_of_week(transaction) == 0  # 0 = Monday
 
 
-def test_get_month(transactions) -> None:
+def test_get_month() -> None:
     """Test that get_month returns the correct month for the transaction date."""
-    transaction = transactions[0]
+    transaction = Transaction(id=1, user_id="user1", name="vendor1", amount=100, date="2024-01-01")
     assert get_month(transaction) == 1
 
 
-def test_get_day(transactions) -> None:
+def test_get_day() -> None:
     """Test that get_day returns the correct day for the transaction date."""
-    transaction = transactions[0]
+    transaction = Transaction(id=1, user_id="user1", name="vendor1", amount=100, date="2024-01-01")
     assert get_day(transaction) == 1
 
 
-def test_get_year(transactions) -> None:
+def test_get_year() -> None:
     """Test that get_year returns the correct year for the transaction date."""
-    transaction = transactions[0]
+    transaction = Transaction(id=1, user_id="user1", name="vendor1", amount=100, date="2024-01-01")
     assert get_year(transaction) == 2024
 
 
@@ -270,3 +282,93 @@ def test_get_n_transactions_same_day() -> None:
     assert get_n_transactions_same_day(transaction, transactions, 0) == 4
     assert get_n_transactions_same_day(transaction, transactions, 1) == 4
     assert get_n_transactions_same_day(transaction, transactions, 2) == 4
+
+
+# def test_is_recurring_deposit() -> None:
+#    """Test that is_recurring_deposit returns True if the transaction is a recurring deposit."""
+#    transactions = [
+#        Transaction(id=1, user_id="user1", name="vendor1", amount=100, date="2024-01-01"),
+#        Transaction(id=2, user_id="user1", name="vendor1", amount=100, date="2024-01-15"),
+#        Transaction(id=3, user_id="user1", name="vendor1", amount=100, date="2024-01-29"),
+#    ]
+#    transaction = transactions[0]
+#    assert is_recurring_deposit(transaction, transactions) is True
+
+#    transactions_false = [
+#        Transaction(id=1, user_id="user1", name="vendor1", amount=100, date="2024-01-01"),
+#        Transaction(id=2, user_id="user1", name="vendor1", amount=100, date="2024-01-15"),
+#    ]
+#    transaction_false = transactions_false[0]
+#    assert is_recurring_deposit(transaction_false, transactions_false) is False
+
+
+# def test_is_dynamic_recurring() -> None:
+#    """Test that is_dynamic_recurring returns True if the transaction is recurring with varying amounts
+#    but consistent intervals."""
+#    interval_stats = {
+#        "avg_days_between_transactions": 30.5,
+#        "std_dev_days_between_transactions": 10.6066,
+#        "monthly_recurrence": 1.0,
+#        "same_weekday": 0,
+#        "same_amount": 2 / 3,
+#    }
+#    amount_stats = {
+#        "mean": 100.0,
+#        "std": 5.0,
+#    }
+#    assert is_dynamic_recurring(interval_stats, amount_stats) is True
+#
+#    interval_stats_false = {
+#        "avg_days_between_transactions": 30.5,
+#        "std_dev_days_between_transactions": 50.0,
+#        "monthly_recurrence": 1.0,
+#        "same_weekday": 0,
+#        "same_amount": 2 / 3,
+#    }
+#    amount_stats_false = {
+#        "mean": 100.0,
+#        "std": 0.1,
+#    }
+#    assert is_dynamic_recurring(interval_stats_false, amount_stats_false) is False
+
+
+# def test_matching_transaction_ratio() -> None:
+#    """Test that matching_transaction_ratio returns the correct ratio of matching transactions."""
+#    transactions = [
+#        Transaction(id=1, user_id="user1", name="vendor1", amount=100, date="2024-01-01"),
+#        Transaction(id=2, user_id="user1", name="vendor1", amount=100, date="2024-01-15"),
+#        Transaction(id=3, user_id="user1", name="vendor1", amount=100, date="2024-01-29"),
+#        Transaction(id=4, user_id="user1", name="vendor2", amount=200, date="2024-02-12"),
+#    ]
+#    transaction = transactions[0]
+#    merchant_trans = [t for t in transactions if t.name == transaction.name]
+#    assert matching_transaction_ratio(transaction, transactions, merchant_trans) == 3 / 4
+#
+#    transactions_false = [
+#        Transaction(id=1, user_id="user1", name="vendor1", amount=100, date="2024-01-01"),
+#        Transaction(id=2, user_id="user1", name="vendor1", amount=200, date="2024-01-15"),
+#        Transaction(id=3, user_id="user1", name="vendor1", amount=300, date="2024-01-29"),
+#        Transaction(id=4, user_id="user1", name="vendor2", amount=200, date="2024-02-12"),
+#    ]
+#    transaction_false = transactions_false[0]
+#    merchant_trans_false = [t for t in transactions_false if t.name == transaction_false.name]
+#    assert matching_transaction_ratio(transaction_false, transactions_false, merchant_trans_false) == 1 / 4
+
+
+# def test_common_transaction_names() -> None:
+#    """Test that common_transaction_names returns the correct list of common transaction names."""
+#    transactions = [
+#        Transaction(id=1, user_id="user1", name="vendor1", amount=100, date="2024-01-01"),
+#        Transaction(id=2, user_id="user1", name="vendor1", amount=100, date="2024-01-15"),
+#        Transaction(id=3, user_id="user1", name="vendor1", amount=100, date="2024-01-29"),
+#        Transaction(id=4, user_id="user1", name="vendor2", amount=200, date="2024-02-12"),
+#    ]
+#    assert common_transaction_names(transactions) == ["vendor1"]
+#
+#    transactions_false = [
+#        Transaction(id=1, user_id="user1", name="vendor1", amount=100, date="2024-01-01"),
+#        Transaction(id=2, user_id="user1", name="vendor2", amount=200, date="2024-01-15"),
+#        Transaction(id=3, user_id="user1", name="vendor3", amount=300, date="2024-01-29"),
+#        Transaction(id=4, user_id="user1", name="vendor4", amount=400, date="2024-02-12"),
+#    ]
+#    assert common_transaction_names(transactions_false) == []

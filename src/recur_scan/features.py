@@ -4,19 +4,83 @@ from statistics import mean, stdev
 
 from recur_scan.transactions import Transaction
 
+# def is_recurring_deposit(transaction: Transaction, merchant_trans: list[Transaction]) -> bool:
+#    """
+#    Check if a transaction is a recurring deposit based on amount and frequency.
+#    """
+#    return transaction.amount > 0 and len(merchant_trans) >= 3
+
+
+# def is_dynamic_recurring(interval_stats: dict[str, float], amount_stats: dict[str, float]) -> bool:
+#    """
+#    Check if a transaction is recurring with varying amounts but consistent intervals.
+#    """
+#    return (
+#        interval_stats["std_dev_days_between_transactions"] < 45
+#        and amount_stats["mean"] > 0
+#        and (amount_stats["std"] / amount_stats["mean"]) > 0.002
+#    )
+
+
+# def matching_transaction_ratio(
+#    transaction: Transaction, all_transactions: list[Transaction], merchant_trans: list[Transaction]
+# ) -> float:
+#    """
+#    Calculate the ratio of merchant-specific transactions with the same amount and name to all transactions.
+#    """
+#    if not all_transactions:
+#        return 0.0
+#
+#    identical_transaction_count = sum(
+#        t.amount == transaction.amount and t.name == transaction.name for t in merchant_trans
+#    )
+#
+#    return identical_transaction_count / len(all_transactions)
+
+
+# def common_transaction_names(all_transactions: list[Transaction]) -> list[str]:
+#    """
+#    Extract transaction names that frequently appear for the same user with repeated amounts.
+#    """
+#    grouped_transactions = defaultdict(list)
+#    for transaction in all_transactions:
+#        grouped_transactions[(transaction.user_id, transaction.name)].append(transaction)
+#    return [
+#        name
+#        for (_user_id, name), transactions in grouped_transactions.items()
+#        if any(count > 1 for count in Counter(t.amount for t in transactions).values())
+#    ]
+
 
 def get_is_always_recurring(transaction: Transaction) -> bool:
     """
     Check if the transaction is from a known recurring vendor.
     All transactions from these vendors are considered recurring.
     """
+    #    known_recurring_keywords = ["netflix","spotify","amazon prime","amazon music","google play",
+    #        "hulu","disney+","youtube","comcast","adobe","microsoft","afterpay","walmart+"]
+
+    #    vendor_name = transaction.name.lower()
+    #    # Create a regex pattern to match any of the known recurring keywords
+    #    pattern = r"\b(" + "|".join(re.escape(keyword) for keyword in known_recurring_keywords) + r")\b"
+    #    # Check if the vendor name matches the pattern
+    #    return bool(re.search(pattern, vendor_name, re.IGNORECASE))
+
     # Use a regular expression with boundaries to match case-insensitive company names
-    match = re.search(r"\b(netflix|spotify|google storage|hulu)\b", transaction.name, re.IGNORECASE)
+    match = re.search(
+        r"\b(netflix|spotify|google play|hulu|disney\+|youtube|adobe|microsoft|walmart\+|amazon prime)\b",
+        transaction.name,
+        re.IGNORECASE,
+    )
     return bool(match)
 
 
 def get_is_insurance(transaction: Transaction) -> bool:
     """Check if the transaction is from a known insurance company."""
+    #    insurance_companies = {"geico", "allstate", "state farm", "progressive", "renters insurance",
+    # "health insurance","car insurance", "home insurance", "life insurance", "insurance", "auto insurance"}
+    #    return any(term in transaction.name.lower() for term in insurance_companies)
+
     # Use a regular expression with boundaries to match case-insensitive company names
     match = re.search(
         r"\b(insur|geico|allstate|state farm|progressive|insur|insuranc)\b", transaction.name, re.IGNORECASE
@@ -26,9 +90,14 @@ def get_is_insurance(transaction: Transaction) -> bool:
 
 def get_is_utility(transaction: Transaction) -> bool:
     """Check if the transaction is from a known utility company."""
+    #    utility_terms = {"water", "electricity", "gas", "internet", "cable", "energy", "utility", "light"}
+    #    return any(term in transaction.name.lower() for term in utility_terms)
+
     # Use a regular expression with boundaries to match case-insensitive company names
     match = re.search(
-        r"\b(water|electricity|gas|internet|cable|energy|utilit|utility)\b", transaction.name, re.IGNORECASE
+        r"\b(water|electricity|gas|internet|cable|energy|utilit|utility|cable|electric|light|phone)\b",
+        transaction.name,
+        re.IGNORECASE,
     )
     return bool(match)
 
@@ -79,73 +148,62 @@ def _get_day(date: str) -> int:
 
 
 def get_n_transactions_same_day(transaction: Transaction, all_transactions: list[Transaction], n_days_off: int) -> int:
-    """Get the number of transactions in all_transactions that are on the same day of the month as transaction"""
-    return len([t for t in all_transactions if abs(_get_day(t.date) - _get_day(transaction.date)) <= n_days_off])
+    """Get the number of transactions in all_transactions that are on the same day of the month as transaction."""
+    transaction_day = _get_day(transaction.date)
+    return sum(1 for t in all_transactions if abs(_get_day(t.date) - transaction_day) <= n_days_off)
 
 
 def get_ends_in_99(transaction: Transaction) -> bool:
-    """Check if the transaction amount ends in 99"""
-    return (transaction.amount * 100) % 100 == 99
+    """Check if the transaction amount ends in 99."""
+    return int(transaction.amount * 100) % 100 == 99
 
 
 def get_year(transaction: Transaction) -> int:
-    """Get the year for the transaction date"""
+    """Get the year for the transaction date."""
     try:
         return datetime.strptime(transaction.date, "%Y-%m-%d").year
     except ValueError:
-        # Handle invalid date format
         return -1
 
 
 def get_month(transaction: Transaction) -> int:
-    """Get the month for the transaction date"""
+    """Get the month for the transaction date."""
     try:
         return datetime.strptime(transaction.date, "%Y-%m-%d").month
     except ValueError:
-        # Handle invalid date format
         return -1
 
 
 def get_day(transaction: Transaction) -> int:
-    """Get the day for the transaction date"""
+    """Get the day for the transaction date."""
     try:
         return datetime.strptime(transaction.date, "%Y-%m-%d").day
     except ValueError:
-        # Handle invalid date format
         return -1
 
 
-def get_day_of_week(transaction: Transaction) -> int:
-    """Get the day of the week for the transaction date"""
-    try:
-        return datetime.strptime(transaction.date, "%Y-%m-%d").weekday()
-    except ValueError:
-        return -1
+# def get_day_of_week(transaction: Transaction) -> int:
+#    """Get the day of the week for the transaction date."""
+#    try:
+#        return datetime.strptime(transaction.date, "%Y-%m-%d").weekday()
+#    except ValueError:
+#        return -1
 
 
 def is_recurring_mobile_transaction(transaction: Transaction) -> bool:
-    """
-    Check if the transaction is from a known mobile company.
-    All transactions from these companies are considered recurring.
-    """
-    # Use a regular expression with boundaries to match case-insensitive company names
-    # and phone-related terms
-    match = re.search(r"\b(t-mobile|at&t|verizon|boost mobile|tello mobile)\b", transaction.name, re.IGNORECASE)
-    return bool(match)
+    """Check if the transaction is from a known mobile company."""
+    mobile_companies = {"t-mobile", "at&t", "verizon", "boost mobile", "tello mobile", "spectrum"}
+    return transaction.name.lower() in mobile_companies
 
 
 def get_min_transaction_amount(all_transactions: list[Transaction]) -> float:
-    """Get the minimum transaction amount"""
-    if not all_transactions:
-        return 0.0
-    return min(t.amount for t in all_transactions)
+    """Get the minimum transaction amount."""
+    return min((t.amount for t in all_transactions), default=0.0)
 
 
 def get_max_transaction_amount(all_transactions: list[Transaction]) -> float:
-    """Get the maximum transaction amount"""
-    if not all_transactions:
-        return 0.0
-    return max(t.amount for t in all_transactions)
+    """Get the maximum transaction amount."""
+    return max((t.amount for t in all_transactions), default=0.0)
 
 
 def get_transaction_intervals(transactions: list[Transaction]) -> dict[str, float]:
@@ -209,25 +267,32 @@ def get_transaction_intervals(transactions: list[Transaction]) -> dict[str, floa
 
 
 def get_n_transactions_same_vendor(transaction: Transaction, all_transactions: list[Transaction]) -> int:
-    """Get the number of transactions in all_transactions with the same vendor as transaction"""
-    return len([t for t in all_transactions if t.name == transaction.name])
+    """Get the number of transactions in all_transactions with the same vendor as transaction."""
+    return sum(1 for t in all_transactions if t.name == transaction.name)
 
 
 def get_percent_transactions_same_amount(transaction: Transaction, all_transactions: list[Transaction]) -> float:
-    """Get the percentage of transactions in all_transactions with the same amount as transaction"""
+    """Get the percentage of transactions in all_transactions with the same amount as transaction."""
     if not all_transactions:
         return 0.0
-    n_same_amount = len([t for t in all_transactions if t.amount == transaction.amount])
+    n_same_amount = sum(1 for t in all_transactions if t.amount == transaction.amount)
     return n_same_amount / len(all_transactions)
 
 
 def get_n_transactions_same_amount(transaction: Transaction, all_transactions: list[Transaction]) -> int:
-    """Get the number of transactions in all_transactions with the same amount as transaction"""
-    return len([t for t in all_transactions if t.amount == transaction.amount])
+    """Get the number of transactions in all_transactions with the same amount as transaction."""
+    return sum(1 for t in all_transactions if t.amount == transaction.amount)
 
 
 def get_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float | int | bool]:
     """Extract features for a given transaction."""
+    # merchant_trans = [t for t in all_transactions if t.name == transaction.name]
+    # interval_stats = get_transaction_intervals(merchant_trans)
+    # amount_stats = {
+    #    "mean": mean(t.amount for t in merchant_trans),
+    #    "std": stdev(t.amount for t in merchant_trans) if len(merchant_trans) > 1 else 0.0,
+    # }
+
     features = {
         "n_transactions_same_amount": get_n_transactions_same_amount(transaction, all_transactions),
         "percent_transactions_same_amount": get_percent_transactions_same_amount(transaction, all_transactions),
@@ -235,7 +300,7 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         "max_transaction_amount": get_max_transaction_amount(all_transactions),
         "min_transaction_amount": get_min_transaction_amount(all_transactions),
         "is_recurring_mobile_transaction": is_recurring_mobile_transaction(transaction),
-        "day_of_week": get_day_of_week(transaction),
+        # "day_of_week": get_day_of_week(transaction),
         "month": get_month(transaction),
         "day": get_day(transaction),
         "year": get_year(transaction),
@@ -251,6 +316,10 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         "is_insurance": get_is_insurance(transaction),
         "is_utility": get_is_utility(transaction),
         "is_always_recurring": get_is_always_recurring(transaction),
+        # "is_recurring_deposit": is_recurring_deposit(transaction, merchant_trans),
+        # "is_dynamic_recurring": is_dynamic_recurring(interval_stats, amount_stats),
+        # "matching_transaction_ratio": matching_transaction_ratio(transaction, all_transactions, merchant_trans),
+        # "common_transaction_names": common_transaction_names(all_transactions),
     }
     # Add transaction intervals features
     intervals_features = get_transaction_intervals(all_transactions)

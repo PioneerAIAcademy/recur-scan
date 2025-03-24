@@ -1,4 +1,4 @@
-.PHONY: install
+u.PHONY: install
 install: ## Install the virtual environment and install the pre-commit hooks
 	@echo "🚀 Installing python and creating virtual environment using uv"
 	@uv python install 3.12
