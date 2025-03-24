@@ -90,6 +90,12 @@ def get_n_transactions_same_day(transaction: Transaction, all_transactions: list
     return len([t for t in all_transactions if abs(_get_day(t.date) - _get_day(transaction.date)) <= n_days_off])
 
 
+def get_percent_transactions_same_day(
+    transaction: Transaction, all_transactions: list[Transaction], n_days_off: int
+) -> float:
+    return get_n_transactions_same_day(transaction, all_transactions, n_days_off) / len(all_transactions)
+
+
 def get_ends_in_99(transaction: Transaction) -> bool:
     """Check if the transaction amount ends in 99"""
     return (transaction.amount * 100) % 100 == 99
@@ -125,4 +131,5 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         "is_utility": get_is_utility(transaction),
         "is_phone": get_is_phone(transaction),
         "is_always_recurring": get_is_always_recurring(transaction),
+        "percent_same_day_exact": get_percent_transactions_same_day(transaction, all_transactions, 0),
     }

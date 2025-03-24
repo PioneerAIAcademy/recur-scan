@@ -10,6 +10,7 @@ from recur_scan.features import (
     get_n_transactions_days_apart,
     get_n_transactions_same_amount,
     get_n_transactions_same_day,
+    get_percent_transactions_same_day,
     get_percent_transactions_same_amount,
 )
 from recur_scan.transactions import Transaction
@@ -51,6 +52,11 @@ def test_get_n_transactions_same_day(transactions) -> None:
     assert get_n_transactions_same_day(transactions[0], transactions, 0) == 2
     assert get_n_transactions_same_day(transactions[0], transactions, 1) == 3
     assert get_n_transactions_same_day(transactions[2], transactions, 0) == 1
+
+
+def test_get_percent_transactions_same_day(transactions) -> None:
+    """Test that get_percent_transactions_same_day returns the correct percentage"""
+    assert get_percent_transactions_same_day(transactions[0], transactions, 0) == 2/4
 
 
 def test_get_n_transactions_days_apart() -> None:
