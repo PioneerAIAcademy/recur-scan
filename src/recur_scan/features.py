@@ -92,6 +92,13 @@ def get_n_transactions_same_day(transaction: Transaction, all_transactions: list
     return len([t for t in all_transactions if abs(_get_day(t.date) - _get_day(transaction.date)) <= n_days_off])
 
 
+def get_pct_transactions_same_day(
+    transaction: Transaction, all_transactions: list[Transaction], n_days_off: int
+) -> float:
+    """Get the percentage of transactions in all_transactions that are on the same day of the month as transaction"""
+    return get_n_transactions_same_day(transaction, all_transactions, n_days_off) / len(all_transactions)
+
+
 def get_ends_in_99(transaction: Transaction) -> bool:
     """Check if the transaction amount ends in 99"""
     return (transaction.amount * 100) % 100 == 99
@@ -195,6 +202,7 @@ def get_features(
         "ends_in_99": get_ends_in_99(transaction),
         "amount": transaction.amount,
         "same_day_exact": get_n_transactions_same_day(transaction, all_transactions, 0),
+        "pct_transactions_same_day": get_pct_transactions_same_day(transaction, all_transactions, 0),
         "same_day_off_by_1": get_n_transactions_same_day(transaction, all_transactions, 1),
         "same_day_off_by_2": get_n_transactions_same_day(transaction, all_transactions, 2),
         "14_days_apart_exact": get_n_transactions_days_apart(transaction, all_transactions, 14, 0),
