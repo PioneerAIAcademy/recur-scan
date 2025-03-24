@@ -2,7 +2,8 @@
 import pytest
 
 from recur_scan.features import get_n_transactions_same_amount, get_percent_transactions_same_amount
-from recur_scan.transactions import Transaction
+
+from ..transactions import Transaction
 
 
 @pytest.fixture

@@ -28,7 +28,7 @@ from recur_scan.transactions import group_transactions, read_labeled_transaction
 n_cv_folds = 3  # number of cross-validation folds, could be 5
 n_hpo_iters = 20  # number of hyperparameter optimization iterations
 
-in_path = "your csv file goes here"
+in_path = "spreadsheet.csv"
 out_dir = "your output directory goes here"
 
 # %%
@@ -52,6 +52,7 @@ os.makedirs(out_dir, exist_ok=True)
 # read labeled transactions
 
 transactions, y = read_labeled_transactions(in_path)
+print(vars(transactions[0]))
 logger.info(f"Read {len(transactions)} transactions with {len(y)} labels")
 
 # %%

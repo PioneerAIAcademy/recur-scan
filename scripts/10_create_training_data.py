@@ -150,6 +150,7 @@ print(total_transactions, total_transactions / n_accounts, total_transactions / 
 # and the total number of transactions for the accounts assigned to a labeler should be between
 # min_transactions_per_labeler and max_transactions_per_labeler
 
+labeler_to_user_ids: dict[int, list[str]] = {i: [] for i in range(n_labelers)}
 constraints_satisfied = False
 while not constraints_satisfied:
     # Initialize dictionaries and sets
