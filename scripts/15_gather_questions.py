@@ -35,7 +35,6 @@ for file in files:
     # print the filename and the number of labels
     logger.info(f"Processing {file}")
     # First try reading without specifying dtype for amount to see which rows fail conversion (if any)
-    df = None
     try:
         df = pd.read_csv(os.path.join(input_dir, file))
         # Now attempt to convert amount column to float to find problematic row
@@ -43,11 +42,10 @@ for file in files:
     except ValueError as e:
         logger.error(f"Error converting amount to float in file {file}:")
         logger.error(e)
-        if df is not None:
-            # Get the problematic rows
-            mask = pd.to_numeric(df["amount"], errors="coerce").isna()
-            logger.error("\nProblematic rows:")
-            logger.error(df[mask])
+        # Get the problematic rows
+        mask = pd.to_numeric(df["amount"], errors="coerce").isna()
+        logger.error("\nProblematic rows:")
+        logger.error(df[mask])
 
     # Now read with proper dtypes
     df = pd.read_csv(
