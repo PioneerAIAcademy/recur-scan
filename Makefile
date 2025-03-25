@@ -18,6 +18,8 @@ check: ## Run code quality tools.
 test: ## Test the code with pytest
 	@echo "🚀 Testing code: Running pytest"
 	@uv run python -m pytest
+	@echo "🚀 Checking feature test coverage"
+	@uv run python .github/scripts/check_feature_test_coverage.py
 
 .PHONY: help
 help:

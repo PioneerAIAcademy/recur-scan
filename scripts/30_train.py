@@ -34,7 +34,7 @@ n_hpo_iters = 20  # number of hyperparameter optimization iterations
 n_jobs = -1  # number of jobs to run in parallel (set to 1 if your laptop gets too hot)
 
 in_path = "data/in/recur_scan.csv"
-out_dir = "data/out"
+out_dir = "data/out/"
 
 # %%
 # parse script arguments from command line
