@@ -55,8 +55,8 @@ transactions, y = read_labeled_transactions(in_path)
 logger.info(f"Read {len(transactions)} transactions with {len(y)} labels")
 
 assert len(transactions) == len(y), "Transactions and labels must have the same length"
-transactions = transactions[:20000]
-y = y[:20000]
+transactions = transactions[:50000]
+y = y[:50000]
 logger.info(f"Truncated to {len(transactions)} transactions and {len(y)} labels")
 
 # %%

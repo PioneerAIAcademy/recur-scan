@@ -1,5 +1,6 @@
 from recur_scan.transactions import Transaction
 import datetime
+from collections import Counter
 
 def get_n_transactions_same_amount(transaction: Transaction, all_transactions: list[Transaction]) -> int:
     """Get the number of transactions in all_transactions with the same amount as transaction"""
@@ -224,8 +225,127 @@ def get_amount_category(transaction: Transaction) -> dict[str, int]:
     elif 20 <= amount < 50:
         return {"amount_category": 2}
     else:
-        return {"amount_category": 3}   
-        
+        return {"amount_category": 3} 
+    
+def get_amount_pattern_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float]:
+    """Identify common amount patterns that indicate recurring transactions"""
+    amount = transaction.amount
+    vendor_transactions = [t for t in all_transactions if t.name == transaction.name]
+    vendor_amounts = [t.amount for t in vendor_transactions]
+    
+    # Common recurring amount patterns
+    is_common_recurring_amount = (
+        amount in {5.99, 9.99, 14.99, 19.99, 29.99, 39.99, 49.99, 99.99} or
+        (amount - int(amount)) >= 0.98  # Common .99 pricing
+    )
+    
+    # Check if amount is one of the top 3 most common amounts for this vendor
+    if vendor_amounts:
+        amount_counts = Counter(vendor_amounts)
+        common_amounts = [amt for amt, _ in amount_counts.most_common(3)]
+        is_common_for_vendor = amount in common_amounts
+    else:
+        is_common_for_vendor = False
+    
+    return {
+        "is_common_recurring_amount": int(is_common_recurring_amount),
+        "is_common_for_vendor": int(is_common_for_vendor),
+        "amount_decimal_part": amount - int(amount),
+    }  
+    
+def get_temporal_consistency_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float]:
+    """Measure how consistent transaction timing is for this vendor"""
+    vendor_transactions = [t for t in all_transactions if t.name == transaction.name]
+    if len(vendor_transactions) < 3:
+        return {
+            "temporal_consistency_score": 0.0,
+            "is_monthly_consistent": 0,
+            "is_weekly_consistent": 0
+        }
+    
+    dates = sorted([datetime.datetime.strptime(t.date, "%Y-%m-%d") for t in vendor_transactions])
+    date_diffs = [(dates[i+1] - dates[i]).days for i in range(len(dates)-1)]
+    
+    # Check for monthly consistency (28-31 day intervals)
+    monthly_diffs = [diff for diff in date_diffs if 28 <= diff <= 31]
+    monthly_consistency = len(monthly_diffs) / len(date_diffs) if date_diffs else 0
+    
+    # Check for weekly consistency (7 day intervals)
+    weekly_diffs = [diff for diff in date_diffs if 6 <= diff <= 8]
+    weekly_consistency = len(weekly_diffs) / len(date_diffs) if date_diffs else 0
+    
+    return {
+        "temporal_consistency_score": (monthly_consistency + weekly_consistency) / 2,
+        "is_monthly_consistent": int(monthly_consistency > 0.7),
+        "is_weekly_consistent": int(weekly_consistency > 0.7)
+    }
+
+def get_vendor_recurrence_profile(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float]:
+    """Analyze how often this vendor appears in recurring patterns across all users"""
+    vendor_transactions = [t for t in all_transactions if t.name == transaction.name]
+    total_vendor_transactions = len(vendor_transactions)
+    
+    if total_vendor_transactions == 0:
+        return {
+            "vendor_recurrence_score": 0.0,
+            "vendor_recurrence_consistency": 0.0
+        }
+    
+    # Count how many unique users have recurring patterns with this vendor
+    recurring_users = set()
+    amount_counts = Counter()
+    
+    for t in vendor_transactions:
+        if is_valid_recurring_transaction(t):
+            recurring_users.add(t.user_id)
+        amount_counts[t.amount] += 1
+    
+    # Calculate recurrence score (0-1) based on how consistent amounts are
+    if amount_counts:
+        most_common_amount, count = amount_counts.most_common(1)[0]
+        amount_consistency = count / total_vendor_transactions
+    else:
+        amount_consistency = 0
+    
+    return {
+        "vendor_recurrence_score": len(recurring_users) / len(set(t.user_id for t in vendor_transactions)),
+        "vendor_recurrence_consistency": amount_consistency,
+        "vendor_is_common_recurring": int(transaction.name.lower() in {
+            "netflix", "spotify", "amazon", "at&t", "cleo ai", "hub", "comcast"
+        })
+    }
+  
+  
+def get_user_vendor_relationship_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float]:
+    """Analyze the relationship between this user and vendor"""
+    user_vendor_transactions = [
+        t for t in all_transactions 
+        if t.user_id == transaction.user_id and t.name == transaction.name
+    ]
+    user_transactions = [t for t in all_transactions if t.user_id == transaction.user_id]
+    
+    if not user_transactions:
+        return {
+            "user_vendor_dependency": 0.0,
+            "user_vendor_tenure": 0.0
+        }
+    
+    # Calculate what percentage of user's transactions are with this vendor
+    dependency = len(user_vendor_transactions) / len(user_transactions)
+    
+    # Calculate tenure (days since first transaction with this vendor)
+    if user_vendor_transactions:
+        dates = [datetime.datetime.strptime(t.date, "%Y-%m-%d") for t in user_vendor_transactions]
+        tenure = (max(dates) - min(dates)).days
+    else:
+        tenure = 0
+    
+    return {
+        "user_vendor_dependency": dependency,
+        "user_vendor_tenure": tenure,
+        "user_vendor_transaction_span": tenure
+    }
+           
 def get_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float | int]:
     return {
         **get_user_recurring_vendor_count(transaction, all_transactions),
@@ -237,6 +357,10 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         **get_user_vendor_recurrence_rate(transaction, all_transactions),
         **get_user_vendor_interaction_count(transaction, all_transactions),
         **get_amount_category(transaction),
+        **get_amount_pattern_features(transaction, all_transactions),
+        **get_temporal_consistency_features(transaction, all_transactions),
+        **get_vendor_recurrence_profile(transaction, all_transactions),
+        **get_user_vendor_relationship_features(transaction, all_transactions),
         # Existing features
         "n_transactions_same_amount": get_n_transactions_same_amount(transaction, all_transactions),
         "percent_transactions_same_amount": get_percent_transactions_same_amount(transaction, all_transactions),
