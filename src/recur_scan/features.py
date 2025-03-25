@@ -1,7 +1,7 @@
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 from itertools import pairwise
-import statistics
+
 from recur_scan.transactions import Transaction
 
 
@@ -121,6 +121,7 @@ def is_recurring_merchant(transaction: Transaction) -> bool:
 #     except statistics.StatisticsError:
 #         return 1.0
 
+
 def get_avg_days_between_same_merchant_amount(transaction: Transaction, all_transactions: list[Transaction]) -> float:
     same_transactions = sorted(
         (t for t in all_transactions if t.name == transaction.name and t.amount == transaction.amount),
@@ -165,87 +166,88 @@ def get_avg_days_between_same_merchant_amount(transaction: Transaction, all_tran
 #     last_date = max(datetime.strptime(t.date, "%Y-%m-%d").date() for t in same_transactions)
 #     return (datetime.strptime(transaction.date, "%Y-%m-%d").date() - last_date).days
 
-# def is_expected_transaction_date(transaction: Transaction, all_transactions: list[Transaction]) -> bool: 
-#     """Check if transaction occurs on an expected date based on previous patterns""" 
-#     same_transactions = sorted( 
-#         [t for t in all_transactions  
-#          if t.name == transaction.name and t.amount == transaction.amount and t.date < transaction.date], 
-#         key=lambda x: x.date, 
-#     ) 
-     
-#     if len(same_transactions) < 2: 
-#         return False 
-     
-#     # Calculate average interval 
-#     intervals = [ 
-#         (datetime.datetime.strptime(t2.date, "%Y-%m-%d").date() -  
-#          datetime.datetime.strptime(t1.date, "%Y-%m-%d").date()).days 
-#         for t1, t2 in itertools.pairwise(same_transactions) 
-#     ] 
-     
-#     if not intervals: 
-#         return False 
-         
-#     avg_interval = sum(intervals) / len(intervals) 
-     
-#     # Get the last transaction date before the current one 
-#     last_date = datetime.datetime.strptime(same_transactions[-1].date, "%Y-%m-%d").date() 
-#     current_date = datetime.datetime.strptime(transaction.date, "%Y-%m-%d").date() 
-     
-#     # Calculate expected date 
-#     expected_date = last_date + datetime.timedelta(days=round(avg_interval)) 
-     
-#     # Allow for a window of +/- 3 days 
+# def is_expected_transaction_date(transaction: Transaction, all_transactions: list[Transaction]) -> bool:
+#     """Check if transaction occurs on an expected date based on previous patterns"""
+#     same_transactions = sorted(
+#         [t for t in all_transactions
+#          if t.name == transaction.name and t.amount == transaction.amount and t.date < transaction.date],
+#         key=lambda x: x.date,
+#     )
+
+#     if len(same_transactions) < 2:
+#         return False
+
+#     # Calculate average interval
+#     intervals = [
+#         (datetime.datetime.strptime(t2.date, "%Y-%m-%d").date() -
+#          datetime.datetime.strptime(t1.date, "%Y-%m-%d").date()).days
+#         for t1, t2 in itertools.pairwise(same_transactions)
+#     ]
+
+#     if not intervals:
+#         return False
+
+#     avg_interval = sum(intervals) / len(intervals)
+
+#     # Get the last transaction date before the current one
+#     last_date = datetime.datetime.strptime(same_transactions[-1].date, "%Y-%m-%d").date()
+#     current_date = datetime.datetime.strptime(transaction.date, "%Y-%m-%d").date()
+
+#     # Calculate expected date
+#     expected_date = last_date + datetime.timedelta(days=round(avg_interval))
+
+#     # Allow for a window of +/- 3 days
 #     return abs((current_date - expected_date).days) <= 3
 
-# def has_incrementing_numbers(transaction: Transaction, all_transactions: list[Transaction]) -> bool: 
-#     """Check if transaction descriptions contain incrementing numbers (non-recurring pattern)""" 
-#     same_merchant_transactions = sorted( 
-#         [t for t in all_transactions if t.name.lower() == transaction.name.lower()], 
-#         key=lambda x: x.date 
-#     ) 
-     
-#     if len(same_merchant_transactions) < 3: 
-#         return False 
-     
-#     # Extract numbers from transaction names 
-#     import re 
-#     number_patterns = [] 
-#     for t in same_merchant_transactions: 
-#         numbers = re.findall(r'\d+', t.name) 
-#         if numbers: 
-#             number_patterns.extend([int(n) for n in numbers]) 
-     
-#     # Check if numbers form an incrementing sequence 
-#     if len(number_patterns) >= 3: 
-#         differences = [number_patterns[i+1] - number_patterns[i] for i in range(len(number_patterns)-1)] 
-#         return all(d > 0 for d in differences) and len(set(differences)) <= 2 
-     
+# def has_incrementing_numbers(transaction: Transaction, all_transactions: list[Transaction]) -> bool:
+#     """Check if transaction descriptions contain incrementing numbers (non-recurring pattern)"""
+#     same_merchant_transactions = sorted(
+#         [t for t in all_transactions if t.name.lower() == transaction.name.lower()],
+#         key=lambda x: x.date
+#     )
+
+#     if len(same_merchant_transactions) < 3:
+#         return False
+
+#     # Extract numbers from transaction names
+#     import re
+#     number_patterns = []
+#     for t in same_merchant_transactions:
+#         numbers = re.findall(r'\d+', t.name)
+#         if numbers:
+#             number_patterns.extend([int(n) for n in numbers])
+
+#     # Check if numbers form an incrementing sequence
+#     if len(number_patterns) >= 3:
+#         differences = [number_patterns[i+1] - number_patterns[i] for i in range(len(number_patterns)-1)]
+#         return all(d > 0 for d in differences) and len(set(differences)) <= 2
+
 #     return False
 
-# def has_consistent_reference_codes(transaction: Transaction, all_transactions: list[Transaction]) -> bool: 
-#     """Check if transaction descriptions contain consistent reference codes""" 
-#     same_merchant_transactions = [t for t in all_transactions if t.name.lower() == transaction.name.lower()] 
-     
-#     if len(same_merchant_transactions) < 2: 
-#         return False 
-     
-#     # Extract potential reference codes (alphanumeric sequences) 
-#     import re 
-#     ref_codes = [] 
-#     for t in same_merchant_transactions: 
-#         # Look for patterns like REF:12345 or ID-ABC123 
-#         matches = re.findall(r'(?:ref|id|no)[-:]\s*([a-zA-Z0-9]+)', t.name.lower()) 
-#         if matches: 
-#             ref_codes.extend(matches) 
-     
-#     # Check if the same reference code appears multiple times 
-#     if ref_codes: 
-#         counter = Counter(ref_codes) 
-#         # If any reference code appears multiple times, it's likely not a unique transaction 
-#         return any(count > 1 for count in counter.values()) 
-     
+# def has_consistent_reference_codes(transaction: Transaction, all_transactions: list[Transaction]) -> bool:
+#     """Check if transaction descriptions contain consistent reference codes"""
+#     same_merchant_transactions = [t for t in all_transactions if t.name.lower() == transaction.name.lower()]
+
+#     if len(same_merchant_transactions) < 2:
+#         return False
+
+#     # Extract potential reference codes (alphanumeric sequences)
+#     import re
+#     ref_codes = []
+#     for t in same_merchant_transactions:
+#         # Look for patterns like REF:12345 or ID-ABC123
+#         matches = re.findall(r'(?:ref|id|no)[-:]\s*([a-zA-Z0-9]+)', t.name.lower())
+#         if matches:
+#             ref_codes.extend(matches)
+
+#     # Check if the same reference code appears multiple times
+#     if ref_codes:
+#         counter = Counter(ref_codes)
+#         # If any reference code appears multiple times, it's likely not a unique transaction
+#         return any(count > 1 for count in counter.values())
+
 #     return False
+
 
 def get_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float | int | bool]:
     return {
