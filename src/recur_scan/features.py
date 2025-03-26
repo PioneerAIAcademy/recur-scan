@@ -1,121 +1,22 @@
 import re
 from collections import Counter, defaultdict
 from collections.abc import Sequence
-from datetime import timedelta
-from statistics import StatisticsError, mean, median, stdev
-
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from functools import lru_cache
-
-from recur_scan.transactions import Transaction
-
+from statistics import StatisticsError, mean, median, stdev
 
 import numpy as np
 
-
 from recur_scan.transactions import Transaction
 
-def get_is_always_recurring(transaction: Transaction) -> bool:
-    """Check if the transaction is always recurring because of the vendor name - check lowercase match"""
-    always_recurring_vendors = {
-        "google storage",
-        "netflix",
-        "hulu",
-        "spotify",
-    }
-    return transaction.name.lower() in always_recurring_vendors
 
-
-def get_is_insurance(transaction: Transaction) -> bool:
-    """Check if the transaction is an insurance payment."""
-    # use a regular expression with boundaries to match case-insensitive insurance
-    # and insurance-related terms
-    match = re.search(r"\b(insurance|insur|insuranc)\b", transaction.name, re.IGNORECASE)
-    return bool(match)
-
-
-def get_is_utility(transaction: Transaction) -> bool:
-    """Check if the transaction is a utility payment."""
-    # use a regular expression with boundaries to match case-insensitive utility
-    # and utility-related terms
-    match = re.search(r"\b(utility|utilit|energy)\b", transaction.name, re.IGNORECASE)
-    return bool(match)
-
-
-def get_is_phone(transaction: Transaction) -> bool:
-    """Check if the transaction is a phone payment."""
-    # use a regular expression with boundaries to match case-insensitive phone
-    # and phone-related terms
-    match = re.search(r"\b(at&t|t-mobile|verizon)\b", transaction.name, re.IGNORECASE)
-    return bool(match)
-
-
+# Optimized date parsing with caching
 @lru_cache(maxsize=1024)
 def _parse_date(date_str: str) -> date:
-    """Parse a date string into a datetime.date object."""
+    """Ensure the input is a datetime.date object."""
+    if isinstance(date_str, date):
+        return date_str  # It's already a date, return it
     return datetime.strptime(date_str, "%Y-%m-%d").date()
-
-
-def get_n_transactions_days_apart(
-    transaction: Transaction,
-    all_transactions: list[Transaction],
-    n_days_apart: int,
-    n_days_off: int,
-) -> int:
-    """
-    Get the number of transactions in all_transactions that are within n_days_off of
-    being n_days_apart from transaction
-    """
-    n_txs = 0
-    transaction_date = _parse_date(transaction.date)
-
-    # Pre-calculate bounds for faster checking
-    lower_remainder = n_days_apart - n_days_off
-    upper_remainder = n_days_off
-
-    for t in all_transactions:
-        t_date = _parse_date(t.date)
-        days_diff = abs((t_date - transaction_date).days)
-
-        # Skip if the difference is less than minimum required
-        if days_diff < n_days_apart - n_days_off:
-            continue
-
-        # Check if the difference is close to any multiple of n_days_apart
-        remainder = days_diff % n_days_apart
-
-        if remainder <= upper_remainder or remainder >= lower_remainder:
-            n_txs += 1
-
-    return n_txs
-
-
-def _get_day(date: str) -> int:
-    """Get the day of the month from a transaction date."""
-    return int(date.split("-")[2])
-
-
-def get_n_transactions_same_day(transaction: Transaction, all_transactions: list[Transaction], n_days_off: int) -> int:
-    """Get the number of transactions in all_transactions that are on the same day of the month as transaction"""
-    return len([t for t in all_transactions if abs(_get_day(t.date) - _get_day(transaction.date)) <= n_days_off])
-
-
-def get_pct_transactions_same_day(
-    transaction: Transaction, all_transactions: list[Transaction], n_days_off: int
-) -> float:
-    """Get the percentage of transactions in all_transactions that are on the same day of the month as transaction"""
-    return get_n_transactions_same_day(transaction, all_transactions, n_days_off) / len(all_transactions)
-
-
-def get_ends_in_99(transaction: Transaction) -> bool:
-    """Check if the transaction amount ends in 99"""
-    return (transaction.amount * 100) % 100 == 99
-
-
-def get_n_transactions_same_amount(transaction: Transaction, all_transactions: list[Transaction]) -> int:
-    """Get the number of transactions in all_transactions with the same amount as transaction"""
-    return len([t for t in all_transactions if t.amount == transaction.amount])
-
 
 
 def get_percent_transactions_same_amount(transaction: Transaction, all_transactions: list[Transaction]) -> float:
@@ -131,8 +32,11 @@ def frequency_features(all_transactions: list[Transaction]) -> dict:
     if not all_transactions:
         return {"transactions_per_month": 0.0, "transactions_per_week": 0.0}
 
-    min_date = min(t.date for t in all_transactions)
-    max_date = max(t.date for t in all_transactions)
+    # Convert all transaction dates from strings to date objects
+    transaction_dates = [_parse_date(t.date) for t in all_transactions]
+
+    min_date = min(transaction_dates)
+    max_date = max(transaction_dates)
     time_span_days = (max_date - min_date).days
 
     transactions_per_month = len(all_transactions) / ((time_span_days / 30) + 1e-8)
@@ -152,14 +56,19 @@ def recurrence_interval_variance(all_transactions: list[Transaction]) -> float:
     """
     if len(all_transactions) < 2:
         return 0.0
-    all_transactions = sorted(all_transactions, key=lambda t: t.date)
+
+    all_transactions = sorted(all_transactions, key=lambda t: _parse_date(t.date))
     intervals = [
-        (all_transactions[i].date - all_transactions[i - 1].date).days for i in range(1, len(all_transactions))
+        (_parse_date(all_transactions[i].date) - _parse_date(all_transactions[i - 1].date)).days
+        for i in range(1, len(all_transactions))
     ]
+
     return stdev(intervals) if len(intervals) > 1 else 0.0
 
 
 # 2. Normalized Days Difference:
+
+
 def normalized_days_difference(transaction: Transaction, all_transactions: list[Transaction]) -> float:
     """
     Computes the difference between the current transaction's days since last and the median interval,
@@ -167,20 +76,18 @@ def normalized_days_difference(transaction: Transaction, all_transactions: list[
     """
     if len(all_transactions) < 2:
         return 0.0
-    all_transactions = sorted(all_transactions, key=lambda t: t.date)
+
+    all_transactions = sorted(all_transactions, key=lambda t: _parse_date(t.date))
     intervals = [
-        (all_transactions[i].date - all_transactions[i - 1].date).days for i in range(1, len(all_transactions))
+        (_parse_date(all_transactions[i].date) - _parse_date(all_transactions[i - 1].date)).days
+        for i in range(1, len(all_transactions))
     ]
+
     med_interval = median(intervals)
-    try:
-        std_interval = stdev(intervals)
-    except Exception:
-        std_interval = 0.0
-    days_since_last = (transaction.date - all_transactions[-1].date).days
-    # If std is 0 (i.e. intervals are identical), return 0 difference.
-    if std_interval == 0:
-        return 0.0
-    return (days_since_last - med_interval) / std_interval
+    std_interval = stdev(intervals) if len(intervals) > 1 else 0.0
+    days_since_last = (_parse_date(transaction.date) - _parse_date(all_transactions[-1].date)).days
+
+    return (days_since_last - med_interval) / std_interval if std_interval != 0 else 0.0
 
 
 # 3. Recent Transaction Density:
@@ -232,20 +139,26 @@ def vendor_recurrence_trend(all_transactions: list[Transaction]) -> float:
     """
     if len(all_transactions) < 2:
         return 0.0
-    all_transactions = sorted(all_transactions, key=lambda t: t.date)
+
+    all_transactions = sorted(all_transactions, key=lambda t: _parse_date(t.date))
+
     monthly_counts: defaultdict[tuple[int, int], int] = defaultdict(int)
+
     for t in all_transactions:
-        key = (t.date.year, t.date.month)
+        parsed_date = _parse_date(t.date)  # Convert string date to datetime.date object
+        key = (parsed_date.year, parsed_date.month)  # Extract year and month correctly
         monthly_counts[key] += 1
+
     keys = sorted(monthly_counts.keys(), key=lambda k: (k[0], k[1]))
     counts = [monthly_counts[k] for k in keys]
-    x = np.arange(len(counts))
-    slope: float
+
     if len(counts) < 2:
         return 0.0
+
+    x = np.arange(len(counts))
     slope, _ = np.polyfit(x, counts, 1)
-    # Instead of asserting strictly positive, return max(slope, 0)
-    return max(float(slope), 0.0)
+
+    return max(float(slope), 0.0)  # Ensure non-negative slope
 
 
 def weekly_spending_cycle(all_transactions: list[Transaction]) -> float:
@@ -262,7 +175,7 @@ def weekly_spending_cycle(all_transactions: list[Transaction]) -> float:
     weekly_amounts = defaultdict(list)
 
     for t in all_transactions:
-        week_number = (t.date - timedelta(days=t.date.weekday() % 3)).isocalendar()[1]
+        week_number = (_parse_date(t.date) - timedelta(days=_parse_date(t.date).weekday() % 3)).isocalendar()[1]
         # This adjusts week grouping, allowing slight shifts in weekday alignment (±2-3 days)
         weekly_amounts[week_number].append(t.amount)
 
@@ -287,7 +200,7 @@ def seasonal_spending_cycle(transaction: Transaction, all_transactions: list[Tra
         return 0.0
     monthly_amounts = defaultdict(list)
     for t in vendor_transactions:
-        monthly_amounts[t.date.month].append(t.amount)
+        monthly_amounts[_parse_date(t.date).month].append(t.amount)
     monthly_avgs = [mean(amounts) for amounts in monthly_amounts.values() if amounts]
     if len(monthly_avgs) < 2:
         return 0.0
@@ -299,14 +212,16 @@ def seasonal_spending_cycle(transaction: Transaction, all_transactions: list[Tra
 def get_days_since_last_transaction(transaction: Transaction, all_transactions: list[Transaction]) -> int:
     """Get the number of days since the last transaction with the same merchant"""
     same_merchant_transactions = [
-        t for t in all_transactions if t.name == transaction.name and t.date < transaction.date
+        t
+        for t in all_transactions
+        if t.name == transaction.name and _parse_date(t.date) < _parse_date(transaction.date)
     ]
 
     if not same_merchant_transactions:
         return -1  # No previous transaction with the same merchant
 
-    last_transaction = max(same_merchant_transactions, key=lambda t: t.date)
-    return (transaction.date - last_transaction.date).days
+    last_transaction = max(same_merchant_transactions, key=lambda t: _parse_date(t.date))
+    return (_parse_date(transaction.date) - _parse_date(last_transaction.date)).days
 
 
 def get_same_amount_ratio(
@@ -377,7 +292,7 @@ def get_transaction_intervals(transactions: list[Transaction]) -> dict[str, floa
     amounts = [t.amount for t in transactions]
 
     # Calculate intervals in days
-    intervals = [(dates[i] - dates[i - 1]).days for i in range(1, len(dates))]
+    intervals = [(_parse_date(dates[i]) - _parse_date(dates[i - 1])).days for i in range(1, len(dates))]
 
     avg_days = mean(intervals)
     std_dev_days = stdev(intervals) if len(intervals) > 1 else 0.0
@@ -387,7 +302,7 @@ def get_transaction_intervals(transactions: list[Transaction]) -> dict[str, floa
     monthly_recurrence = monthly_count / len(intervals) if intervals else 0.0
 
     # Instead of binary flag, compute ratio of most common weekday
-    weekdays = [d.weekday() for d in dates]  # Monday=0 ... Sunday=6
+    weekdays = [_parse_date(d).weekday() for d in dates]  # Monday=0 ... Sunday=6
     weekday_counts = Counter(weekdays)
     most_common_count = max(weekday_counts.values())
     same_weekday_ratio = most_common_count / len(weekdays)
@@ -425,7 +340,7 @@ def safe_interval_consistency(all_transactions: list[Transaction]) -> float:
     dates = sorted([t.date for t in all_transactions])
 
     # Compute intervals (in days) between consecutive transactions
-    intervals = [(dates[i] - dates[i - 1]).days for i in range(1, len(dates))]
+    intervals = [(_parse_date(dates[i]) - _parse_date(dates[i - 1])).days for i in range(1, len(dates))]
 
     if len(intervals) <= 5:
         # Not enough intervals to compute a robust consistency measure
@@ -461,7 +376,7 @@ def get_enhanced_features(
     # temporal features
     dates = sorted([t.date for t in all_transactions])
     amounts = [t.amount for t in all_transactions]
-    intervals = [(dates[i] - dates[i - 1]).days for i in range(1, len(dates))]
+    intervals = [(_parse_date(dates[i]) - _parse_date(dates[i - 1])).days for i in range(1, len(dates))]
 
     # amount consistency
     amount_stats = {
@@ -484,11 +399,13 @@ def get_enhanced_features(
 
     # Transactions features
     pattern_features = {
-        "day_of_month": transaction.date.day,
+        "day_of_month": _parse_date(transaction.date).day,
         "days_since_last": get_days_since_last_transaction(
             transaction, all_transactions
         ),  # get_days_since_last(transaction, all_transactions)
-        "n_similar_last_90d": len([t for t in all_transactions if (transaction.date - t.date).days <= 90]),
+        "n_similar_last_90d": len([
+            t for t in all_transactions if (_parse_date(transaction.date) - _parse_date(t.date)).days <= 90
+        ]),
     }
 
     return {
@@ -531,7 +448,7 @@ def get_transaction_stability_features(transactions: list[Transaction]) -> dict[
     company_names = [t.name for t in transactions]
 
     # Compute intervals (in days) between consecutive transactions
-    intervals = [(dates[i] - dates[i - 1]).days for i in range(1, len(dates))]
+    intervals = [(_parse_date(dates[i]) - _parse_date(dates[i - 1])).days for i in range(1, len(dates))]
     intervals = sorted(intervals)
 
     # Compute robust median interval (using sorted intervals)
@@ -547,7 +464,7 @@ def get_transaction_stability_features(transactions: list[Transaction]) -> dict[
     )
 
     # Transaction frequency: number of transactions per month
-    total_days = (dates[-1] - dates[0]).days
+    total_days = (_parse_date(dates[-1]) - _parse_date(dates[0])).days
     months = max(total_days / 30, 1)
     transaction_frequency: float = float(len(transactions) / months)
 
@@ -719,7 +636,7 @@ def detect_subscription_pattern(all_transactions: list[Transaction]) -> dict[str
     amounts = [t.amount for t in all_transactions]
 
     # Compute intervals between transactions (in days)
-    intervals = [(dates[i] - dates[i - 1]).days for i in range(1, len(dates))]
+    intervals = [(_parse_date(dates[i]) - _parse_date(dates[i - 1])).days for i in range(1, len(dates))]
     if not intervals:
         return {
             "subscription_score": 0.0,
@@ -791,7 +708,7 @@ def detect_non_recurring_pattern(all_transactions: list[Transaction]) -> dict[st
     amounts = [t.amount for t in sorted_transactions]
 
     # Calculate intervals between transactions (in days)
-    intervals = [(dates[i] - dates[i - 1]).days for i in range(1, len(dates))]
+    intervals = [(_parse_date(dates[i]) - _parse_date(dates[i - 1])).days for i in range(1, len(dates))]
 
     # Calculate irregularity in intervals
     interval_std = stdev(intervals) if len(intervals) > 1 else 0.0
@@ -818,7 +735,7 @@ def detect_non_recurring_pattern(all_transactions: list[Transaction]) -> dict[st
 def one_time_features(all_transactions: list[Transaction]) -> dict:
     """Identifies patterns typical of one-time purchases with safe calculations"""
     # Convert to list first to handle empty cases
-    months = [t.date.month for t in all_transactions]
+    months = [_parse_date(t.date).month for t in all_transactions]
 
     # Safe standard deviation calculation
     try:
@@ -847,30 +764,32 @@ def merchant_category_features(name: str) -> dict:
 
 # Helper: Calculate days between dates in a transaction list
 def _get_intervals(transactions: list[Transaction]) -> list[int]:
-    sorted_dates = sorted([t.date for t in transactions])
-    return [(sorted_dates[i] - sorted_dates[i - 1]).days for i in range(1, len(sorted_dates))]
+    """Extract intervals between transaction dates."""
+    sorted_dates = sorted([t.date for t in transactions])  # No need to parse
+    return [(_parse_date(sorted_dates[i]) - _parse_date(sorted_dates[i - 1])).days for i in range(1, len(sorted_dates))]
 
 
 def proportional_timing_deviation(
     transaction: Transaction, transactions: list[Transaction], days_flexibility: int = 7
 ) -> float:
-    """Measures deviation from historical median interval, allowing a flexible timing window"""
+    """Measures deviation from historical median interval, allowing a flexible timing window."""
 
     if len(transactions) < 2:
-        return 0.0
+        return 0.0  # Not enough data to determine deviation
 
     intervals = _get_intervals(transactions)
+
+    if not intervals or all(i == 0 for i in intervals):
+        return 0.0  # Avoid division by zero when all intervals are zero
+
     median_interval: float = float(median(intervals))
-    current_interval: int = (transaction.date - transactions[-1].date).days
+    current_interval: int = (_parse_date(transaction.date) - _parse_date(transactions[-1].date)).days
 
     # Allow a ±7 day window for delay flexibility
     if abs(current_interval - median_interval) <= days_flexibility:
         return 1.0  # Fully consistent if within range
 
-    if median_interval == 0:
-        return 0.0
-
-    return 1 - (abs(current_interval - median_interval) / median_interval)
+    return max(0.0, 1 - (abs(current_interval - median_interval) / median_interval))  # Ensure result is non-negative
 
 
 def amount_similarity(transaction: Transaction, transactions: list[Transaction], tolerance: float = 0.05) -> float:
@@ -916,7 +835,6 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
     return {
         "likely_same_amount": amount_similarity(transaction, all_transactions),
         "percent_transactions_same_amount": get_percent_transactions_same_amount(transaction, all_transactions),
-
         "normalized_days_difference": normalized_days_difference(transaction, all_transactions),
         "amount_stability_score": amount_stability_score(all_transactions),
         "amount_z_score": amount_z_score(transaction, all_transactions),
@@ -938,20 +856,4 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         **stability_features,  # Merges new stability-based features
         # "days_since_last_transaction": get_days_since_last_transaction(transaction, all_transactions),
         # **measure_transaction_freq
-
-        "ends_in_99": get_ends_in_99(transaction),
-        "amount": transaction.amount,
-        "same_day_exact": get_n_transactions_same_day(transaction, all_transactions, 0),
-        "pct_transactions_same_day": get_pct_transactions_same_day(transaction, all_transactions, 0),
-        "same_day_off_by_1": get_n_transactions_same_day(transaction, all_transactions, 1),
-        "same_day_off_by_2": get_n_transactions_same_day(transaction, all_transactions, 2),
-        "14_days_apart_exact": get_n_transactions_days_apart(transaction, all_transactions, 14, 0),
-        "14_days_apart_off_by_1": get_n_transactions_days_apart(transaction, all_transactions, 14, 1),
-        "7_days_apart_exact": get_n_transactions_days_apart(transaction, all_transactions, 7, 0),
-        "7_days_apart_off_by_1": get_n_transactions_days_apart(transaction, all_transactions, 7, 1),
-        "is_insurance": get_is_insurance(transaction),
-        "is_utility": get_is_utility(transaction),
-        "is_phone": get_is_phone(transaction),
-        "is_always_recurring": get_is_always_recurring(transaction),
-
     }
