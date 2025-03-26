@@ -2,6 +2,8 @@ import re
 from datetime import date, datetime
 from functools import lru_cache
 
+import numpy as np
+
 from recur_scan.transactions import Transaction
 
 
@@ -80,6 +82,15 @@ def get_n_transactions_days_apart(
     return n_txs
 
 
+def get_transaction_z_score(transaction: Transaction, all_transactions: list[Transaction]) -> float:
+    """Get the z-score of the transaction amount compared to the mean and standard deviation of all_transactions"""
+    all_amounts = [t.amount for t in all_transactions]
+    # if the standard deviation is 0, return 0
+    if np.std(all_amounts) == 0:
+        return 0
+    return (transaction.amount - np.mean(all_amounts)) / np.std(all_amounts)  # type: ignore
+
+
 def _get_day(date: str) -> int:
     """Get the day of the month from a transaction date."""
     return int(date.split("-")[2])
@@ -129,6 +140,7 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         "14_days_apart_off_by_1": get_n_transactions_days_apart(transaction, all_transactions, 14, 1),
         "7_days_apart_exact": get_n_transactions_days_apart(transaction, all_transactions, 7, 0),
         "7_days_apart_off_by_1": get_n_transactions_days_apart(transaction, all_transactions, 7, 1),
+        "z_score": get_transaction_z_score(transaction, all_transactions),
         "is_insurance": get_is_insurance(transaction),
         "is_utility": get_is_utility(transaction),
         "is_phone": get_is_phone(transaction),

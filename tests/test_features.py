@@ -12,6 +12,7 @@ from recur_scan.features import (
     get_n_transactions_same_day,
     get_pct_transactions_same_day,
     get_percent_transactions_same_amount,
+    get_transaction_z_score,
 )
 from recur_scan.transactions import Transaction
 
@@ -91,6 +92,15 @@ def test_get_n_transactions_days_apart() -> None:
     ]
     assert get_n_transactions_days_apart(transactions[0], transactions, 14, 0) == 2
     assert get_n_transactions_days_apart(transactions[0], transactions, 14, 1) == 4
+
+
+def test_get_transaction_z_score() -> None:
+    """Test get_transaction_z_score."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="name1", amount=100, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="name1", amount=100, date="2024-01-01"),
+    ]
+    assert get_transaction_z_score(transactions[0], transactions) == 0
 
 
 def test_get_is_insurance() -> None:
