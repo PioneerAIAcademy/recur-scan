@@ -166,7 +166,6 @@ def get_std_amount_same_name(transaction: Transaction, all_transactions: list[Tr
     """
     # Filter transactions to find those with the same name
     same_name_transactions = [t for t in all_transactions if t.name == transaction.name]
-
     # If there are fewer than two transactions with the same name, return 0.0
     if len(same_name_transactions) < 2:
         return 0.0
