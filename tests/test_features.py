@@ -122,12 +122,6 @@ def test_get_transaction_intervals_multiple_transactions():
     ]
     result = get_transaction_intervals(transactions)
 
-    # Expected values:
-    # For dates: 2024-01-02, 2024-02-09, 2024-03-03 → intervals: [38, 23] days.
-    # Average days between transactions = (38+23)/2 = 30.5.
-    # Standard deviation of intervals ≈ 10.6066.
-    # Monthly recurrence: function currently returns 0.5 (likely computed as count/total transactions).
-    # For same weekday ratio, compute weekdays:
     weekdays = [datetime.datetime.strptime(t.date, "%Y-%m-%d").date().weekday() for t in transactions]
     # Calculate mode frequency:
     weekday_counts = Counter(weekdays)
