@@ -3,13 +3,15 @@ import datetime
 from collections import Counter
 from datetime import date
 from math import isclose
-from statistics import stdev
+from statistics import median, stdev
 
 import pytest
 
 from recur_scan.features import (
     amount_coefficient_of_variation,
     amount_similarity,
+    amount_stability_score,
+    amount_z_score,
     detect_non_recurring_pattern,
     detect_subscription_pattern,
     frequency_features,
@@ -21,7 +23,9 @@ from recur_scan.features import (
     get_transaction_stability_features,
     get_vendor_recurrence_score,
     merchant_category_features,
+    normalized_days_difference,
     one_time_features,
+    proportional_timing_deviation,
     recurrence_interval_variance,
     safe_interval_consistency,
     seasonal_spending_cycle,
@@ -65,6 +69,31 @@ def test_get_percent_transactions_same_amount(transactions) -> None:
     Tests that the function calculates the right percentage of transactions with matching amounts.
     """
     assert pytest.approx(get_percent_transactions_same_amount(transactions[0], transactions)) == 2 / 3
+
+
+def test_proportional_timing_deviation():
+    # Test with regular intervals
+    transactions = [
+        Transaction(id=1, user_id="u1", name="VendorA", date="2024-01-01", amount=100),
+        Transaction(id=2, user_id="u1", name="VendorA", date="2024-01-10", amount=100),
+        Transaction(id=3, user_id="u1", name="VendorA", date="2024-01-20", amount=100),
+    ]
+    tx = Transaction(id=4, user_id="u1", name="VendorA", date="2024-01-30", amount=100)
+    deviation = proportional_timing_deviation(tx, transactions)
+
+    assert isclose(deviation, 1.0, rel_tol=1e-2), f"Expected 1.0, got {deviation}"
+
+    # Test with a transaction that deviates slightly but within the flexibility window
+    tx2 = Transaction(id=5, user_id="u1", name="VendorA", date="2024-01-27", amount=100)
+    deviation2 = proportional_timing_deviation(tx2, transactions)
+    assert isclose(deviation2, 1.0, rel_tol=1e-2), f"Expected 1.0, got {deviation2}"
+
+    # Test with a transaction that deviates significantly
+    tx3 = Transaction(id=6, user_id="u1", name="VendorA", date="2024-02-15", amount=100)
+    deviation3 = proportional_timing_deviation(tx3, transactions)
+
+    expected_value3 = max(0.0, 1 - (abs(26 - 10) / 10))  # Median interval = 10
+    assert isclose(deviation3, expected_value3, rel_tol=1e-2), f"Expected {expected_value3}, got {deviation3}"
 
 
 def test_get_transaction_intervals_single_transaction():
@@ -149,6 +178,44 @@ def test_get_transaction_intervals_multiple_transactions():
     assert isclose(result["monthly_recurrence"], expected["monthly_recurrence"], rel_tol=1e-2)
     assert isclose(result["same_weekday_ratio"], expected["same_weekday_ratio"], rel_tol=1e-5)
     assert isclose(result["same_amount"], expected["same_amount"], rel_tol=1e-5)
+
+
+def test_amount_z_score():
+    # Test with normal variation
+    transactions = [
+        Transaction(id=1, user_id="u1", name="VendorA", date="2024-01-01", amount=100),
+        Transaction(id=2, user_id="u1", name="VendorA", date="2024-01-10", amount=102),
+        Transaction(id=3, user_id="u1", name="VendorA", date="2024-01-20", amount=98),
+    ]
+    tx = Transaction(id=4, user_id="u1", name="VendorA", date="2024-02-01", amount=104)
+    z_score = amount_z_score(tx, transactions)
+
+    expected_value = (104 - median([100, 102, 98])) / stdev([100, 102, 98])
+    assert isclose(z_score, expected_value, rel_tol=1e-2), f"Expected {expected_value}, got {z_score}"
+
+    # Test with a single transaction (should return 0.0)
+    transactions2 = [Transaction(id=5, user_id="u1", name="VendorB", date="2024-02-01", amount=50)]
+    tx2 = Transaction(id=6, user_id="u1", name="VendorB", date="2024-02-10", amount=55)
+    z_score2 = amount_z_score(tx2, transactions2)
+    assert z_score2 == 0.0, f"Expected 0.0, got {z_score2}"
+
+
+def test_amount_stability_score():
+    # Test with stable amounts (low variance)
+    transactions = [
+        Transaction(id=1, user_id="u1", name="VendorA", date="2024-01-01", amount=100),
+        Transaction(id=2, user_id="u1", name="VendorA", date="2024-01-10", amount=102),
+        Transaction(id=3, user_id="u1", name="VendorA", date="2024-01-20", amount=98),
+    ]
+    stability = amount_stability_score(transactions)
+
+    expected_value = median([100, 102, 98]) / stdev([100, 102, 98])
+    assert isclose(stability, expected_value, rel_tol=1e-2), f"Expected {expected_value}, got {stability}"
+
+    # Test with a single transaction (should return 0.0)
+    transactions2 = [Transaction(id=4, user_id="u1", name="VendorB", date="2024-02-01", amount=50)]
+    stability2 = amount_stability_score(transactions2)
+    assert stability2 == 0.0, f"Expected 0.0, got {stability2}"
 
 
 def test_recurrence_interval_variance():
@@ -623,6 +690,20 @@ def test_amount_similarity():
     # Update expected similarity based on current function behavior.
     # If your function does not implement the .99 rule, then expect 0.0.
     assert isclose(similarity3, 0.0, rel_tol=1e-2), f"Expected similarity 0.0 (no .99 rule), got {similarity3}"
+
+
+def test_normalized_days_difference():
+    # Test with regular intervals
+    transactions = [
+        Transaction(id=1, user_id="u1", name="VendorA", date="2024-01-01", amount=100),
+        Transaction(id=2, user_id="u1", name="VendorA", date="2024-01-10", amount=100),
+        Transaction(id=3, user_id="u1", name="VendorA", date="2024-01-20", amount=100),
+    ]
+    tx = Transaction(id=4, user_id="u1", name="VendorA", date="2024-01-30", amount=100)
+    similarity = normalized_days_difference(tx, transactions)
+
+    # Ensure the test passes
+    assert isinstance(similarity, float), f"Expected float, got {type(similarity)}"
 
 
 # ------------------- Tests for amount_coefficient_of_variation ------------------- #
