@@ -2,11 +2,10 @@ import unittest
 from datetime import datetime
 
 import pytest
-
+from recur_scan.features import calculate_merchant_pattern_consistency
 from recur_scan.features import (
     Transaction,
     _get_days,
-    calculate_merchant_pattern_consistency,
     get_day_of_month_consistency,
     get_ends_in_99,
     get_is_insurance,
@@ -20,9 +19,7 @@ from recur_scan.features import (
     get_percent_transactions_same_description,
     get_transaction_frequency,
 )
-
 # Removed duplicate import of Transaction to avoid conflicts
-
 
 @pytest.fixture
 def transactions():
@@ -153,6 +150,7 @@ class TestTransactionFeatures(unittest.TestCase):
         ]
 
 
+
 def test_transaction_frequency(self):
     netflix_transaction = self.transactions[0]
     frequency = get_transaction_frequency(netflix_transaction, self.transactions)
@@ -180,45 +178,44 @@ def test_get_day_of_month_consistency(self):
     assert abs(consistency - (1 / 3)) < 0.0010
 
 
-import pytest
 
+import pytest
 from recur_scan.features import interval_based_on_periodic
 
 # Test cases grouped by pattern type
 WEEKLY_TESTS = [
-    ({"mean": 7, "std": 1}, 1.0),  # Perfect weekly
-    ({"mean": 6, "std": 0.5}, 0.5),  # 1 day under weekly
-    ({"mean": 8, "std": 1.5}, 0.5),  # 1 day over weekly
-    ({"mean": 5, "std": 2}, 0.0),  # Too far from weekly
-    ({"mean": 7, "std": 5}, 0.0),  # Too inconsistent
+    ({"mean": 7, "std": 1}, 1.0),      # Perfect weekly
+    ({"mean": 6, "std": 0.5}, 0.5),    # 1 day under weekly
+    ({"mean": 8, "std": 1.5}, 0.5),    # 1 day over weekly
+    ({"mean": 5, "std": 2}, 0.0),      # Too far from weekly
+    ({"mean": 7, "std": 5}, 0.0),      # Too inconsistent
 ]
 
 MONTHLY_TESTS = [
-    ({"mean": 30, "std": 1}, 1.0),  # Perfect monthly
-    ({"mean": 28, "std": 2}, 0.666),  # 2 days under
-    ({"mean": 33, "std": 1}, 0.666),  # 3 days over
-    ({"mean": 25, "std": 1}, 0.0),  # Too far
+    ({"mean": 30, "std": 1}, 1.0),     # Perfect monthly
+    ({"mean": 28, "std": 2}, 0.666),   # 2 days under
+    ({"mean": 33, "std": 1}, 0.666),   # 3 days over
+    ({"mean": 25, "std": 1}, 0.0),     # Too far
 ]
 
 YEARLY_TESTS = [
-    ({"mean": 365, "std": 5}, 1.0),  # Perfect yearly
-    ({"mean": 355, "std": 4}, 0.5),  # 10 days under
-    ({"mean": 375, "std": 3}, 0.5),  # 10 days over
+    ({"mean": 365, "std": 5}, 1.0),    # Perfect yearly
+    ({"mean": 355, "std": 4}, 0.5),    # 10 days under
+    ({"mean": 375, "std": 3}, 0.5),    # 10 days over
 ]
 
 EDGE_CASES = [
-    ({"mean": 0, "std": 0}, 0.0),  # Zero mean
-    ({}, 0.0),  # Empty input
-    ({"mean": 10}, 0.0),  # Missing std
-    ({"mean": 100, "std": 1}, 0.0),  # No matching pattern
+    ({"mean": 0, "std": 0}, 0.0),      # Zero mean
+    ({}, 0.0),                         # Empty input
+    ({"mean": 10}, 0.0),               # Missing std
+    ({"mean": 100, "std": 1}, 0.0),    # No matching pattern
 ]
 
-
-@pytest.mark.parametrize("interval_stats, expected", WEEKLY_TESTS + MONTHLY_TESTS + YEARLY_TESTS + EDGE_CASES)
+@pytest.mark.parametrize("interval_stats, expected",
+    WEEKLY_TESTS + MONTHLY_TESTS + YEARLY_TESTS + EDGE_CASES)
 def test_interval_based_on_periodic(interval_stats, expected):
     """Test various interval patterns and edge cases"""
     assert pytest.approx(interval_based_on_periodic(interval_stats), abs=0.01) == expected
-
 
 def test_prioritizes_closest_pattern():
     """Should return the highest score among all matching patterns"""
@@ -227,11 +224,15 @@ def test_prioritizes_closest_pattern():
     # Between monthly and yearly (closer to monthly)
     assert interval_based_on_periodic({"mean": 50, "std": 2}) > 0
 
-
 def test_requires_low_std_deviation():
     """Should return 0 if standard deviation is too high"""
     assert interval_based_on_periodic({"mean": 7, "std": 5}) == 0
     assert interval_based_on_periodic({"mean": 30, "std": 10}) == 0
+
+
+
+
+
 
 
 @pytest.fixture
@@ -241,58 +242,85 @@ def sample_transactions():
         Transaction(25.99, "Coffee Shop", date="2024-01-02"),
         Transaction(12.50, "Coffee Shop", date="2024-01-03"),
         Transaction(100.00, "Electronics Store", date="2024-01-04"),
-        Transaction(25.99, "Different Merchant", date="2024-01-05"),
+        Transaction(25.99, "Different Merchant", date="2024-01-05")
     ]
-
 
 def test_high_consistency(sample_transactions):
     target = Transaction(amount=25.99, name="Coffee Shop", date="2024-01-01")
     merchant_only = [t for t in sample_transactions if t.name == "Coffee Shop"]
 
-    result = calculate_merchant_pattern_consistency(target, sample_transactions, merchant_only)
+    result = calculate_merchant_pattern_consistency(
+        target,
+        sample_transactions,
+        merchant_only
+    )
     assert result == pytest.approx(0.4)  # 2 matches / 5 total
-
 
 def test_no_matches(sample_transactions):
     target = Transaction(9.99, "Coffee Shop", date="2024-01-01")
     merchant_only = [t for t in sample_transactions if t.name == "Coffee Shop"]
 
-    result = calculate_merchant_pattern_consistency(target, sample_transactions, merchant_only)
+    result = calculate_merchant_pattern_consistency(
+        target,
+        sample_transactions,
+        merchant_only
+    )
     assert result == 0.0
 
-
 def test_empty_transactions():
-    assert calculate_merchant_pattern_consistency(Transaction(1.0, "Test", date="2024-01-01"), [], []) == 0.0
-
+    assert calculate_merchant_pattern_consistency(
+        Transaction(1.0, "Test", date="2024-01-01"),
+        [],
+        []
+    ) == 0.0
 
 def test_perfect_match():
     transactions = [
         Transaction(10.0, "Test Merchant", date="2024-01-01"),
         Transaction(10.0, "Test Merchant", date="2024-01-02"),
-        Transaction(10.0, "Test Merchant", date="2024-01-03"),
+        Transaction(10.0, "Test Merchant", date="2024-01-03")
     ]
 
-    result = calculate_merchant_pattern_consistency(transactions[0], transactions, transactions)
+    result = calculate_merchant_pattern_consistency(
+        transactions[0],
+        transactions,
+        transactions
+    )
     assert result == 1.0
-
 
 def test_partial_match(sample_transactions):
     target = Transaction(12.50, "Coffee Shop", date="2024-01-01")
     merchant_only = [t for t in sample_transactions if t.name == "Coffee Shop"]
 
-    result = calculate_merchant_pattern_consistency(target, sample_transactions, merchant_only)
+    result = calculate_merchant_pattern_consistency(
+        target,
+        sample_transactions,
+        merchant_only
+    )
     assert result == pytest.approx(0.2)  # 1 match / 5 total
-
 
 def test_different_merchant_excluded(sample_transactions):
     target = Transaction(25.99, "Coffee Shop", date="2024-01-01")
     # Intentionally include transactions from different merchant
     wrong_merchant = sample_transactions
 
-    result = calculate_merchant_pattern_consistency(target, sample_transactions, wrong_merchant)
+    result = calculate_merchant_pattern_consistency(
+        target,
+        sample_transactions,
+        wrong_merchant
+    )
     # Should only count the 2 coffee shop transactions, not the same amount at different merchant
     assert result == pytest.approx(0.4)
 
 
+
+
+
+
+
+
+
 if __name__ == "__main__":
     unittest.main()
+
+

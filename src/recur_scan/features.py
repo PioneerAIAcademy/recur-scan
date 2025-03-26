@@ -155,6 +155,15 @@ def get_transaction_frequency(transaction: "Transaction", all_transactions: list
     return sum(intervals) / len(intervals)
 
 
+# def get_amount_variability(transaction, transactions):
+#     """
+#     Calculate the population standard deviation of amounts for transactions with the same description.
+#     """
+#     same_description_transactions = [t.amount for t in transactions if t.name == transaction.name]
+#     if len(same_description_transactions) < 2:
+#         return 0.0
+#     return statistics.stdev(same_description_transactions)
+
 def get_day_of_month_consistency(transaction: "Transaction", all_transactions: list["Transaction"]) -> float:
     """Calculate the consistency of the day of the month for transactions with the same name."""
     same_transactions = [t for t in all_transactions if t.name.lower() == transaction.name.lower()]
