@@ -3,8 +3,10 @@ import datetime
 from collections import defaultdict
 from dataclasses import asdict, dataclass, fields
 
+from loguru import logger
 
-@dataclass
+
+@dataclass(frozen=True)
 class Transaction:
     id: int  # unique identifier
     user_id: str  # user id
@@ -17,12 +19,17 @@ class Transaction:
 type GroupedTransactions = dict[tuple[str, str], list[Transaction]]
 
 
+
 # this is the MAIN function to parse transactions from a CSV file,
 # optionally extracting labels. If it is present, then extract_labels is True,
 # else False by default its false.
-def _parse_transactions(path: str, extract_labels: bool = False) -> tuple[list[Transaction], list[int]]:
     # that is if recurring column is present in the CSV file.
     # If it is present, then extract_labels is True, else False by default its false
+
+def _parse_transactions(
+    path: str, extract_labels: bool = False, set_id: bool = True, raw_labels: bool = False
+) -> tuple[list[Transaction], list[str | int]]:
+
     """
     Parse transactions from a CSV file, optionally extracting labels.
     """
@@ -32,6 +39,7 @@ def _parse_transactions(path: str, extract_labels: bool = False) -> tuple[list[T
     with open(path, newline="") as f:
         reader = csv.DictReader(f)
         for ix, row in enumerate(reader):
+
             # Convert the date string to a date object (adjust the format as needed)
             date_obj = datetime.datetime.strptime(row["date"], "%Y-%m-%d").date()
             transactions.append(
@@ -41,22 +49,30 @@ def _parse_transactions(path: str, extract_labels: bool = False) -> tuple[list[T
                     name=row["name"],
                     date=date_obj,
                     amount=float(row["amount"]),
+
                 )
-            )
+            except ValueError as e:
+                logger.warning(f"Error parsing transaction amount {row['amount']} in {path} at row {ix}: {e}")
+                continue
             if extract_labels:
-                labels.append(1 if row["recurring"].strip() == "1" else 0)
+                label = row["recurring"].strip()
+                if raw_labels:
+                    labels.append(label if len(label) > 0 else "0")
+                else:
+                    labels.append(1 if label == "1" else 0)
 
     return transactions, labels
 
 
 # 1 function to read labeled transactions (to get Transactions and labels) from the above functions
-def read_labeled_transactions(path: str) -> tuple[list[Transaction], list[int]]:
+
+def read_labeled_transactions(
+    path: str, set_id: bool = True, raw_labels: bool = False
+) -> tuple[list[Transaction], list[str | int]]:
     """
     Read labeled transactions from a CSV file.
     """
-    transactions, labels = _parse_transactions(
-        path, extract_labels=True
-    )  # here its marked as True to extract labels from the CSV file.
+    transactions, labels = _parse_transactions(path, extract_labels=True, set_id=set_id, raw_labels=raw_labels)
     return transactions, labels
 
 
@@ -90,13 +106,16 @@ def group_transactions(transactions: list[Transaction]) -> GroupedTransactions:
     return dict(grouped_transactions)
 
 
+
 # the function above is used to group transactions by user_id and name.
 # This is useful to see how often each user transacts with a specific vendor.
 # This information can be used as a feature in your machine learning model.
 # You can detect patterns (e.g., a user making frequent payments to Netflix might be a recurring transaction).
 
 
-def write_transactions(output_path: str, transactions: list[Transaction], y: list[int]) -> None:
+
+def write_transactions(output_path: str, transactions: list[Transaction], y: list[int | str]) -> None:
+
     """
     Save transactions to a CSV file.
 

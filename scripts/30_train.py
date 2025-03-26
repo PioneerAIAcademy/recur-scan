@@ -33,10 +33,10 @@ do_hyperparameter_optimization = False  # set to False to use the default hyperp
 n_hpo_iters = 20  # number of hyperparameter optimization iterations
 n_jobs = -1  # number of jobs to run in parallel (set to 1 if your laptop gets too hot)
 
-# "C:/Users/nnatu/Downloads/recur_scan_train.csv"
-# "C:/Users/nnatu/Downloads/frank_labeler_17.csv"
-in_path = "C:/Users/nnatu/Downloads/recur_scan_train_train_(1).csv"
-out_dir = "C:/recur-scan/resultsNewcommit2/"
+
+in_path = "training file goes here"
+out_dir = "output directory goes here"
+
 
 # %%
 # parse script arguments from command line
@@ -112,7 +112,7 @@ if do_hyperparameter_optimization:
 else:
     # default hyperparameters
     best_params = {
-        "n_estimators": 500,
+        "n_estimators": 100,
         "min_samples_split": 10,
         "min_samples_leaf": 1,
         "max_features": "sqrt",
@@ -253,7 +253,8 @@ write_transactions(os.path.join(out_dir, "variance_errors.csv"), misclassified, 
 # create a tree explainer
 # explainer = shap.TreeExplainer(model)
 # Faster approximation using PermutationExplainer
-X_sample = X[:10000]
+
+X_sample = X[:10000]  # type: ignore
 explainer = shap.explainers.Permutation(model.predict, X_sample)
 
 logger.info("Calculating SHAP values")

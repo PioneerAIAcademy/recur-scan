@@ -23,6 +23,8 @@ The system processes transaction data from multiple sources, extracts relevant f
 
 `make install`
 
+Re-run make install whenever new dependencies have been added
+
 #### Add dependency
 
 `uv add <package>`
@@ -68,4 +70,4 @@ The system processes transaction data from multiple sources, extracts relevant f
 
 ## License
 
-This project is licensed under the MIT License - see LICENSE file for details.
+This project is licensed under the Apache License - see LICENSE file for details.
