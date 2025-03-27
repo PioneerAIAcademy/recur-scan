@@ -67,8 +67,6 @@ def recurrence_interval_variance(all_transactions: list[Transaction]) -> float:
 
 
 # 2. Normalized Days Difference:
-
-
 def normalized_days_difference(transaction: Transaction, all_transactions: list[Transaction]) -> float:
     """
     Computes the difference between the current transaction's days since last and the median interval,
@@ -88,9 +86,6 @@ def normalized_days_difference(transaction: Transaction, all_transactions: list[
     days_since_last = (_parse_date(transaction.date) - _parse_date(all_transactions[-1].date)).days
 
     return (days_since_last - med_interval) / std_interval if std_interval != 0 else 0.0
-
-
-# 3. Recent Transaction Density:
 
 
 # 6. Amount Stability Score:

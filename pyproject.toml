@@ -126,7 +126,7 @@ known_first_party = ["recur_scan"]  # Treats recur_scan as part of your project
 
 [tool.deptry.per_rule_ignores]
 DEP004 = ["pytest"]
-DEP002 = ["pandas-stubs"]
+DEP002 = ["pandas-stubs", "ruff"]
 
 [tool.pyright]
 exclude = ["tests"]
