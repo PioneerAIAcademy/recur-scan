@@ -33,8 +33,8 @@ do_hyperparameter_optimization = False  # set to False to use the default hyperp
 n_hpo_iters = 20  # number of hyperparameter optimization iterations
 n_jobs = -1  # number of jobs to run in parallel (set to 1 if your laptop gets too hot)
 
-in_path = "training file goes here"
-out_dir = "output directory goes here"
+in_path = "data/in/recur_scan.csv"
+out_dir = "data/out/"
 
 # %%
 # parse script arguments from command line
@@ -66,7 +66,6 @@ grouped_transactions = group_transactions(transactions)
 logger.info(f"Grouped {len(transactions)} transactions into {len(grouped_transactions)} groups")
 # %%
 # get features
-
 logger.info("Getting features")
 features = [
     get_features(transaction, grouped_transactions[(transaction.user_id, transaction.name)])
@@ -108,7 +107,7 @@ if do_hyperparameter_optimization:
 
     best_params = random_search.best_params_
 else:
-    # default hyperparameters
+    # use default hyperparameters
     best_params = {
         "n_estimators": 100,
         "min_samples_split": 10,
@@ -124,11 +123,11 @@ else:
 #
 
 # now that we have the best hyperparameters, train a model with them
-
 logger.info("Training the model")
 model = RandomForestClassifier(random_state=42, **best_params, n_jobs=n_jobs)
 model.fit(X, y)
-logger.info("Model trained")
+logger.info("Model trained successfully")
+
 
 # %%
 # review feature importances
@@ -141,6 +140,7 @@ sorted_importances = sorted(zip(importances, feature_names, strict=True), key=la
 # print the features and their importances
 for importance, feature in sorted_importances:
     print(f"{feature}: {importance}")
+
 
 # %%
 # save the model using joblib
