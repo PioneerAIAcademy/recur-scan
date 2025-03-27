@@ -184,3 +184,5 @@ node_modules/
 **/*.pth
 **/*.pth.tar
 **/*.pth.tar.gz
+data/
+output/
