@@ -2,12 +2,15 @@
 import pytest
 
 from recur_scan.features import (
+    get_average_transaction_amount,
+    get_coefficient_of_variation,
     get_dispersion_transaction_amount,
     get_ends_in_99,
     get_is_always_recurring,
     get_is_insurance,
     get_is_phone,
     get_is_utility,
+    get_mad_transaction_amount,
     get_mobile_transaction,
     get_n_transactions_days_apart,
     get_n_transactions_same_amount,
@@ -17,6 +20,7 @@ from recur_scan.features import (
     get_percent_transactions_same_amount,
     get_time_interval_between_transactions,
     get_transaction_frequency,
+    get_transaction_interval_consistency,
 )
 from recur_scan.transactions import Transaction
 
@@ -216,4 +220,112 @@ def test_get_is_always_recurring() -> None:
     assert get_is_always_recurring(Transaction(id=1, user_id="user1", name="netflix", amount=100, date="2024-01-01"))
     assert not get_is_always_recurring(
         Transaction(id=2, user_id="user1", name="walmart", amount=100, date="2024-01-01")
+    )
+
+
+def test_get_mad_transaction_amount() -> None:
+    """Test get_mad_transaction_amount."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="vendor1", amount=100, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="vendor1", amount=150, date="2024-01-02"),
+        Transaction(id=3, user_id="user1", name="vendor1", amount=200, date="2024-01-03"),
+        Transaction(id=4, user_id="user1", name="vendor2", amount=50, date="2024-01-04"),
+        Transaction(id=5, user_id="user1", name="vendor2", amount=60, date="2024-01-05"),
+        Transaction(id=6, user_id="user1", name="vendor2", amount=70, date="2024-01-06"),
+    ]
+    # Test for vendor1
+    assert pytest.approx(get_mad_transaction_amount(transactions[0], transactions)) == 50.0
+    # Test for vendor2
+    assert pytest.approx(get_mad_transaction_amount(transactions[3], transactions)) == 10.0
+    # Test for a vendor with only one transaction
+    assert (
+        get_mad_transaction_amount(
+            Transaction(id=7, user_id="user1", name="vendor3", amount=100, date="2024-01-07"), transactions
+        )
+        == 0.0
+    )
+
+
+def test_get_coefficient_of_variation() -> None:
+    """Test get_coefficient_of_variation."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="vendor1", amount=100, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="vendor1", amount=150, date="2024-01-02"),
+        Transaction(id=3, user_id="user1", name="vendor1", amount=200, date="2024-01-03"),
+        Transaction(id=4, user_id="user1", name="vendor2", amount=50, date="2024-01-04"),
+        Transaction(id=5, user_id="user1", name="vendor2", amount=60, date="2024-01-05"),
+        Transaction(id=6, user_id="user1", name="vendor2", amount=70, date="2024-01-06"),
+    ]
+    # Test for vendor1
+    assert pytest.approx(get_coefficient_of_variation(transactions[0], transactions), rel=1e-4) == 0.2721655269759087
+    # Test for vendor2
+    assert pytest.approx(get_coefficient_of_variation(transactions[3], transactions), rel=1e-4) == 0.13608276348795434
+    # Test for a vendor with only one transaction
+    assert (
+        get_coefficient_of_variation(
+            Transaction(id=7, user_id="user1", name="vendor3", amount=100, date="2024-01-07"), transactions
+        )
+        == 0.0
+    )
+    # Test for a vendor with mean = 0 (edge case)
+    assert (
+        get_coefficient_of_variation(
+            Transaction(id=8, user_id="user1", name="vendor4", amount=0, date="2024-01-08"), transactions
+        )
+        == 0.0
+    )
+    # Test for a vendor with mean = 0 (edge case)
+    assert (
+        get_coefficient_of_variation(
+            Transaction(id=8, user_id="user1", name="vendor4", amount=0, date="2024-01-08"), transactions
+        )
+        == 0.0
+    )
+
+
+def test_get_transaction_interval_consistency() -> None:
+    """Test get_transaction_interval_consistency."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="vendor1", amount=100, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="vendor1", amount=150, date="2024-01-15"),
+        Transaction(id=3, user_id="user1", name="vendor1", amount=200, date="2024-01-30"),
+        Transaction(id=4, user_id="user1", name="vendor2", amount=50, date="2024-01-01"),
+        Transaction(id=5, user_id="user1", name="vendor2", amount=60, date="2024-01-10"),
+        Transaction(id=6, user_id="user1", name="vendor2", amount=70, date="2024-01-20"),
+    ]
+    # Test for vendor1
+    assert pytest.approx(get_transaction_interval_consistency(transactions[0], transactions), rel=1e-4) == 14.5
+
+    # Test for vendor2
+    assert pytest.approx(get_transaction_interval_consistency(transactions[3], transactions), rel=1e-4) == 9.5
+
+    # Test for a vendor with only one transaction
+    assert (
+        get_transaction_interval_consistency(
+            Transaction(id=7, user_id="user1", name="vendor3", amount=100, date="2024-01-01"), transactions
+        )
+        == 0.0
+    )
+
+
+def test_get_average_transaction_amount() -> None:
+    """Test get_average_transaction_amount."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="vendor1", amount=100, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="vendor1", amount=150, date="2024-01-02"),
+        Transaction(id=3, user_id="user1", name="vendor1", amount=200, date="2024-01-03"),
+        Transaction(id=4, user_id="user1", name="vendor2", amount=50, date="2024-01-04"),
+        Transaction(id=5, user_id="user1", name="vendor2", amount=60, date="2024-01-05"),
+        Transaction(id=6, user_id="user1", name="vendor2", amount=70, date="2024-01-06"),
+    ]
+    # Test for vendor1
+    assert pytest.approx(get_average_transaction_amount(transactions[0], transactions)) == 150.0
+    # Test for vendor2
+    assert pytest.approx(get_average_transaction_amount(transactions[3], transactions)) == 60.0
+    # Test for a vendor with only one transaction
+    assert (
+        get_average_transaction_amount(
+            Transaction(id=7, user_id="user1", name="vendor3", amount=100, date="2024-01-07"), transactions
+        )
+        == 0.0
     )
