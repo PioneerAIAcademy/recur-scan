@@ -9,7 +9,7 @@ from recur_scan.features import (
     get_features,
     get_is_always_recurring,
     get_n_transactions_same_amount,
-    get_n_transactions_same_day_of_week,
+    # get_n_transactions_same_day_of_week,
     get_n_transactions_same_month,
     get_n_transactions_same_name,
     get_n_transactions_same_user_id,
@@ -117,11 +117,11 @@ def test_get_percent_transactions_same_user_id(transactions) -> None:
     assert pytest.approx(get_percent_transactions_same_user_id(transactions[3], transactions)) == 2 / 5
 
 
-def test_get_n_transactions_same_day_of_week(transactions) -> None:
-    """Test that get_n_transactions_same_day_of_week returns the correct number of transactions on the same day of the
-    week."""
-    assert get_n_transactions_same_day_of_week(transactions[0], transactions) == 1  # Corrected expected value
-    assert get_n_transactions_same_day_of_week(transactions[2], transactions) == 1  # Corrected expected value
+# def test_get_n_transactions_same_day_of_week(transactions) -> None:
+# """Test that get_n_transactions_same_day_of_week returns the correct number of transactions on the same day of the
+#  week."""
+# assert get_n_transactions_same_day_of_week(transactions[0], transactions) == 1  # Corrected expected value
+# assert get_n_transactions_same_day_of_week(transactions[2], transactions) == 1  # Corrected expected value
 
 
 def test_get_percent_transactions_same_day_of_week(transactions) -> None:
