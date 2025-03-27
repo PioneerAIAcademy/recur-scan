@@ -1,8 +1,8 @@
 {
-  "n_estimators": 500,
-  "min_samples_split": 2,
-  "min_samples_leaf": 4,
-  "max_features": "log2",
-  "max_depth": 20,
-  "bootstrap": true
+  "n_estimators": 100,
+  "min_samples_split": 10,
+  "min_samples_leaf": 1,
+  "max_features": "sqrt",
+  "max_depth": null,
+  "bootstrap": false
 }

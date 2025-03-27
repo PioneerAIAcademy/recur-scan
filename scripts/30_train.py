@@ -14,7 +14,6 @@ import os
 
 import joblib
 import matplotlib.pyplot as plt
-import shap
 from loguru import logger
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_extraction import DictVectorizer
@@ -130,6 +129,18 @@ logger.info("Training the model")
 model = RandomForestClassifier(random_state=42, **best_params, n_jobs=n_jobs)
 model.fit(X, y)
 logger.info("Model trained")
+
+model = RandomForestClassifier(
+    n_estimators=100, max_depth=10, random_state=42, class_weight="balanced", **best_params, n_jobs=n_jobs
+)
+# model = RandomForestClassifier(random_state=42, **best_params, n_jobs=n_jobs)
+model.fit(X, y)
+logger.info("Model trained")
+# Assuming X and y are your features and labels
+proba = model.predict_proba(X)[:, 1]  # Probability of "recurring"
+print(f"Max probability: {proba.max()}, Min probability: {proba.min()}")
+print(f"Number of predictions above 0.9999: {(proba >= 0.9999).sum()}")
+y_pred = (proba >= 0.9999).astype(int)  # Higher threshold for precision
 
 # %%
 # review feature importances
@@ -252,14 +263,14 @@ write_transactions(os.path.join(out_dir, "variance_errors.csv"), misclassified, 
 # create a tree explainer
 # explainer = shap.TreeExplainer(model)
 # Faster approximation using PermutationExplainer
-X_sample = X[:10000]
-explainer = shap.explainers.Permutation(model.predict, X_sample)
+# X_sample = X[:100]
+# explainer = shap.explainers.Permutation(model.predict, X_sample)
 
-logger.info("Calculating SHAP values")
-shap_values = explainer.shap_values(X_sample)
+# logger.info("Calculating SHAP values")
+# shap_values = explainer.shap_values(X_sample)
 
-# Plot SHAP summary
-shap.summary_plot(shap_values, X_sample, feature_names=feature_names)
+# # Plot SHAP summary
+# shap.summary_plot(shap_values, X_sample, feature_names=feature_names)
 
 # %%
 #

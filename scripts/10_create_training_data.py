@@ -155,7 +155,7 @@ constraints_satisfied = False
 while not constraints_satisfied:
     # Initialize dictionaries and sets
     user_id_to_labelers: dict[str, list[int]] = {user_id: [] for user_id in selected_user_ids}
-    labeler_to_user_ids: dict[int, list[str]] = {i: [] for i in range(n_labelers)}
+    # labeler_to_user_ids: dict[int, list[str]] = {i: [] for i in range(n_labelers)}
 
     # For each labeler
     for labeler in range(n_labelers):
