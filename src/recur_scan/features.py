@@ -262,12 +262,12 @@ def get_percent_transactions_same_user_id(transaction: Transaction, all_transact
     return n_same_user_id / len(all_transactions)
 
 
-def get_n_transactions_same_day_of_week(transaction: Transaction, all_transactions: list[Transaction]) -> int:
-    """Get the number of transactions in all_transactions on the same day of the week as transaction"""
-    transaction_day_of_week = datetime.strptime(transaction.date, "%Y-%m-%d").weekday()
-    return len([
-        t for t in all_transactions if datetime.strptime(t.date, "%Y-%m-%d").weekday() == transaction_day_of_week
-    ])
+# def get_n_transactions_same_day_of_week(transaction: Transaction, all_transactions: list[Transaction]) -> int:
+#     """Get the number of transactions in all_transactions on the same day of the week as transaction"""
+#     transaction_day_of_week = datetime.strptime(transaction.date, "%Y-%m-%d").weekday()
+#     return len([
+#         t for t in all_transactions if datetime.strptime(t.date, "%Y-%m-%d").weekday() == transaction_day_of_week
+#     ])
 
 
 def get_percent_transactions_same_day_of_week(transaction: Transaction, all_transactions: list[Transaction]) -> float:
@@ -354,7 +354,7 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         "std_amount_same_month": get_std_amount_same_month(transaction, all_transactions),
         "n_transactions_same_user_id": get_n_transactions_same_user_id(transaction, all_transactions),
         "percent_transactions_same_user_id": get_percent_transactions_same_user_id(transaction, all_transactions),
-        "n_transactions_same_day_of_week": get_n_transactions_same_day_of_week(transaction, all_transactions),
+        # "n_transactions_same_day_of_week": get_n_transactions_same_day_of_week(transaction, all_transactions),
         "percent_transactions_same_day_of_week": get_percent_transactions_same_day_of_week(
             transaction, all_transactions
         ),
