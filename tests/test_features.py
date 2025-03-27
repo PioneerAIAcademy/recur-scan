@@ -290,7 +290,6 @@ def test_recurrence_interval_variance():
 
     assert isclose(result, expected_std_dev, rel_tol=1e-5)
 
-
 def test_get_days_since_last_transaction():
     transactions = [
         Transaction(
