@@ -29,7 +29,7 @@ n_cv_folds = 3  # number of cross-validation folds, could be 5
 do_hyperparameter_optimization = True  # set to False to use the default hyperparameters
 n_hpo_iters = 20  # number of hyperparameter optimization iterations
 
-in_path = "/mnt/c/Users/clack/Documents/recur_scan_train - train.csv"
+in_path = "/mnt/c/Users/clack/Documents/precious - labeler_33.csv"
 out_dir = "/mnt/c/Users/clack/Documents/precious_output_transactions"
 
 # %%
