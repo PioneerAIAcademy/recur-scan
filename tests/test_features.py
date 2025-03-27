@@ -12,7 +12,10 @@ from recur_scan.features import (
     amount_similarity,
     amount_stability_score,
     amount_z_score,
+    clean_company_name,
+    detect_common_interval,
     detect_non_recurring_pattern,
+    detect_recurring_company,
     detect_subscription_pattern,
     frequency_features,
     get_days_since_last_transaction,
@@ -29,6 +32,7 @@ from recur_scan.features import (
     recurrence_interval_variance,
     safe_interval_consistency,
     seasonal_spending_cycle,
+    trimmed_mean,
     vendor_recurrence_trend,
     weekly_spending_cycle,
 )
@@ -96,6 +100,27 @@ def test_proportional_timing_deviation():
     assert isclose(deviation3, expected_value3, rel_tol=1e-2), f"Expected {expected_value3}, got {deviation3}"
 
 
+def test_detect_common_interval():
+    assert detect_common_interval([30, 60, 90]) is True
+    assert detect_common_interval([29, 59, 91]) is True
+    assert detect_common_interval([10, 20, 50]) is True
+
+
+def test_clean_company_name():
+    # Test various company name formats
+    assert clean_company_name("Netflix, Inc.") == "netflix inc"
+    assert clean_company_name("  Amazon Prime!") == "amazon prime"
+    assert clean_company_name("YouTube@Premium#") == "youtubepremium"
+
+
+def test_trimmed_mean():
+    # Basic trimmed mean calculations
+    assert trimmed_mean([10, 20, 30, 40, 50]) == 30.0
+    assert trimmed_mean([1, 2, 3, 4, 100], 0.2) == 3.0
+    assert trimmed_mean([]) == 0.0
+    assert trimmed_mean([5, 5, 5, 5, 5]) == 5.0
+
+
 def test_get_transaction_intervals_single_transaction():
     """
     Test get_transaction_intervals with only one transaction.
@@ -119,6 +144,28 @@ def test_get_transaction_intervals_single_transaction():
         "same_amount": 0,
     }
     assert result == expected
+
+
+def test_detect_recurring_company():
+    # Test with a known recurring company
+    result1 = detect_recurring_company("Netflix Inc.")
+    assert result1["is_recurring_company"] == 1, f"Expected 1, got {result1['is_recurring_company']}"
+    assert result1["recurring_score"] == 1.0, f"Expected 1.0, got {result1['recurring_score']}"
+
+    # Test with a known utility company
+    result2 = detect_recurring_company("ABC Electric Company")
+    assert result2["is_utility_company"] == 1, f"Expected 1, got {result2['is_utility_company']}"
+    assert result2["recurring_score"] == 0.8, f"Expected 0.8, got {result2['recurring_score']}"
+
+    # Test with a company name that contains a known recurring keyword
+    result3 = detect_recurring_company("Spotify Premium")
+    assert result3["recurring_score"] >= 0.7, f"Expected at least 0.7, got {result3['recurring_score']}"
+
+    # Test with a non-recurring company
+    result4 = detect_recurring_company("Local Bakery")
+    assert result4["is_recurring_company"] == 0, f"Expected 0, got {result4['is_recurring_company']}"
+    assert result4["is_utility_company"] == 0, f"Expected 0, got {result4['is_utility_company']}"
+    assert result4["recurring_score"] == 0.0, f"Expected 0.0, got {result4['recurring_score']}"
 
 
 def test_get_transaction_intervals_multiple_transactions():
