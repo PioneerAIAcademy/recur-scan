@@ -1034,6 +1034,7 @@ dependencies = [
     { name = "numpy" },
     { name = "pandas" },
     { name = "pandas-stubs" },
+    { name = "ruff" },
     { name = "scikit-learn" },
     { name = "shap" },
 ]
@@ -1059,6 +1060,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.1.3" },
     { name = "pandas", specifier = ">=2.2.3" },
     { name = "pandas-stubs", specifier = ">=2.2.0.230605" },
+    { name = "ruff", specifier = "==0.9.6" },
     { name = "scikit-learn", specifier = ">=1.6.1" },
     { name = "shap", specifier = ">=0.47.0" },
 ]
@@ -1073,7 +1075,7 @@ dev = [
     { name = "pytest", specifier = ">=8.3.4" },
     { name = "pytest-cov", specifier = ">=6.0.0" },
     { name = "pyupgrade", specifier = ">=3.19.1" },
-    { name = "ruff", specifier = ">=0.9.4" },
+    { name = "ruff", specifier = ">=0.9.6" },
 ]
 
 [[package]]
