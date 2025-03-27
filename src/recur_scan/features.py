@@ -203,6 +203,7 @@ def seasonal_spending_cycle(transaction: Transaction, all_transactions: list[Tra
     variation = stdev(monthly_avgs) if len(monthly_avgs) > 1 else 0.0
     return variation / avg if avg != 0 else 0.0
 
+
 def get_days_since_last_transaction(transaction: Transaction, all_transactions: list[Transaction]) -> int:
     """Get the number of days since the last transaction with the same merchant"""
     same_merchant_transactions = [
