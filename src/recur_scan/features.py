@@ -302,7 +302,7 @@ def get_vendor_recurrence_profile(transaction: Transaction, all_transactions: li
     
     # Calculate recurrence score (0-1) based on how consistent amounts are
     if amount_counts:
-        most_common_amount, count = amount_counts.most_common(1)[0]
+        _, count = amount_counts.most_common(1)[0]
         amount_consistency = count / total_vendor_transactions
     else:
         amount_consistency = 0
@@ -311,7 +311,7 @@ def get_vendor_recurrence_profile(transaction: Transaction, all_transactions: li
         "vendor_recurrence_score": len(recurring_users) / len(set(t.user_id for t in vendor_transactions)),
         "vendor_recurrence_consistency": amount_consistency,
         "vendor_is_common_recurring": int(transaction.name.lower() in {
-            "netflix", "spotify", "amazon", "at&t", "cleo ai", "hub", "comcast"
+            "spotify","microsoft","amazon prime","at&t","verizon","spectrum","geico","hugo insurance"
         })
     }
   
