@@ -3,6 +3,7 @@ import pytest
 from recur_scan.features import (
     amount_ends_in_00,
     amount_ends_in_99,
+    get_amount_variation_features,  # Added import for the new function
     get_avg_days_between_same_merchant_amount,
     get_days_since_last_same_merchant_amount,
     get_features,
@@ -123,6 +124,50 @@ def test_get_features(transactions) -> None:
     assert pytest.approx(features["percent_transactions_same_merchant_amount"]) == 3 / 6
     assert pytest.approx(features["avg_days_between_same_merchant_amount"]) == 30.0
     assert pytest.approx(features["stddev_days_between_same_merchant_amount"]) == 0.0
-    # Since transactions[0] is the first AT&T transaction, there is no previous transaction.
-    # Therefore, days_since_last_same_merchant_amount should be 0.
+    # For the first AT&T transaction, there is no previous transaction,
+    # so days_since_last_same_merchant_amount should be 0.
     assert features["days_since_last_same_merchant_amount"] == 0
+
+
+# ------------------ New Tests for get_amount_variation_features ------------------
+
+
+def test_get_amount_variation_features_no_other_transactions() -> None:
+    """
+    When there are no transactions for the merchant, the function should return
+    an average of 0.0, a relative difference of 0.0, and amount_anomaly as False.
+    """
+    transaction = Transaction(id=10, user_id="user2", name="Unique Merchant", amount=100.0, date="2023-04-01")
+    features = get_amount_variation_features(transaction, [])
+    assert features["merchant_avg"] == 0.0
+    assert features["relative_amount_diff"] == 0.0
+    assert features["amount_anomaly"] is False
+
+
+def test_get_amount_variation_features_no_anomaly(transactions) -> None:
+    """
+    When the transaction amount equals the merchant's average, the relative difference
+    should be 0.0 and no anomaly flagged.
+    """
+    # Use one of the existing AT&T transactions, which are all 50.99.
+    transaction = transactions[0]
+    features = get_amount_variation_features(transaction, transactions)
+    assert pytest.approx(features["merchant_avg"]) == 50.99
+    assert features["relative_amount_diff"] == 0.0
+    assert features["amount_anomaly"] is False
+
+
+def test_get_amount_variation_features_anomaly(transactions) -> None:
+    """
+    When the transaction amount significantly deviates from the merchant's average,
+    the relative difference should exceed the threshold and amount_anomaly should be True.
+    """
+    # Create a new AT&T transaction with an amount different from the regular 50.99.
+    new_transaction = Transaction(id=7, user_id="user1", name="AT&T", amount=100.0, date="2023-04-01")
+    features = get_amount_variation_features(new_transaction, transactions, threshold=0.2)
+    expected_avg = 50.99  # Average of AT&T transactions in the fixture.
+    expected_relative = abs(100.0 - expected_avg) / expected_avg
+    assert pytest.approx(features["merchant_avg"]) == expected_avg
+    assert pytest.approx(features["relative_amount_diff"]) == expected_relative
+    # Since the relative difference is much larger than 0.2, anomaly is flagged.
+    assert features["amount_anomaly"] is True
