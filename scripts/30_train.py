@@ -33,8 +33,11 @@ do_hyperparameter_optimization = False  # set to False to use the default hyperp
 n_hpo_iters = 20  # number of hyperparameter optimization iterations
 n_jobs = -1  # number of jobs to run in parallel (set to 1 if your laptop gets too hot)
 
-in_path = "/mct/c/User/user/Desktop/recur_scan_train.csv"  # path to the input CSV file containing transactions
-out_dir = "/mct/c/User/user/Desktop/happy_output_transaction"  # path to the output directory
+in_path = in_path = os.path.join(
+    os.path.dirname(os.path.dirname(__file__)), "recur_scan_train.csv"
+)  # path to the input CSV file containing transactions
+out_dir = os.path.join(os.path.dirname(__file__), "..", "outputs")
+os.makedirs(out_dir, exist_ok=True)  # path to the output directory
 
 # %%
 # parse script arguments from command line

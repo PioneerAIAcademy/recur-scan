@@ -1,6 +1,9 @@
 import re
-from dataclasses import dataclass
 from datetime import datetime
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from recur_scan.transactions import Transaction
 
 # Removed the conflicting import of Transaction
 
@@ -164,6 +167,7 @@ def get_transaction_frequency(transaction: "Transaction", all_transactions: list
 #         return 0.0
 #     return statistics.stdev(same_description_transactions)
 
+
 def get_day_of_month_consistency(transaction: "Transaction", all_transactions: list["Transaction"]) -> float:
     """Calculate the consistency of the day of the month for transactions with the same name."""
     same_transactions = [t for t in all_transactions if t.name.lower() == transaction.name.lower()]
@@ -222,12 +226,7 @@ def interval_based_on_periodic(interval_stats: dict[str, float]) -> float:
     return best_score
 
 
-@dataclass
-class Transaction:
-    amount: float
-    name: str
-    date: str  # Add the date attribute as a string in the format "YYYY-MM-DD"
-    # Add other relevant fields as needed
+# Removed the duplicate Transaction class definition.
 
 
 def calculate_merchant_pattern_consistency(
