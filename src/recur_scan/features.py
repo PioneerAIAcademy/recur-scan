@@ -96,6 +96,18 @@ def get_n_transactions_days_apart(
     return n_txs
 
 
+def get_pct_transactions_days_apart(
+    transaction: Transaction, all_transactions: list[Transaction], n_days_apart: int, n_days_off: int
+) -> float:
+    """
+    Get the percentage of transactions in all_transactions that are within
+    n_days_off of being n_days_apart from transaction
+    """
+    return get_n_transactions_days_apart(transaction, all_transactions, n_days_apart, n_days_off) / len(
+        all_transactions
+    )
+
+
 def _get_day(date: str) -> int:
     """Get the day of the month from a transaction date."""
     return int(date.split("-")[2])
@@ -104,6 +116,13 @@ def _get_day(date: str) -> int:
 def get_n_transactions_same_day(transaction: Transaction, all_transactions: list[Transaction], n_days_off: int) -> int:
     """Get the number of transactions on the same day of the month as transaction."""
     return len([t for t in all_transactions if abs(_get_day(t.date) - _get_day(transaction.date)) <= n_days_off])
+
+
+def get_pct_transactions_same_day(
+    transaction: Transaction, all_transactions: list[Transaction], n_days_off: int
+) -> float:
+    """Get the percentage of transactions in all_transactions that are on the same day of the month as transaction"""
+    return get_n_transactions_same_day(transaction, all_transactions, n_days_off) / len(all_transactions)
 
 
 def get_ends_in_99(transaction: Transaction) -> bool:
@@ -254,19 +273,17 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
     return {
         "n_transactions_same_amount": get_n_transactions_same_amount(transaction, all_transactions),
         "percent_transactions_same_amount": get_percent_transactions_same_amount(transaction, all_transactions),
-        "days_between_std": get_days_between_std(transaction, all_transactions),
-        "amount_cv": get_amount_cv(transaction, all_transactions),
-        "day_of_month_consistency": get_day_of_month_consistency(transaction, all_transactions),
-        "exact_amount_count": get_exact_amount_count(transaction, all_transactions),
-        "has_recurring_keyword": get_has_recurring_keyword(transaction),
-        "is_always_recurring": int(get_is_always_recurring(transaction)),
-        "n_transactions_30_days_apart": get_n_transactions_days_apart(transaction, all_transactions, 30, 2),
-        "is_convenience_store": get_is_convenience_store(transaction),
-        "amount_date_cluster_score": get_amount_date_cluster_score(transaction, all_transactions),
-        "transaction_frequency_score": get_transaction_frequency_score(transaction, all_transactions),
-        "ends_in_99": int(get_ends_in_99(transaction)),
-        "is_transactional_merchant": get_is_transactional_merchant(transaction),
-        "is_subscription_merchant": get_is_subscription_merchant(transaction),
-        "amount_roundness_score": get_amount_roundness_score(transaction),
-        "timing_consistency_score": get_timing_consistency_score(transaction, all_transactions),
+        "ends_in_99": get_ends_in_99(transaction),
+        "amount": transaction.amount,
+        "same_day_exact": get_n_transactions_same_day(transaction, all_transactions, 0),
+        "same_day_off_by_1": get_n_transactions_same_day(transaction, all_transactions, 1),
+        "same_day_off_by_2": get_n_transactions_same_day(transaction, all_transactions, 2),
+        "14_days_apart_exact": get_n_transactions_days_apart(transaction, all_transactions, 14, 0),
+        "14_days_apart_off_by_1": get_n_transactions_days_apart(transaction, all_transactions, 14, 1),
+        "7_days_apart_exact": get_n_transactions_days_apart(transaction, all_transactions, 7, 0),
+        "7_days_apart_off_by_1": get_n_transactions_days_apart(transaction, all_transactions, 7, 1),
+        "is_insurance": get_is_insurance(transaction),
+        "is_utility": get_is_utility(transaction),
+        "is_phone": get_is_phone(transaction),
+        "is_always_recurring": get_is_always_recurring(transaction),
     }

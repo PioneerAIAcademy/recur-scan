@@ -265,7 +265,6 @@ write_transactions(os.path.join(out_dir, "variance_errors.csv"), misclassified, 
 # Faster approximation using PermutationExplainer
 # X_sample = X[:100]
 # explainer = shap.explainers.Permutation(model.predict, X_sample)
-
 # logger.info("Calculating SHAP values")
 # shap_values = explainer.shap_values(X_sample)
 

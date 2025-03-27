@@ -23,6 +23,8 @@ The system processes transaction data from multiple sources, extracts relevant f
 
 `make install`
 
+Re-run make install whenever new dependencies have been added
+
 #### Add dependency
 
 `uv add <package>`
