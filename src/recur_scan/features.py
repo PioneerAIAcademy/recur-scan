@@ -1,5 +1,6 @@
 import re
-from datetime import datetime
+from datetime import date, datetime
+from functools import lru_cache
 
 from recur_scan.transactions import Transaction
 
@@ -39,12 +40,10 @@ def get_is_phone(transaction: Transaction) -> bool:
     return bool(match)
 
 
-def _get_days(date: str) -> int:
-    """Get the number of days since the epoch of a transaction date."""
-    # Assuming date is in the format YYYY-MM-DD
-    # use the datetime module for an accurate determination
-    # of the number of days since the epoch
-    return (datetime.strptime(date, "%Y-%m-%d") - datetime(1970, 1, 1)).days
+@lru_cache(maxsize=1024)
+def _parse_date(date_str: str) -> date:
+    """Parse a date string into a datetime.date object."""
+    return datetime.strptime(date_str, "%Y-%m-%d").date()
 
 
 def get_n_transactions_days_apart(
@@ -58,24 +57,39 @@ def get_n_transactions_days_apart(
     being n_days_apart from transaction
     """
     n_txs = 0
-    transaction_days = _get_days(transaction.date)
+    transaction_date = _parse_date(transaction.date)
+
+    # Pre-calculate bounds for faster checking
+    lower_remainder = n_days_apart - n_days_off
+    upper_remainder = n_days_off
 
     for t in all_transactions:
-        t_days = _get_days(t.date)
-        days_diff = abs(t_days - transaction_days)
-        # skip if the difference is less than n_days_apart - n_days_off
+        t_date = _parse_date(t.date)
+        days_diff = abs((t_date - transaction_date).days)
+
+        # Skip if the difference is less than minimum required
         if days_diff < n_days_apart - n_days_off:
             continue
 
         # Check if the difference is close to any multiple of n_days_apart
-        # For example, with n_days_apart=14 and n_days_off=1, we want to count
-        # transactions that are 13-15, 27-29, 41-43, etc. days apart
         remainder = days_diff % n_days_apart
 
-        if remainder <= n_days_off or (n_days_apart - remainder) <= n_days_off:
+        if remainder <= upper_remainder or remainder >= lower_remainder:
             n_txs += 1
 
     return n_txs
+
+
+def get_pct_transactions_days_apart(
+    transaction: Transaction, all_transactions: list[Transaction], n_days_apart: int, n_days_off: int
+) -> float:
+    """
+    Get the percentage of transactions in all_transactions that are within
+    n_days_off of being n_days_apart from transaction
+    """
+    return get_n_transactions_days_apart(transaction, all_transactions, n_days_apart, n_days_off) / len(
+        all_transactions
+    )
 
 
 def _get_day(date: str) -> int:
@@ -86,6 +100,13 @@ def _get_day(date: str) -> int:
 def get_n_transactions_same_day(transaction: Transaction, all_transactions: list[Transaction], n_days_off: int) -> int:
     """Get the number of transactions in all_transactions that are on the same day of the month as transaction"""
     return len([t for t in all_transactions if abs(_get_day(t.date) - _get_day(transaction.date)) <= n_days_off])
+
+
+def get_pct_transactions_same_day(
+    transaction: Transaction, all_transactions: list[Transaction], n_days_off: int
+) -> float:
+    """Get the percentage of transactions in all_transactions that are on the same day of the month as transaction"""
+    return get_n_transactions_same_day(transaction, all_transactions, n_days_off) / len(all_transactions)
 
 
 def get_ends_in_99(transaction: Transaction) -> bool:
@@ -113,12 +134,17 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         "ends_in_99": get_ends_in_99(transaction),
         "amount": transaction.amount,
         "same_day_exact": get_n_transactions_same_day(transaction, all_transactions, 0),
+        "pct_transactions_same_day": get_pct_transactions_same_day(transaction, all_transactions, 0),
         "same_day_off_by_1": get_n_transactions_same_day(transaction, all_transactions, 1),
         "same_day_off_by_2": get_n_transactions_same_day(transaction, all_transactions, 2),
         "14_days_apart_exact": get_n_transactions_days_apart(transaction, all_transactions, 14, 0),
+        "pct_14_days_apart_exact": get_pct_transactions_days_apart(transaction, all_transactions, 14, 0),
         "14_days_apart_off_by_1": get_n_transactions_days_apart(transaction, all_transactions, 14, 1),
+        "pct_14_days_apart_off_by_1": get_pct_transactions_days_apart(transaction, all_transactions, 14, 1),
         "7_days_apart_exact": get_n_transactions_days_apart(transaction, all_transactions, 7, 0),
+        "pct_7_days_apart_exact": get_pct_transactions_days_apart(transaction, all_transactions, 7, 0),
         "7_days_apart_off_by_1": get_n_transactions_days_apart(transaction, all_transactions, 7, 1),
+        "pct_7_days_apart_off_by_1": get_pct_transactions_days_apart(transaction, all_transactions, 7, 1),
         "is_insurance": get_is_insurance(transaction),
         "is_utility": get_is_utility(transaction),
         "is_phone": get_is_phone(transaction),
