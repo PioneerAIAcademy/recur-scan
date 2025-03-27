@@ -53,10 +53,10 @@ def is_valid_recurring_transaction(transaction: Transaction) -> bool:
     Check if a transaction is valid for being marked as recurring based on vendor-specific rules.
     
     Rules:
-    - For 'Apple': Amount must end with '.99'.
+    - For 'Apple': Amount must end with '.99' (within floating point tolerance)
     - For 'Brigit': Amount must be either 9.99 or 14.99.
     """
-    vendor_name = transaction.name.lower() 
+    vendor_name = transaction.name.lower()
     amount = transaction.amount
 
     always_recurring_vendors = {
@@ -72,7 +72,8 @@ def is_valid_recurring_transaction(transaction: Transaction) -> bool:
     }
 
     if vendor_name == "apple":
-        return abs(amount - int(amount)) >= 0.98 and abs(amount - int(amount)) <= 0.99
+        # Better way to check for .99 ending
+        return abs(amount - round(amount) + 0.01) < 0.001  # Check if decimal part is ~0.99
     elif vendor_name == "brigit":
         return amount in {9.99, 14.99}
     elif vendor_name == "cleo ai":
@@ -82,7 +83,6 @@ def is_valid_recurring_transaction(transaction: Transaction) -> bool:
     elif vendor_name in always_recurring_vendors:
         return True
     else:
-        # For other vendors, assume the transaction is valid for recurring
         return True
     
 def get_amount_features(transaction: Transaction) -> dict[str, float]:
@@ -282,13 +282,15 @@ def get_temporal_consistency_features(transaction: Transaction, all_transactions
 
 def get_vendor_recurrence_profile(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float]:
     """Analyze how often this vendor appears in recurring patterns across all users"""
-    vendor_transactions = [t for t in all_transactions if t.name == transaction.name]
+    vendor_name = transaction.name.lower()
+    vendor_transactions = [t for t in all_transactions if t.name.lower() == vendor_name]
     total_vendor_transactions = len(vendor_transactions)
     
     if total_vendor_transactions == 0:
         return {
             "vendor_recurrence_score": 0.0,
-            "vendor_recurrence_consistency": 0.0
+            "vendor_recurrence_consistency": 0.0,
+            "vendor_is_common_recurring": 0
         }
     
     # Count how many unique users have recurring patterns with this vendor
@@ -307,12 +309,15 @@ def get_vendor_recurrence_profile(transaction: Transaction, all_transactions: li
     else:
         amount_consistency = 0
     
+    common_recurring_vendors = {
+        "netflix", "spotify", "microsoft", "amazon prime",
+        "at&t", "verizon", "spectrum", "geico", "hugo insurance"
+    }
+    
     return {
         "vendor_recurrence_score": len(recurring_users) / len(set(t.user_id for t in vendor_transactions)),
         "vendor_recurrence_consistency": amount_consistency,
-        "vendor_is_common_recurring": int(transaction.name.lower() in {
-            "spotify","microsoft","amazon prime","at&t","verizon","spectrum","geico","hugo insurance"
-        })
+        "vendor_is_common_recurring": int(vendor_name in common_recurring_vendors)
     }
   
   

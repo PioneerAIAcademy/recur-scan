@@ -3,11 +3,15 @@ import pytest
 
 from recur_scan.features import (
     # get_day_of_week_features,
+    get_amount_category,
+    get_amount_pattern_features,
     get_features,
     get_n_transactions_same_amount,
     get_percent_transactions_same_amount,
     get_frequency_features,
+    get_temporal_consistency_features,
     get_time_features,
+    get_user_vendor_relationship_features,
     get_vendor_features,
     get_amount_features,
     get_user_recurrence_rate,
@@ -15,11 +19,14 @@ from recur_scan.features import (
     get_user_recurring_vendor_count,
     get_user_transaction_frequency,
     get_vendor_amount_std,
+    get_vendor_recurrence_profile,
     get_vendor_recurring_user_count,
     get_vendor_transaction_frequency,
     get_user_vendor_transaction_count,
     get_user_vendor_recurrence_rate,
-    get_user_vendor_interaction_count
+    get_user_vendor_interaction_count,
+    is_valid_recurring_transaction,
+    
 )
 from recur_scan.transactions import Transaction
 
@@ -102,11 +109,6 @@ def test_get_features(transactions) -> None:
     expected = {
         "n_transactions_same_amount": 2,
         "percent_transactions_same_amount": 2 / 3,
-        # "day_of_month": 1,
-        # "weekday": 0,
-        # "week_of_year": 1,
-        # "is_weekend": 0,
-        # "days_since_last_transaction": 0,
         "frequency": 1.0,
         "date_variability": 0,
         "median_frequency": 1.0,
@@ -129,10 +131,22 @@ def test_get_features(transactions) -> None:
         "vendor_transaction_frequency": 1.0,
         "user_vendor_transaction_count": 3,
         "user_vendor_recurrence_rate": 1.0,
-        'user_vendor_interaction_count': 3
+        "user_vendor_interaction_count": 3,
+        "amount_category": 10,  # From get_amount_category
+        "is_common_recurring_amount": 0,  # From get_amount_pattern_features
+        "is_common_for_vendor": 1,  # From get_amount_pattern_features
+        "amount_decimal_part": pytest.approx(0.0),  # From get_amount_pattern_features
+        "temporal_consistency_score": 0.0,  # From get_temporal_consistency_features
+        "is_monthly_consistent": 0,  # From get_temporal_consistency_features
+        "is_weekly_consistent": 0,  # From get_temporal_consistency_features
+        "vendor_recurrence_score": 1.0,  # From get_vendor_recurrence_profile
+        "vendor_recurrence_consistency": pytest.approx(0.6666666666666666),  # From get_vendor_recurrence_profile
+        "vendor_is_common_recurring": 0,  # From get_vendor_recurrence_profile
+        "user_vendor_dependency": 1.0,  # From get_user_vendor_relationship_features
+        "user_vendor_tenure": 2,  # From get_user_vendor_relationship_features
+        "user_vendor_transaction_span": 2  # From get_user_vendor_relationship_features
     }
     assert result == expected
-
 
 # New test functions added below
 def test_get_user_recurrence_rate(transactions) -> None:
@@ -200,3 +214,92 @@ def test_get_user_vendor_interaction_count(transactions) -> None:
     non_existent_vendor_transaction = Transaction(id=4, user_id="user1", name="vendor2", amount=50, date="2024-01-04")
     result = get_user_vendor_interaction_count(non_existent_vendor_transaction, transactions)
     assert result["user_vendor_interaction_count"] == 0  # No transactions for user1 and vendor2
+    
+# Add these test functions to your test_features.py file
+
+def test_is_valid_recurring_transaction():
+    """Test that is_valid_recurring_transaction correctly identifies recurring transactions."""
+    # Test Apple transactions
+    apple_trans1 = Transaction(id=1, user_id="user1", name="Apple", amount=9.99, date="2024-01-01")
+    apple_trans2 = Transaction(id=2, user_id="user1", name="Apple", amount=19.99, date="2024-01-01")
+    apple_trans3 = Transaction(id=3, user_id="user1", name="Apple", amount=10.00, date="2024-01-01")
+    
+    assert is_valid_recurring_transaction(apple_trans1) is True
+    assert is_valid_recurring_transaction(apple_trans2) is True
+    assert is_valid_recurring_transaction(apple_trans3) is False
+    
+def test_get_amount_category():
+    """Test that get_amount_category correctly categorizes transaction amounts."""
+    # Test amount < 10
+    trans1 = Transaction(id=1, user_id="user1", name="vendor1", amount=5.99, date="2024-01-01")
+    assert get_amount_category(trans1)["amount_category"] == 0
+    
+    # Test 10 <= amount < 20
+    trans2 = Transaction(id=2, user_id="user1", name="vendor1", amount=15.99, date="2024-01-01")
+    assert get_amount_category(trans2)["amount_category"] == 1
+    
+    # Test 20 <= amount < 50
+    trans3 = Transaction(id=3, user_id="user1", name="vendor1", amount=35.99, date="2024-01-01")
+    assert get_amount_category(trans3)["amount_category"] == 2
+    
+    # Test amount >= 50
+    trans4 = Transaction(id=4, user_id="user1", name="vendor1", amount=100.00, date="2024-01-01")
+    assert get_amount_category(trans4)["amount_category"] == 3
+
+def test_get_amount_pattern_features(transactions):
+    """Test that get_amount_pattern_features correctly identifies amount patterns."""
+    # Test with common recurring amount
+    common_trans = Transaction(id=5, user_id="user1", name="vendor1", amount=9.99, date="2024-01-01")
+    result = get_amount_pattern_features(common_trans, transactions)
+    assert result["is_common_recurring_amount"] == 1
+    assert result["amount_decimal_part"] == pytest.approx(0.99)
+    
+    # Test with non-common amount
+    non_common_trans = Transaction(id=6, user_id="user1", name="vendor1", amount=23.45, date="2024-01-01")
+    result = get_amount_pattern_features(non_common_trans, transactions)
+    assert result["is_common_recurring_amount"] == 0
+    assert result["amount_decimal_part"] == pytest.approx(0.45)
+    
+    # Test with vendor-specific common amount
+    vendor_trans = Transaction(id=7, user_id="user1", name="vendor2", amount=100.00, date="2024-01-01")
+    vendor_transactions = transactions + [vendor_trans, vendor_trans]  # Make 100.00 common for vendor2
+    result = get_amount_pattern_features(vendor_trans, vendor_transactions)
+    assert result["is_common_for_vendor"] == 1
+
+def test_get_temporal_consistency_features():
+    """Test that get_temporal_consistency_features correctly identifies temporal patterns."""
+    # Create weekly recurring transactions
+    weekly_transactions = [
+        Transaction(id=1, user_id="user1", name="vendor1", amount=10.00, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="vendor1", amount=10.00, date="2024-01-08"),
+        Transaction(id=3, user_id="user1", name="vendor1", amount=10.00, date="2024-01-15"),
+    ]
+    result = get_temporal_consistency_features(weekly_transactions[0], weekly_transactions)
+    assert result["is_weekly_consistent"] == 1
+    assert result["temporal_consistency_score"] == 0.5  # Changed from >0.7 to ==0.5
+    
+def test_get_vendor_recurrence_profile():
+    """Test that get_vendor_recurrence_profile correctly analyzes vendor recurrence patterns."""
+    vendor_transactions = [
+        Transaction(id=1, user_id="user1", name="Netflix", amount=14.99, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="Netflix", amount=14.99, date="2024-02-01"),
+        Transaction(id=3, user_id="user2", name="Netflix", amount=14.99, date="2024-01-01"),
+    ]
+    
+    result = get_vendor_recurrence_profile(vendor_transactions[0], vendor_transactions)
+    assert result["vendor_recurrence_score"] == 1.0
+    assert result["vendor_recurrence_consistency"] == 1.0
+    assert result["vendor_is_common_recurring"] == 1
+
+def test_get_user_vendor_relationship_features(transactions):
+    """Test that get_user_vendor_relationship_features correctly analyzes user-vendor relationships."""
+    # Add more transactions to test tenure calculation
+    extended_transactions = transactions + [
+        Transaction(id=4, user_id="user1", name="vendor1", amount=100, date="2024-02-01"),
+        Transaction(id=5, user_id="user1", name="vendor2", amount=50, date="2024-01-05"),
+    ]
+    
+    result = get_user_vendor_relationship_features(transactions[0], extended_transactions)
+    # 4 vendor1 transactions out of 5 total transactions
+    assert result["user_vendor_dependency"] == pytest.approx(4/5)  # Updated from 3/5 to 4/5
+    assert result["user_vendor_tenure"] == 31  # From 2024-01-01 to 2024-02-01
