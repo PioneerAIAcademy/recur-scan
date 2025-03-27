@@ -17,6 +17,8 @@ from recur_scan.features import (
     get_n_transactions_same_amount,
     get_n_transactions_same_day,
     get_n_transactions_same_vendor,
+    get_pct_transactions_days_apart,
+    get_pct_transactions_same_day,
     get_percent_transactions_same_amount,
     get_transaction_intervals,
     get_year,
@@ -96,10 +98,32 @@ def test_get_max_transaction_amount() -> None:
     assert get_max_transaction_amount(transactions) == 300.0
 
 
+
 def test_get_min_transaction_amount() -> None:
     """
     Test that get_min_transaction_amount returns the correct minimum amount of all transactions.
     """
+    transactions = [
+        Transaction(id=1, user_id="user1", name="vendor1", date="2023-01-01", amount=100.0),
+        Transaction(id=2, user_id="user1", name="vendor2", date="2023-01-02", amount=200.0),
+        Transaction(id=3, user_id="user2", name="vendor1", date="2023-01-03", amount=300.0),
+    ]
+    assert get_min_transaction_amount(transactions) == 100.0
+
+    
+def test_get_pct_transactions_same_day() -> None:
+    """Test that get_pct_transactions_same_day returns the correct percentage of transactions on the same day."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="name1", amount=100, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="name1", amount=100, date="2024-01-01"),
+        Transaction(id=3, user_id="user1", name="name1", amount=200, date="2024-01-02"),
+        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-03"),
+    ]
+    assert get_pct_transactions_same_day(transactions[0], transactions, 0) == 2 / 4
+
+
+def test_get_n_transactions_days_apart() -> None:
+    """Test get_n_transactions_days_apart."""
     transactions = [
         Transaction(id=1, user_id="user1", name="vendor1", date="2023-01-01", amount=100.0),
         Transaction(id=2, user_id="user1", name="vendor2", date="2023-01-02", amount=200.0),
@@ -190,6 +214,27 @@ def test_get_transaction_intervals_multiple_transactions() -> None:
     assert isclose(result["avg_days_between_transactions"], expected["avg_days_between_transactions"], rel_tol=1e-5)
     assert isclose(
         result["std_dev_days_between_transactions"], expected["std_dev_days_between_transactions"], rel_tol=1e-3
+      
+      
+def test_get_pct_transactions_days_apart() -> None:
+    """Test get_pct_transactions_days_apart."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="name1", amount=2.99, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="name1", amount=2.99, date="2024-01-02"),
+        Transaction(id=3, user_id="user1", name="name1", amount=2.99, date="2024-01-14"),
+        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-15"),
+        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-16"),
+        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-29"),
+        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-31"),
+    ]
+    assert get_pct_transactions_days_apart(transactions[0], transactions, 14, 0) == 2 / 7
+    assert get_pct_transactions_days_apart(transactions[0], transactions, 14, 1) == 4 / 7
+
+
+def test_get_is_insurance() -> None:
+    """Test get_is_insurance."""
+    assert get_is_insurance(
+        Transaction(id=1, user_id="user1", name="Allstate Insurance", amount=100, date="2024-01-01")
     )
     assert result["monthly_recurrence"] == expected["monthly_recurrence"]
     assert result["same_weekday"] == expected["same_weekday"]
@@ -372,3 +417,4 @@ def test_get_n_transactions_same_day() -> None:
 #        Transaction(id=4, user_id="user1", name="vendor4", amount=400, date="2024-02-12"),
 #    ]
 #    assert common_transaction_names(transactions_false) == []
+
