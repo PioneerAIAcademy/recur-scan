@@ -51,7 +51,7 @@ def is_recurring_merchant(transaction: Transaction) -> bool:
         "spotify",
         "hulu",
         "la fitness",
-        "cleo ai",  # existing keyword
+        "cleo ai",
         "atlas",
         "google storage",
         "google drive",
@@ -64,9 +64,8 @@ def is_recurring_merchant(transaction: Transaction) -> bool:
         "adobe",
         "Healthy.line",
         "Canva Pty Limite",
-        # Additional recurring companies:
         "brigit",
-        "cleo",  # note: may match "cleo ai" as well
+        "cleo",
         "microsoft",
         "earnin",
     }
@@ -203,16 +202,10 @@ def get_is_phone(transaction: Transaction) -> bool:
     return any(keyword in merchant_name for keyword in phone_keywords)
 
 
-# ------------------------- New Feature Function -------------------------
-
-
 def is_subscription_amount(transaction: Transaction) -> bool:
     """Check if the transaction amount is one of the common subscription amounts"""
     subscription_amounts = {0.99, 1.99, 2.99, 4.99, 9.99, 10.99, 11.99, 12.99, 14.99, 19.99}
     return round(transaction.amount, 2) in subscription_amounts
-
-
-# ------------------------- Additional Feature Functions -------------------------
 
 
 def get_additional_features(
@@ -280,6 +273,45 @@ def get_additional_features(
     }
 
 
+# ------------------------- New Feature Functions for Detecting Amount Variations -------------------------
+
+
+def get_amount_variation_features(
+    transaction: Transaction, all_transactions: list[Transaction], threshold: float = 0.2
+) -> dict[str, FeatureValue]:
+    """
+    Calculate features related to amount variations for a given transaction.
+
+    This function computes:
+      - merchant_avg: The average transaction amount for the merchant.
+      - relative_diff: The relative difference between the transaction amount and the merchant average.
+      - amount_anomaly: A flag indicating if the relative difference exceeds the threshold.
+
+    Parameters:
+        transaction (Transaction): The transaction under analysis.
+        all_transactions (list[Transaction]): List of all transactions.
+        threshold (float): Threshold for flagging an anomaly (default is 0.2, i.e., 20%).
+
+    Returns:
+        dict[str, FeatureValue]: A dictionary containing the computed features.
+    """
+    # Get all transactions for the same merchant (by name)
+    merchant_transactions = [t for t in all_transactions if t.name == transaction.name]
+    merchant_avg = statistics.mean([t.amount for t in merchant_transactions]) if merchant_transactions else 0.0
+
+    # Compute the relative difference
+    relative_diff = abs(transaction.amount - merchant_avg) / merchant_avg if merchant_avg != 0 else 0.0
+
+    # Flag as anomaly if the relative difference exceeds the threshold
+    amount_anomaly = relative_diff > threshold
+
+    return {
+        "merchant_avg": merchant_avg,
+        "relative_amount_diff": relative_diff,
+        "amount_anomaly": amount_anomaly,
+    }
+
+
 # ------------------------- Combined Feature Extraction -------------------------
 
 
@@ -310,6 +342,12 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         "is_phone": get_is_phone(transaction),
         "is_subscription_amount": is_subscription_amount(transaction),
     }
+    # Add additional temporal and merchant consistency features
     additional_features: dict[str, float | int | bool] = get_additional_features(transaction, all_transactions)
     features.update(additional_features)
+
+    # Add amount variation features
+    amount_variation_features = get_amount_variation_features(transaction, all_transactions, threshold=0.2)
+    features.update(amount_variation_features)
+
     return features
