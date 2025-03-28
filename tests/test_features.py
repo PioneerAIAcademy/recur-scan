@@ -8,8 +8,8 @@ from recur_scan.features import (
     get_is_insurance,
     get_is_near_same_amount,
     get_is_phone,
-    get_is_utility,
     get_n_transactions_days_apart,
+    get_n_transactions_days_apart_v1,
     get_n_transactions_same_amount,
     get_n_transactions_same_day,
     get_percent_transactions_same_amount,
@@ -19,6 +19,7 @@ from recur_scan.features import (
     is_price_trending,
     is_recurring_based_on_99,
     is_split_transaction,
+    is_utility_bill,
     is_weekday_transaction,
 )
 from recur_scan.transactions import Transaction
@@ -69,7 +70,7 @@ def test_get_days_since_epoch() -> None:
     assert _get_days("1970-02-01") == 31
 
 
-def test_get_n_transactions_days_apart(transactions) -> None:
+def test_get_n_transactions_days_apart(transactions: list[Transaction]) -> None:
     """Test get_n_transactions_days_apart."""
     transactions = [
         Transaction(id=1, user_id="user1", name="name1", amount=2.99, date="2024-01-01"),
@@ -96,10 +97,10 @@ def test_get_is_phone(transactions) -> None:
     assert not get_is_phone(transactions[2])
 
 
-def test_get_is_utility(transactions) -> None:
-    """Test get_is_utility."""
-    assert get_is_utility(transactions[2])
-    assert not get_is_utility(transactions[3])
+def test_is_utility_bill(transactions) -> None:
+    """Test is_utility_bill."""
+    assert is_utility_bill(transactions[2])  # Assuming transactions[2] is a utility bill
+    assert not is_utility_bill(transactions[3])  # Assuming transactions[3] is NOT a utility bill
 
 
 def test_get_is_near_same_amount(transactions) -> None:
@@ -129,6 +130,7 @@ def test_is_membership(transactions) -> None:
 def test_get_features(transactions) -> None:
     """Test get_features."""
     features = get_features(transactions[0], transactions)
+
     assert features["n_transactions_same_amount"] == 2
     assert pytest.approx(features["percent_transactions_same_amount"]) == 2 / 7
     assert not features["ends_in_99"]
@@ -146,7 +148,7 @@ def test_get_features(transactions) -> None:
     assert not features["is_always_recurring"]
     assert not features["is_auto_pay"]
     assert not features["is_membership"]
-    assert not features["is_recurring_utility"]
+    assert not features.get("is_recurring_utility", False)
 
 
 def test_is_recurring_based_on_99(transactions):
@@ -238,3 +240,16 @@ def test_is_split_transaction():
 
     assert is_split_transaction(all_transactions[0], all_transactions) is True  # Two smaller related transactions
     assert is_split_transaction(all_transactions[3], all_transactions) is False  # No split transactions
+
+
+def test_get_n_transactions_days_apart_v1():
+    transaction = Transaction(id=1, user_id=123, name="Test Tx", amount=100.0, date="2024-03-01")
+    all_transactions = [
+        Transaction(id=2, user_id=123, name="Tx1", amount=50.0, date="2024-03-14"),  # 13 days apart
+        Transaction(id=3, user_id=123, name="Tx2", amount=75.0, date="2024-03-15"),  # 14 days apart
+        Transaction(id=4, user_id=123, name="Tx3", amount=25.0, date="2024-03-16"),  # 15 days apart
+    ]
+
+    result = get_n_transactions_days_apart_v1(transaction, all_transactions, 14, 1)
+    print(f"Expected: 3, Got: {result}")
+    assert result == 3

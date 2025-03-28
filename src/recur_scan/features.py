@@ -2,7 +2,6 @@ import re
 from collections import defaultdict
 from datetime import datetime
 
-import pytest
 from thefuzz import fuzz
 
 from recur_scan.transactions import Transaction
@@ -28,12 +27,12 @@ def get_is_insurance(transaction: Transaction) -> bool:
     return bool(match)
 
 
-def get_is_utility(transaction: Transaction) -> bool:
-    """Check if the transaction is a utility payment."""
-    # use a regular expression with boundaries to match case-insensitive utility
-    # and utility-related terms
-    match = re.search(r"\b(utility|utilit|energy)\b", transaction.name, re.IGNORECASE)
-    return bool(match)
+#   def get_is_utility(transaction: Transaction) -> bool:
+#       """Check if the transaction is a utility payment."""
+#       # use a regular expression with boundaries to match case-insensitive utility
+#       # and utility-related terms
+#       match = re.search(r"\b(utility|utilit|energy)\b", transaction.name, re.IGNORECASE)
+#       return bool(match)
 
 
 def get_is_phone(transaction: Transaction) -> bool:
@@ -55,27 +54,22 @@ def get_n_transactions_days_apart_v1(
     n_days_apart: int,
     n_days_off: int,
 ) -> int:
-    """
-    Get the number of transactions in all_transactions that are within n_days_off of
-    being n_days_apart from transaction
-    """
     n_txs = 0
     transaction_days = _get_days(transaction.date)
 
     for t in all_transactions:
         t_days = _get_days(t.date)
         days_diff = abs(t_days - transaction_days)
-        # skip if the difference is less than n_days_apart - n_days_off
+
+        # Skip if the difference is less than n_days_apart - n_days_off
         if days_diff < n_days_apart - n_days_off:
             continue
 
-        # Check if the difference is close to any multiple of n_days_apart
-        # For example, with n_days_apart=14 and n_days_off=1, we want to count
-        # transactions that are 13-15, 27-29, 41-43, etc. days apart
         remainder = days_diff % n_days_apart
-
-        if remainder <= n_days_off or (n_days_apart - remainder) <= n_days_off:
+        if remainder <= n_days_off or (remainder > 0 and (n_days_apart - remainder) <= n_days_off):
             n_txs += 1
+
+        print(f"Transaction: {t.date}, Days Apart: {days_diff}, Remainder: {remainder}, Counted: {n_txs}")
 
     return n_txs
 
@@ -140,17 +134,18 @@ def get_n_transactions_days_apart(
     Get the number of transactions in all_transactions that are within n_days_off of being
     n_days_apart from transaction.
     """
-    n_txs = 0
     transaction_days = _get_days(transaction.date)
+    seen_transactions = set()  # Track unique transactions
 
     for t in all_transactions:
         t_days = _get_days(t.date)
         days_diff = abs(t_days - transaction_days)
 
+        # Ensure transaction is within the valid range and not already counted
         if n_days_apart - n_days_off <= days_diff <= n_days_apart + n_days_off:
-            n_txs += 1
+            seen_transactions.add(t.id)  # Add unique transaction ID
 
-    return n_txs
+    return len(seen_transactions)  # Return the count of unique transactions
 
 
 def get_is_near_same_amount(transaction: Transaction, all_transactions: list[Transaction]) -> bool:
@@ -243,7 +238,7 @@ def is_membership(transaction: Transaction) -> bool:
     return bool(re.search(membership_keywords, transaction.name, re.IGNORECASE))
 
 
-def get_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float | int]:
+def get_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float | int | bool]:
     return {
         "n_transactions_same_amount": get_n_transactions_same_amount(transaction, all_transactions),
         "percent_transactions_same_amount": get_percent_transactions_same_amount(transaction, all_transactions),
@@ -252,17 +247,20 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         "same_day_exact": get_n_transactions_same_day(transaction, all_transactions, 0),
         "same_day_off_by_1": get_n_transactions_same_day(transaction, all_transactions, 1),
         "same_day_off_by_2": get_n_transactions_same_day(transaction, all_transactions, 2),
-        "7_days_apart_exact": get_n_transactions_days_apart_v1(transaction, all_transactions, 7, 0),
-        "14_days_apart_exact": get_n_transactions_days_apart_v1(transaction, all_transactions, 14, 0),
-        "30_days_apart_exact": get_n_transactions_days_apart_v1(transaction, all_transactions, 30, 0),
-        "90_days_apart_exact": get_n_transactions_days_apart_v1(transaction, all_transactions, 90, 0),
+        "7_days_apart_exact": get_n_transactions_days_apart(transaction, all_transactions, 7, 0),
+        "7_days_apart_off_by_1": get_n_transactions_days_apart(transaction, all_transactions, 7, 1),
+        "14_days_apart_exact": get_n_transactions_days_apart(transaction, all_transactions, 14, 0),
+        "14_days_apart_off_by_1": get_n_transactions_days_apart(transaction, all_transactions, 14, 1),
+        "30_days_apart_exact": get_n_transactions_days_apart(transaction, all_transactions, 30, 0),
+        "30_days_apart_off_by_1": get_n_transactions_days_apart(transaction, all_transactions, 30, 1),
+        "60_days_apart_exact": get_n_transactions_days_apart(transaction, all_transactions, 60, 0),
+        "90_days_apart_exact": get_n_transactions_days_apart(transaction, all_transactions, 90, 0),
         "is_insurance": get_is_insurance(transaction),
         "is_utility": is_utility_bill(transaction),
         "is_phone": get_is_phone(transaction),
         "is_always_recurring": get_is_always_recurring(transaction),
         "is_auto_pay": is_auto_pay(transaction),
         "is_membership": is_membership(transaction),
-        "is_recurring_utility": get_is_utility(transaction),
     }
 
 
@@ -308,44 +306,6 @@ def is_recurring_based_on_99(transaction: Transaction, all_transactions: list[Tr
             count = 1  # Reset count if the gap doesn't match
 
     return False
-
-
-def test_get_features(transactions: list[Transaction]) -> None:
-    """Test get_features."""
-    features = get_features(transactions[0], transactions)
-    assert features["n_transactions_same_amount"] == 2
-    assert pytest.approx(features["percent_transactions_same_amount"]) == 2 / 7
-    assert not features["ends_in_99"]
-    assert features["amount"] == 100
-    assert features["same_day_exact"] == 2
-    assert features["same_day_off_by_1"] == 3
-    assert features["same_day_off_by_2"] == 4  # Updated expected value
-    assert features["7_days_apart_exact"] == 0
-    assert features["14_days_apart_exact"] == 0
-    assert features["30_days_apart_exact"] == 0
-    assert features["90_days_apart_exact"] == 0
-    assert features["is_insurance"]
-    assert not features["is_utility"]
-    assert not features["is_phone"]
-    assert not features["is_always_recurring"]
-    assert not features["is_auto_pay"]
-    assert not features["is_membership"]
-    assert not features["is_recurring_utility"]
-
-
-def test_get_n_transactions_days_apart(transactions: list[Transaction]) -> None:
-    """Test get_n_transactions_days_apart."""
-    transactions = [
-        Transaction(id=1, user_id="user1", name="name1", amount=2.99, date="2024-01-01"),
-        Transaction(id=2, user_id="user1", name="name1", amount=2.99, date="2024-01-02"),
-        Transaction(id=3, user_id="user1", name="name1", amount=2.99, date="2024-01-14"),
-        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-15"),
-        Transaction(id=5, user_id="user1", name="name1", amount=2.99, date="2024-01-16"),
-        Transaction(id=6, user_id="user1", name="name1", amount=2.99, date="2024-01-29"),
-        Transaction(id=7, user_id="user1", name="name1", amount=2.99, date="2024-01-31"),
-    ]
-    assert get_n_transactions_days_apart(transactions[0], transactions, 14, 0) == 1
-    assert get_n_transactions_days_apart(transactions[0], transactions, 14, 1) == 3
 
 
 def get_transaction_similarity(transaction: Transaction, all_transactions: list[Transaction]) -> float:
