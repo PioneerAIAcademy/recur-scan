@@ -24,6 +24,7 @@ from recur_scan.features import (
     get_transaction_count,
     get_transaction_density,
     get_transaction_frequency,
+    parse_date,  # Add this import
 )
 from recur_scan.transactions import Transaction
 
@@ -232,4 +233,13 @@ def test_get_features(transactions) -> None:
     ]
     assert list(features.keys()) == expected_keys
     assert isinstance(features, dict)
-    assert all(isinstance(v, float | int) for v in features.values())  # Fix type check syntax
+    assert all(isinstance(v, float | int) for v in features.values())
+
+
+def test_parse_date() -> None:
+    """Test that parse_date correctly converts a string to a datetime object."""
+    assert parse_date("2024-01-01") == datetime(2024, 1, 1)
+    with pytest.raises(ValueError, match="time data '2024/01/01' does not match format '%Y-%m-%d'"):
+        parse_date("2024/01/01")  # Invalid format
+    with pytest.raises(ValueError, match="time data 'invalid-date' does not match format '%Y-%m-%d'"):
+        parse_date("invalid-date")  # Invalid string
