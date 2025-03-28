@@ -1,8 +1,8 @@
+import math
 import re
+import statistics
 from datetime import datetime
 from statistics import mean, stdev
-
-import numpy as np
 
 from recur_scan.transactions import Transaction
 
@@ -44,12 +44,12 @@ def get_average_transaction_amount(transaction: Transaction, all_transactions: l
     Returns:
         float: The average transaction amount for the vendor.
     """
-    vendor_transactions = [
-        t.amount for t in all_transactions if t.name == transaction.name
-    ]  # Filter transactions by vendor name
+    vendor_transactions = [t.amount for t in all_transactions if t.name == transaction.name]
+
     if not vendor_transactions:
         return 0.0  # Return 0 if there are no transactions for the vendor
-    return float(np.mean(vendor_transactions))  # Return the average amount
+
+    return sum(vendor_transactions) / len(vendor_transactions)  # Compute the average
 
 
 def get_transaction_rate(transaction: Transaction, all_transactions: list[Transaction]) -> float:
@@ -72,39 +72,47 @@ def get_transaction_rate(transaction: Transaction, all_transactions: list[Transa
 
 
 def get_dispersion_transaction_amount(transaction: Transaction, all_transactions: list[Transaction]) -> float:
-    """Calculate the dispersion in transaction amounts for the same vendor"""
-    vendor_transactions = [
-        t.amount for t in all_transactions if t.name == transaction.name
-    ]  # Get amounts for the same vendor
+    """Calculate the dispersion (variance) in transaction amounts for the same vendor."""
+    vendor_transactions = [t.amount for t in all_transactions if t.name == transaction.name]
+
     if len(vendor_transactions) < 2:
         return 0.0  # Return 0 if there are less than 2 transactions
-    return float(np.var(vendor_transactions))  # Return the dispersion
+
+    mean_value = sum(vendor_transactions) / len(vendor_transactions)  # Compute mean
+    variance = sum((x - mean_value) ** 2 for x in vendor_transactions) / len(vendor_transactions)  # Compute variance
+
+    return variance
 
 
 def get_median_variation_transaction_amount(transaction: Transaction, all_transactions: list[Transaction]) -> float:
     """Calculate the median absolute deviation (MAD) of transaction amounts for the same vendor"""
-    vendor_transactions = [
-        t.amount for t in all_transactions if t.name == transaction.name
-    ]  # Get amounts for the same vendor
+    vendor_transactions = [t.amount for t in all_transactions if t.name == transaction.name]
+
     if len(vendor_transactions) < 2:
         return 0.0  # Return 0 if there are less than 2 transactions
-    median = np.median(vendor_transactions)  # Calculate the median
-    mad = np.median([abs(amount - median) for amount in vendor_transactions])  # Calculate MAD
-    return float(mad)  # Return the MAD
+
+    median_value = statistics.median(vendor_transactions)  # Compute the median
+    mad = statistics.median([abs(amount - median_value) for amount in vendor_transactions])  # Compute MAD
+
+    return float(mad)  # Return MAD
 
 
 def get_variation_ratio(transaction: Transaction, all_transactions: list[Transaction]) -> float:
     """Calculate the coefficient of variation (CV) of transaction amounts for the same vendor"""
-    vendor_transactions = [
-        t.amount for t in all_transactions if t.name == transaction.name
-    ]  # Get amounts for the same vendor
+    vendor_transactions = [t.amount for t in all_transactions if t.name == transaction.name]
+
     if len(vendor_transactions) < 2:
         return 0.0  # Return 0 if there are less than 2 transactions
-    mean = np.mean(vendor_transactions)  # Calculate the mean
-    if mean == 0:
+
+    mean_value = statistics.mean(vendor_transactions)  # Compute mean
+    if mean_value == 0:
         return 0.0  # Avoid division by zero
-    std_dev = np.std(vendor_transactions)  # Calculate the standard deviation
-    return float(std_dev / mean)  # Return the coefficient of variation
+
+    # Compute standard deviation (population std, same as np.std with ddof=0)
+    variance = sum((x - mean_value) ** 2 for x in vendor_transactions) / len(vendor_transactions)
+    std_dev = math.sqrt(variance)  # Compute standard deviation
+
+    return float(std_dev / mean_value)  # Return CV
 
 
 # def get_is_recurring_deposit(transaction: Transaction, all_transactions: list[Transaction]) -> bool:
