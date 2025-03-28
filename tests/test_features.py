@@ -1,8 +1,12 @@
 from recur_scan.features import (
+    amount_ends_in_00,
+    amount_ends_in_99,
     get_average_transaction_amount,
     get_avg_days_between_same_merchant_amount,
+    get_days_since_last_same_merchant_amount,
     get_ends_in_99,
     get_features,
+    get_interval_variance_coefficient,
     get_is_always_recurring,
     get_is_insurance,
     get_is_phone,
@@ -13,8 +17,14 @@ from recur_scan.features import (
     get_n_transactions_days_apart,
     get_n_transactions_same_amount,
     get_n_transactions_same_day,
+    get_n_transactions_same_merchant_amount,
     get_pct_transactions_same_day,
     get_percent_transactions_same_amount,
+    get_percent_transactions_same_merchant_amount,
+    get_stddev_days_between_same_merchant_amount,
+    has_consistent_reference_codes,
+    has_incrementing_numbers,
+    is_expected_transaction_date,
     is_recurring,
     is_recurring_merchant,
 )
@@ -225,3 +235,122 @@ def test_is_recurring() -> None:
     ]
     transaction = transactions[0]
     assert is_recurring(transaction, transactions)
+
+
+def test_amount_ends_in_99() -> None:
+    """Test that amount_ends_in_99 correctly identifies amounts ending with .99"""
+    # Test positive case
+    transaction = create_transaction(1, "user1", "Store", "2024-01-01", 9.99)
+    assert amount_ends_in_99(transaction), "Should detect amount ending with .99"
+    # Test negative cases
+    transaction = create_transaction(2, "user1", "Store", "2024-01-02", 10.00)
+    assert not amount_ends_in_99(transaction), "Should not detect amount ending with .00"
+    transaction = create_transaction(3, "user1", "Store", "2024-01-03", 10.98)
+    assert not amount_ends_in_99(transaction), "Should not detect amount ending with .98"
+
+
+def test_amount_ends_in_00() -> None:
+    """Test amount_ends_in_00 correctly identifies .00 amounts"""
+    transaction = create_transaction(1, "user1", "Store", "2024-01-01", 10.00)
+    assert amount_ends_in_00(transaction)
+    transaction = create_transaction(2, "user1", "Store", "2024-01-02", 10.01)
+    assert not amount_ends_in_00(transaction)
+
+
+def test_get_n_transactions_same_merchant_amount() -> None:
+    """Test counting transactions with same merchant and amount"""
+    transactions = [
+        create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
+        create_transaction(2, "user1", "VendorA", "2024-01-08", 100.0),
+        create_transaction(3, "user1", "VendorA", "2024-01-15", 200.0),
+    ]
+    transaction = transactions[0]
+    assert get_n_transactions_same_merchant_amount(transaction, transactions) == 2
+
+
+def test_get_percent_transactions_same_merchant_amount() -> None:
+    """Test percentage of transactions with same merchant/amount"""
+    transactions = [
+        create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
+        create_transaction(2, "user1", "VendorA", "2024-01-08", 100.0),
+        create_transaction(3, "user1", "VendorB", "2024-01-15", 100.0),
+    ]
+    transaction = transactions[0]
+    assert get_percent_transactions_same_merchant_amount(transaction, transactions) == 2 / 3
+
+
+def test_get_interval_variance_coefficient() -> None:
+    """Test interval consistency measurement"""
+    transactions = [
+        create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
+        create_transaction(2, "user1", "VendorA", "2024-01-08", 100.0),
+        create_transaction(3, "user1", "VendorA", "2024-01-15", 100.0),
+    ]
+    transaction = transactions[0]
+    assert get_interval_variance_coefficient(transaction, transactions) == 0.0  # Perfectly consistent
+
+
+def test_get_stddev_days_between_same_merchant_amount() -> None:
+    """Test standard deviation of transaction intervals"""
+    transactions = [
+        create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
+        create_transaction(2, "user1", "VendorA", "2024-01-08", 100.0),
+        create_transaction(3, "user1", "VendorA", "2024-01-15", 100.0),
+    ]
+    transaction = transactions[0]
+    assert get_stddev_days_between_same_merchant_amount(transaction, transactions) == 0.0
+
+
+def test_get_days_since_last_same_merchant_amount() -> None:
+    """Test days since last same merchant/amount transaction"""
+    transactions = [
+        create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
+        create_transaction(2, "user1", "VendorA", "2024-01-08", 100.0),
+        create_transaction(3, "user1", "VendorA", "2024-01-15", 100.0),
+    ]
+    transaction = transactions[2]
+    assert get_days_since_last_same_merchant_amount(transaction, transactions) == 7
+
+
+def test_is_expected_transaction_date() -> None:
+    """Test if transaction occurs on expected date"""
+    transactions = [
+        create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
+        create_transaction(2, "user1", "VendorA", "2024-01-08", 100.0),
+        create_transaction(3, "user1", "VendorA", "2024-01-15", 100.0),
+    ]
+    transaction = transactions[2]
+    assert is_expected_transaction_date(transaction, transactions)
+
+
+def test_has_incrementing_numbers() -> None:
+    """Test detection of incrementing numbers in transaction names"""
+    transactions = [
+        create_transaction(1, "user1", "Payment #1001", "2024-01-01", 50.0),
+        create_transaction(2, "user1", "Payment #1002", "2024-01-08", 50.0),
+        create_transaction(3, "user1", "Payment #1003", "2024-01-15", 50.0),
+    ]
+    transaction = transactions[0]
+    assert has_incrementing_numbers(transaction, transactions), (
+        "Should detect incrementing numbers in Payment #1001, #1002, #1003"
+    )
+    # Test negative case
+    transactions = [
+        create_transaction(1, "user1", "Payment #1001", "2024-01-01", 50.0),
+        create_transaction(2, "user1", "Payment #1005", "2024-01-08", 50.0),
+        create_transaction(3, "user1", "Payment #1010", "2024-01-15", 50.0),
+    ]
+    transaction = transactions[0]
+    assert not has_incrementing_numbers(transaction, transactions), (
+        "Should not detect incrementing numbers with inconsistent jumps"
+    )
+
+
+def test_has_consistent_reference_codes() -> None:
+    """Test detection of consistent reference codes"""
+    transactions = [
+        create_transaction(1, "user1", "Payment REF:ABC123", "2024-01-01", 50.0),
+        create_transaction(2, "user1", "Payment REF:ABC123", "2024-01-08", 50.0),
+    ]
+    transaction = transactions[0]
+    assert has_consistent_reference_codes(transaction, transactions)

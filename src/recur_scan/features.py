@@ -299,26 +299,26 @@ def is_expected_transaction_date(transaction: Transaction, all_transactions: lis
 
 def has_incrementing_numbers(transaction: Transaction, all_transactions: list[Transaction]) -> bool:
     """Check if transaction descriptions contain incrementing numbers (non-recurring pattern)"""
+    # Filter transactions by merchant name
     same_merchant_transactions = sorted(
-        [t for t in all_transactions if t.name.lower() == transaction.name.lower()], key=lambda x: x.date
+        [t for t in all_transactions if t.user_id == transaction.user_id], key=lambda x: x.date
     )
 
     if len(same_merchant_transactions) < 3:
         return False
 
-    # Extract numbers from transaction names
+    # Extract numbers from transaction names in order of date
     import re
 
     number_patterns = []
     for t in same_merchant_transactions:
         numbers = re.findall(r"\d+", t.name)
         if numbers:
-            number_patterns.extend([int(n) for n in numbers])
+            number_patterns.append(int(numbers[-1]))  # Use the last number in the name
 
-    # Check if numbers form an incrementing sequence
+    # Check if numbers form a strictly incrementing sequence
     if len(number_patterns) >= 3:
-        differences = [number_patterns[i + 1] - number_patterns[i] for i in range(len(number_patterns) - 1)]
-        return all(d > 0 for d in differences) and len(set(differences)) <= 2
+        return all(number_patterns[i + 1] - number_patterns[i] == 1 for i in range(len(number_patterns) - 1))
 
     return False
 
@@ -363,4 +363,23 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         "min_transaction_amount": get_min_transaction_amount(all_transactions),
         "most_frequent_names": len(get_most_frequent_names(all_transactions)),
         "is_recurring": is_recurring(transaction, all_transactions),
+        "amount_ends_in_99": amount_ends_in_99(transaction),
+        "amount_ends_in_00": amount_ends_in_00(transaction),
+        "n_transactions_same_merchant_amount": get_n_transactions_same_merchant_amount(transaction, all_transactions),
+        "percent_transactions_same_merchant_amount": get_percent_transactions_same_merchant_amount(
+            transaction, all_transactions
+        ),
+        "interval_variance_coefficient": get_interval_variance_coefficient(transaction, all_transactions),
+        "stddev_days_between_same_merchant_amount": get_stddev_days_between_same_merchant_amount(
+            transaction, all_transactions
+        ),
+        "days_since_last_same_merchant_amount": get_days_since_last_same_merchant_amount(transaction, all_transactions),
+        "is_expected_transaction_date": is_expected_transaction_date(transaction, all_transactions),
+        "has_incrementing_numbers": has_incrementing_numbers(transaction, all_transactions),
+        "has_consistent_reference_codes": has_consistent_reference_codes(transaction, all_transactions),
+        "is_always_recurring": get_is_always_recurring(transaction),
+        "is_insurance": get_is_insurance(transaction),
+        "is_utility": get_is_utility(transaction),
+        "is_phone": get_is_phone(transaction),
+        "ends_in_99": get_ends_in_99(transaction),
     }
