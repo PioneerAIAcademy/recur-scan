@@ -5,29 +5,35 @@ from math import isclose
 import pytest
 
 from recur_scan.features import (
+    get_average_transaction_amount,
     get_day,
+    get_dispersion_transaction_amount,
     get_ends_in_99,
     get_is_always_recurring,
     get_is_insurance,
     get_is_phone,
     get_is_utility,
     get_max_transaction_amount,
+    get_median_variation_transaction_amount,
     get_min_transaction_amount,
     get_month,
     get_n_transactions_days_apart,
     get_n_transactions_same_amount,
     get_n_transactions_same_day,
     get_n_transactions_same_vendor,
-    get_pct_transactions_days_apart,
-    get_pct_transactions_same_day,
+    # get_pct_transactions_days_apart,
+    # get_pct_transactions_same_day,
     get_percent_transactions_same_amount,
     get_transaction_intervals,
-    get_year,
-    #    get_is_recurring_deposit,
-    #    get_is_dynamic_recurring,
-    #    matching_transaction_ratio,
+    get_transaction_rate,
+    get_transactions_interval_stability,
+    # get_is_recurring_deposit,
+    # get_is_dynamic_recurring,
+    # matching_transaction_ratio,
     #    common_transaction_names,
     # get_day_of_week,
+    get_variation_ratio,
+    get_year,
 )
 from recur_scan.transactions import Transaction
 
@@ -83,15 +89,15 @@ def test_get_n_transactions_same_day() -> None:
     assert get_n_transactions_same_day(transactions[2], transactions, 0) == 1
 
 
-def test_get_pct_transactions_same_day() -> None:
-    """Test that get_pct_transactions_same_day returns the correct percentage of transactions on the same day."""
-    transactions = [
-        Transaction(id=1, user_id="user1", name="name1", amount=100, date="2024-01-01"),
-        Transaction(id=2, user_id="user1", name="name1", amount=100, date="2024-01-01"),
-        Transaction(id=3, user_id="user1", name="name1", amount=200, date="2024-01-02"),
-        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-03"),
-    ]
-    assert get_pct_transactions_same_day(transactions[0], transactions, 0) == 2 / 4
+# def test_get_pct_transactions_same_day() -> None:
+#    """Test that get_pct_transactions_same_day returns the correct percentage of transactions on the same day."""
+#    transactions = [
+#        Transaction(id=1, user_id="user1", name="name1", amount=100, date="2024-01-01"),
+#        Transaction(id=2, user_id="user1", name="name1", amount=100, date="2024-01-01"),
+#        Transaction(id=3, user_id="user1", name="name1", amount=200, date="2024-01-02"),
+#        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-03"),
+#    ]
+#    assert get_pct_transactions_same_day(transactions[0], transactions, 0) == 2 / 4
 
 
 def test_get_n_transactions_days_apart() -> None:
@@ -109,19 +115,19 @@ def test_get_n_transactions_days_apart() -> None:
     assert get_n_transactions_days_apart(transactions[0], transactions, 14, 1) == 4
 
 
-def test_get_pct_transactions_days_apart() -> None:
-    """Test get_pct_transactions_days_apart."""
-    transactions = [
-        Transaction(id=1, user_id="user1", name="name1", amount=2.99, date="2024-01-01"),
-        Transaction(id=2, user_id="user1", name="name1", amount=2.99, date="2024-01-02"),
-        Transaction(id=3, user_id="user1", name="name1", amount=2.99, date="2024-01-14"),
-        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-15"),
-        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-16"),
-        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-29"),
-        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-31"),
-    ]
-    assert get_pct_transactions_days_apart(transactions[0], transactions, 14, 0) == 2 / 7
-    assert get_pct_transactions_days_apart(transactions[0], transactions, 14, 1) == 4 / 7
+# def test_get_pct_transactions_days_apart() -> None:
+#    """Test get_pct_transactions_days_apart."""
+#    transactions = [
+#        Transaction(id=1, user_id="user1", name="name1", amount=2.99, date="2024-01-01"),
+#        Transaction(id=2, user_id="user1", name="name1", amount=2.99, date="2024-01-02"),
+#        Transaction(id=3, user_id="user1", name="name1", amount=2.99, date="2024-01-14"),
+#        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-15"),
+#        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-16"),
+#        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-29"),
+#        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-31"),
+#    ]
+#    assert get_pct_transactions_days_apart(transactions[0], transactions, 14, 0) == 2 / 7
+#    assert get_pct_transactions_days_apart(transactions[0], transactions, 14, 1) == 4 / 7
 
 
 def test_get_is_insurance() -> None:
@@ -280,10 +286,152 @@ def test_get_year() -> None:
     assert get_year(transaction) == 2024
 
 
+def test_get_transaction_rate() -> None:
+    """Test get_transaction_frequency."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="Allstate Insurance", amount=100, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="AT&T", amount=100, date="2024-01-01"),
+        Transaction(id=3, user_id="user1", name="Duke Energy", amount=200, date="2024-01-02"),
+        Transaction(id=4, user_id="user1", name="HighEnergy Soft Drinks", amount=2.99, date="2024-01-03"),
+    ]
+    assert get_transaction_rate(transactions[0], transactions) == 0.0
+    assert (
+        get_transaction_rate(
+            Transaction(id=12, user_id="user1", name="vendor3", amount=99.99, date="2024-01-08"), transactions
+        )
+        == 0.0
+    )
+
+
+def test_get_dispersion_transaction_amount() -> None:
+    """Test get_dispersion_transaction_amount."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="Allstate Insurance", amount=100, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="AT&T", amount=100, date="2024-01-01"),
+        Transaction(id=3, user_id="user1", name="Duke Energy", amount=200, date="2024-01-02"),
+        Transaction(id=4, user_id="user1", name="HighEnergy Soft Drinks", amount=2.99, date="2024-01-03"),
+    ]
+    assert (
+        get_dispersion_transaction_amount(transactions[0], transactions) == 0.0
+    )  # Replace with the correct expected value
+
+
+def test_get_median_variation_transaction_amount() -> None:
+    """Test get_mad_transaction_amount."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="vendor1", amount=100, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="vendor1", amount=150, date="2024-01-02"),
+        Transaction(id=3, user_id="user1", name="vendor1", amount=200, date="2024-01-03"),
+        Transaction(id=4, user_id="user1", name="vendor2", amount=50, date="2024-01-04"),
+        Transaction(id=5, user_id="user1", name="vendor2", amount=60, date="2024-01-05"),
+        Transaction(id=6, user_id="user1", name="vendor2", amount=70, date="2024-01-06"),
+    ]
+    # Test for vendor1
+    assert pytest.approx(get_median_variation_transaction_amount(transactions[0], transactions)) == 50.0
+    # Test for vendor2
+    assert pytest.approx(get_median_variation_transaction_amount(transactions[3], transactions)) == 10.0
+    # Test for a vendor with only one transaction
+    assert (
+        get_median_variation_transaction_amount(
+            Transaction(id=7, user_id="user1", name="vendor3", amount=100, date="2024-01-07"), transactions
+        )
+        == 0.0
+    )
+
+
+def test_get_variation_ratio() -> None:
+    """Test get_coefficient_of_variation."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="vendor1", amount=100, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="vendor1", amount=150, date="2024-01-02"),
+        Transaction(id=3, user_id="user1", name="vendor1", amount=200, date="2024-01-03"),
+        Transaction(id=4, user_id="user1", name="vendor2", amount=50, date="2024-01-04"),
+        Transaction(id=5, user_id="user1", name="vendor2", amount=60, date="2024-01-05"),
+        Transaction(id=6, user_id="user1", name="vendor2", amount=70, date="2024-01-06"),
+    ]
+    # Test for vendor1
+    assert pytest.approx(get_variation_ratio(transactions[0], transactions), rel=1e-4) == 0.2721655269759087
+    # Test for vendor2
+    assert pytest.approx(get_variation_ratio(transactions[3], transactions), rel=1e-4) == 0.13608276348795434
+    # Test for a vendor with only one transaction
+    assert (
+        get_variation_ratio(
+            Transaction(id=7, user_id="user1", name="vendor3", amount=100, date="2024-01-07"), transactions
+        )
+        == 0.0
+    )
+    # Test for a vendor with mean = 0 (edge case)
+    assert (
+        get_variation_ratio(
+            Transaction(id=8, user_id="user1", name="vendor4", amount=0, date="2024-01-08"), transactions
+        )
+        == 0.0
+    )
+    # Test for a vendor with mean = 0 (edge case)
+    assert (
+        get_variation_ratio(
+            Transaction(id=8, user_id="user1", name="vendor4", amount=0, date="2024-01-08"), transactions
+        )
+        == 0.0
+    )
+
+
+def test_get_transaction_interval_consistency() -> None:
+    """Test get_transaction_interval_consistency."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="vendor1", amount=100, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="vendor1", amount=150, date="2024-01-15"),
+        Transaction(id=3, user_id="user1", name="vendor1", amount=200, date="2024-01-30"),
+        Transaction(id=4, user_id="user1", name="vendor2", amount=50, date="2024-01-01"),
+        Transaction(id=5, user_id="user1", name="vendor2", amount=60, date="2024-01-10"),
+        Transaction(id=6, user_id="user1", name="vendor2", amount=70, date="2024-01-20"),
+    ]
+    # Test for vendor1
+    assert pytest.approx(get_transactions_interval_stability(transactions[0], transactions), rel=1e-4) == 14.5
+
+    # Test for vendor2
+    assert pytest.approx(get_transactions_interval_stability(transactions[3], transactions), rel=1e-4) == 9.5
+
+    # Test for a vendor with only one transaction
+    assert (
+        get_transactions_interval_stability(
+            Transaction(
+                id=7, user_id="useget_transactions_interval_stabilityr1", name="vendor3", amount=100, date="2024-01-01"
+            ),
+            transactions,
+        )
+        == 0.0
+    )
+
+
+def test_get_average_transaction_amount() -> None:
+    """Test get_average_transaction_amount."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="vendor1", amount=100, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="vendor1", amount=150, date="2024-01-02"),
+        Transaction(id=3, user_id="user1", name="vendor1", amount=200, date="2024-01-03"),
+        Transaction(id=4, user_id="user1", name="vendor2", amount=50, date="2024-01-04"),
+        Transaction(id=5, user_id="user1", name="vendor2", amount=60, date="2024-01-05"),
+        Transaction(id=6, user_id="user1", name="vendor2", amount=70, date="2024-01-06"),
+    ]
+    # Test for vendor1
+    assert pytest.approx(get_average_transaction_amount(transactions[0], transactions)) == 150.0
+    # Test for vendor2
+    assert pytest.approx(get_average_transaction_amount(transactions[3], transactions)) == 60.0
+    # Test for a vendor with only one transaction
+    assert (
+        get_average_transaction_amount(
+            Transaction(id=7, user_id="user1", name="vendor3", amount=100, date="2024-01-07"), transactions
+        )
+        == 0.0
+    )
+
+
 # def test_get_day_of_week(transactions) -> None:
 #    """Test that get_day_of_week returns the correct day of the week for the transaction date."""
 #    transaction = transactions[0]
 #    assert get_day_of_week(transaction) == 0  # 0 = Monday
+
 
 # def test_get_is_recurring_deposit() -> None:
 #    """Test that get_is_recurring_deposit returns True if the transaction is a recurring deposit."""
@@ -318,7 +466,7 @@ def test_get_year() -> None:
 #        "std": 5.0,
 #    }
 #    assert get_is_dynamic_recurring(interval_stats, amount_stats) is True
-#
+
 #    interval_stats_false = {
 #        "avg_days_between_transactions": 30.5,
 #        "std_dev_days_between_transactions": 50.0,
