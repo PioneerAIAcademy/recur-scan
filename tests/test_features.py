@@ -141,6 +141,7 @@ def test_get_is_always_recurring() -> None:
         Transaction(id=2, user_id="user1", name="walmart", amount=100, date="2024-01-01")
     )
 
+
 def test_has_min_recurrence_period() -> None:
     """Test that has_min_recurrence_period correctly identifies if transactions span min_days."""
     transactions = [

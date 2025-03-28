@@ -6,6 +6,7 @@ import numpy as np
 
 from recur_scan.transactions import Transaction
 
+
 def get_is_always_recurring(transaction: Transaction) -> bool:
     """Check if the transaction is always recurring because of the vendor name - check lowercase match"""
     always_recurring_vendors = {
@@ -127,7 +128,8 @@ def get_percent_transactions_same_amount(transaction: Transaction, all_transacti
     n_same_amount = len([t for t in all_transactions if t.amount == transaction.amount])
     return n_same_amount / len(all_transactions)
 
-#Osasere Features
+
+# Osasere Features
 def has_min_recurrence_period(
     transaction: Transaction,
     all_transactions: list[Transaction],
