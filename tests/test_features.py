@@ -2,17 +2,20 @@
 import pytest
 
 from recur_scan.features import (
+    get_day_of_month_consistency,
+    get_day_of_month_variability,
     get_ends_in_99,
-    get_is_always_recurring,
     get_is_insurance,
     get_is_phone,
     get_is_utility,
+    get_median_period,
     get_n_transactions_days_apart,
     get_n_transactions_same_amount,
     get_n_transactions_same_day,
-    get_pct_transactions_days_apart,
-    get_pct_transactions_same_day,
     get_percent_transactions_same_amount,
+    get_recurrence_confidence,
+    has_min_recurrence_period,
+    is_weekday_consistent,
 )
 from recur_scan.transactions import Transaction
 
