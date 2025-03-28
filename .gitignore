@@ -172,3 +172,15 @@ cython_debug/
 
 # node_modules
 node_modules/
+
+# data and model files
+/data
+**/*.csv
+**/*.json
+**/*.joblib
+**/*.pkl
+**/*.pickle
+**/*.pt
+**/*.pth
+**/*.pth.tar
+**/*.pth.tar.gz
