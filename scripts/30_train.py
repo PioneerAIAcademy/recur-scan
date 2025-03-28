@@ -33,8 +33,8 @@ do_hyperparameter_optimization = False  # set to False to use the default hyperp
 n_hpo_iters = 20  # number of hyperparameter optimization iterations
 n_jobs = -1  # number of jobs to run in parallel (set to 1 if your laptop gets too hot)
 
-in_path = "training file goes here"
-out_dir = "output directory goes here"
+in_path = "C:\\Users\\HP\\Documents\\recur.csv"  # path to the input CSV file containing transactions
+out_dir = "C:\\Users\\HP\\Documents\\Output"
 
 # %%
 # parse script arguments from command line
@@ -64,6 +64,8 @@ logger.info(f"Read {len(transactions)} transactions with {len(y)} labels")
 
 grouped_transactions = group_transactions(transactions)
 logger.info(f"Grouped {len(transactions)} transactions into {len(grouped_transactions)} groups")
+
+
 # %%
 # get features
 
@@ -78,6 +80,7 @@ dict_vectorizer = DictVectorizer(sparse=False)
 X = dict_vectorizer.fit_transform(features)
 feature_names = dict_vectorizer.get_feature_names_out()  # Get feature names from the vectorizer
 logger.info(f"Converted {len(features)} features into a {X.shape} matrix")
+
 
 # %%
 #
@@ -337,3 +340,5 @@ print("All Features:")
 print(f"Precision: {precision}")
 print(f"Recall: {recall}")
 print(f"F1 Score: {f1}")
+
+# %%
