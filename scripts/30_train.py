@@ -34,7 +34,7 @@ n_hpo_iters = 20  # number of hyperparameter optimization iterations
 n_jobs = -1  # number of jobs to run in parallel (set to 1 if your laptop gets too hot)
 
 
-in_path = r"C:\Users\Ernest\Downloads\recur_scan_train.csv"
+in_path = r"C:\Users\Ernest\Downloads\recur_scan_train - train.csv"
 out_dir = r"C:\Users\Ernest\OneDrive\Desktop\output"
 
 # %%
