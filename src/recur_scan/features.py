@@ -1,6 +1,9 @@
 import datetime
 import itertools
+import re
 import statistics
+from datetime import date
+from functools import lru_cache
 
 from recur_scan.transactions import Transaction
 
@@ -10,26 +13,117 @@ FeatureValue = float | int | bool | str
 # ------------------------- Original Feature Functions -------------------------
 
 
+def get_is_always_recurring(transaction: Transaction) -> bool:
+    """Check if the transaction is always recurring because of the vendor name - check lowercase match"""
+    always_recurring_vendors = {
+        "google storage",
+        "netflix",
+        "hulu",
+        "spotify",
+    }
+    return transaction.name.lower() in always_recurring_vendors
+
+
+def get_is_insurance(transaction: Transaction) -> bool:
+    """Check if the transaction is an insurance payment."""
+    match = re.search(r"\b(insurance|insur|insuranc)\b", transaction.name, re.IGNORECASE)
+    return bool(match)
+
+
+def get_is_utility_regex(transaction: Transaction) -> bool:
+    """Check if the transaction is a utility payment using regex."""
+    match = re.search(r"\b(utility|utilit|energy)\b", transaction.name, re.IGNORECASE)
+    return bool(match)
+
+
+def get_is_phone_regex(transaction: Transaction) -> bool:
+    """Check if the transaction is a phone payment using regex."""
+    match = re.search(r"\b(at&t|t-mobile|verizon)\b", transaction.name, re.IGNORECASE)
+    return bool(match)
+
+
+@lru_cache(maxsize=1024)
+def _parse_date(date_str: str) -> date:
+    """Parse a date string into a datetime.date object."""
+    return datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
+
+
+def get_n_transactions_days_apart(
+    transaction: Transaction,
+    all_transactions: list[Transaction],
+    n_days_apart: int,
+    n_days_off: int,
+) -> int:
+    """
+    Get the number of transactions in all_transactions that are within n_days_off of
+    being n_days_apart from transaction
+    """
+    n_txs = 0
+    transaction_date = _parse_date(transaction.date)
+    lower_remainder = n_days_apart - n_days_off
+    upper_remainder = n_days_off
+    for t in all_transactions:
+        t_date = _parse_date(t.date)
+        days_diff = abs((t_date - transaction_date).days)
+        if days_diff < n_days_apart - n_days_off:
+            continue
+        remainder = days_diff % n_days_apart
+        if remainder <= upper_remainder or remainder >= lower_remainder:
+            n_txs += 1
+    return n_txs
+
+
+def get_pct_transactions_days_apart(
+    transaction: Transaction, all_transactions: list[Transaction], n_days_apart: int, n_days_off: int
+) -> float:
+    return get_n_transactions_days_apart(transaction, all_transactions, n_days_apart, n_days_off) / len(
+        all_transactions
+    )
+
+
+def _get_day(date_str: str) -> int:
+    """Get the day of the month from a transaction date."""
+    return int(date_str.split("-")[2])
+
+
+def get_n_transactions_same_day(transaction: Transaction, all_transactions: list[Transaction], n_days_off: int) -> int:
+    """Get the number of transactions in all_transactions that are on the same day of the month as transaction"""
+    return len([t for t in all_transactions if abs(_get_day(t.date) - _get_day(transaction.date)) <= n_days_off])
+
+
+def get_pct_transactions_same_day(
+    transaction: Transaction, all_transactions: list[Transaction], n_days_off: int
+) -> float:
+    return get_n_transactions_same_day(transaction, all_transactions, n_days_off) / len(all_transactions)
+
+
+def get_ends_in_99(transaction: Transaction) -> bool:
+    """Check if the transaction amount ends in .99 using string formatting after rounding."""
+    amount_str = f"{round(transaction.amount, 2):.2f}"
+    return amount_str.endswith("99")
+
+
 def get_n_transactions_same_amount(transaction: Transaction, all_transactions: list[Transaction]) -> int:
     """Get the number of transactions in all_transactions with the same amount as transaction"""
     return sum(1 for t in all_transactions if t.amount == transaction.amount)
 
 
 def get_percent_transactions_same_amount(transaction: Transaction, all_transactions: list[Transaction]) -> float:
-    """Get the percentage of transactions in all_transactions with the same amount as transaction"""
     if not all_transactions:
         return 0.0
     return get_n_transactions_same_amount(transaction, all_transactions) / len(all_transactions)
 
 
 def amount_ends_in_99(transaction: Transaction) -> bool:
-    """Check if the transaction amount ends in .99"""
-    return round(transaction.amount % 1, 2) == 0.99
+    """Check if the transaction amount ends in .99 using string formatting after rounding."""
+    amount_str = f"{round(transaction.amount, 2):.2f}"
+    return amount_str.endswith("99")
 
 
 def amount_ends_in_00(transaction: Transaction) -> bool:
-    """Check if the transaction amount ends in .00"""
-    return round(transaction.amount % 1, 2) == 0.00
+    """Check if the transaction amount ends in .00 using string formatting after rounding."""
+    amount_str = f"{round(transaction.amount, 2):.2f}"
+    return amount_str.endswith("00")
 
 
 def is_recurring_merchant(transaction: Transaction) -> bool:
@@ -46,7 +140,6 @@ def is_recurring_merchant(transaction: Transaction) -> bool:
         "disney mobile",
         "hbo max",
         "amazon prime",
-        "youtube",
         "netflix",
         "spotify",
         "hulu",
@@ -62,8 +155,8 @@ def is_recurring_merchant(transaction: Transaction) -> bool:
         "amazonprime",
         "duke energy",
         "adobe",
-        "Healthy.line",
-        "Canva Pty Limite",
+        "healthy.line",
+        "canva pty limite",
         "brigit",
         "cleo",
         "microsoft",
@@ -81,7 +174,6 @@ def get_n_transactions_same_merchant_amount(transaction: Transaction, all_transa
 def get_percent_transactions_same_merchant_amount(
     transaction: Transaction, all_transactions: list[Transaction]
 ) -> float:
-    """Get the percentage of transactions with the same merchant and amount"""
     if not all_transactions:
         return 0.0
     n_same = get_n_transactions_same_merchant_amount(transaction, all_transactions)
@@ -151,7 +243,6 @@ def get_recurring_frequency(transaction: Transaction, all_transactions: list[Tra
     )
     if len(same_transactions) < 2:
         return "none"
-
     intervals = [
         (
             datetime.datetime.strptime(t2.date, "%Y-%m-%d").date()
@@ -159,12 +250,9 @@ def get_recurring_frequency(transaction: Transaction, all_transactions: list[Tra
         ).days
         for t1, t2 in itertools.pairwise(same_transactions)
     ]
-
     if not intervals:
         return "none"
-
     avg_interval = sum(intervals) / len(intervals)
-
     if avg_interval <= 1:
         return "daily"
     elif avg_interval <= 7:
@@ -175,13 +263,13 @@ def get_recurring_frequency(transaction: Transaction, all_transactions: list[Tra
         return "none"
 
 
-def get_is_always_recurring(transaction: Transaction, all_transactions: list[Transaction]) -> bool:
+def get_is_always_recurring_transaction(transaction: Transaction, all_transactions: list[Transaction]) -> bool:
     """Determine if the transaction is always recurring"""
     same_transactions = [t for t in all_transactions if t.name == transaction.name and t.amount == transaction.amount]
     return len(same_transactions) > 1
 
 
-def get_is_insurance(transaction: Transaction) -> bool:
+def is_insurance_related(transaction: Transaction) -> bool:
     """Determine if the transaction is related to insurance"""
     insurance_keywords = {"insurance", "ins", "policy"}
     merchant_name = transaction.name.lower()
@@ -197,9 +285,8 @@ def get_is_utility(transaction: Transaction) -> bool:
 
 def get_is_phone(transaction: Transaction) -> bool:
     """Determine if the transaction is related to phone services"""
-    phone_keywords = {"phone", "mobile", "cellular", "wireless", "telecom"}
     merchant_name = transaction.name.lower()
-    return any(keyword in merchant_name for keyword in phone_keywords)
+    return ("at&t" in merchant_name) or ("t-mobile" in merchant_name) or ("verizon" in merchant_name)
 
 
 def is_subscription_amount(transaction: Transaction) -> bool:
@@ -212,14 +299,11 @@ def get_additional_features(
     transaction: Transaction, all_transactions: list[Transaction]
 ) -> dict[str, float | int | bool]:
     """Extract additional temporal and merchant consistency features that are not already included."""
-    # Temporal features
     trans_date = datetime.datetime.strptime(transaction.date, "%Y-%m-%d").date()
-    day_of_week: int = trans_date.weekday()  # Monday = 0, Sunday = 6
+    day_of_week: int = trans_date.weekday()
     day_of_month: int = trans_date.day
     is_weekend: bool = day_of_week >= 5
-    is_end_of_month: bool = day_of_month >= 28  # Rough flag for end-of-month
-
-    # Merchant frequency (regardless of amount)
+    is_end_of_month: bool = day_of_month >= 28
     same_merchant_transactions = sorted(
         [t for t in all_transactions if t.name == transaction.name], key=lambda x: x.date
     )
@@ -228,7 +312,6 @@ def get_additional_features(
         days_since_first: int = (trans_date - first_date).days
     else:
         days_since_first = 0
-
     intervals = []
     for t1, t2 in itertools.pairwise(same_merchant_transactions):
         d1 = datetime.datetime.strptime(t1.date, "%Y-%m-%d").date()
@@ -236,8 +319,6 @@ def get_additional_features(
         intervals.append((d2 - d1).days)
     min_interval: int = min(intervals) if intervals else 0
     max_interval: int = max(intervals) if intervals else 0
-
-    # Merchant-specific frequency (all transactions for this merchant)
     merchant_total_count: int = sum(1 for t in all_transactions if t.name == transaction.name)
     merchant_recent_count: int = sum(
         1
@@ -245,8 +326,6 @@ def get_additional_features(
         if t.name == transaction.name
         and (trans_date - datetime.datetime.strptime(t.date, "%Y-%m-%d").date()).days <= 30
     )
-
-    # Amount consistency for the merchant (across all transactions regardless of amount)
     merchant_amounts = [t.amount for t in all_transactions if t.name == transaction.name]
     if merchant_amounts:
         amount_stddev: float = statistics.stdev(merchant_amounts) if len(merchant_amounts) > 1 else 0.0
@@ -257,7 +336,6 @@ def get_additional_features(
     relative_amount_difference: float = (
         abs(transaction.amount - merchant_avg) / merchant_avg if merchant_avg != 0 else 0.0
     )
-
     return {
         "day_of_week": day_of_week,
         "day_of_month": day_of_month,
@@ -281,30 +359,11 @@ def get_amount_variation_features(
 ) -> dict[str, FeatureValue]:
     """
     Calculate features related to amount variations for a given transaction.
-
-    This function computes:
-      - merchant_avg: The average transaction amount for the merchant.
-      - relative_diff: The relative difference between the transaction amount and the merchant average.
-      - amount_anomaly: A flag indicating if the relative difference exceeds the threshold.
-
-    Parameters:
-        transaction (Transaction): The transaction under analysis.
-        all_transactions (list[Transaction]): List of all transactions.
-        threshold (float): Threshold for flagging an anomaly (default is 0.2, i.e., 20%).
-
-    Returns:
-        dict[str, FeatureValue]: A dictionary containing the computed features.
     """
-    # Get all transactions for the same merchant (by name)
     merchant_transactions = [t for t in all_transactions if t.name == transaction.name]
     merchant_avg = statistics.mean([t.amount for t in merchant_transactions]) if merchant_transactions else 0.0
-
-    # Compute the relative difference
     relative_diff = abs(transaction.amount - merchant_avg) / merchant_avg if merchant_avg != 0 else 0.0
-
-    # Flag as anomaly if the relative difference exceeds the threshold
     amount_anomaly = relative_diff > threshold
-
     return {
         "merchant_avg": merchant_avg,
         "relative_amount_diff": relative_diff,
@@ -316,11 +375,13 @@ def get_amount_variation_features(
 
 
 def get_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, FeatureValue]:
-    """Extract features for a given transaction"""
+    """Extract a comprehensive set of features for a given transaction"""
     features: dict[str, FeatureValue] = {
+        # Basic transaction features
         "amount": transaction.amount,
         "amount_ends_in_99": amount_ends_in_99(transaction),
         "amount_ends_in_00": amount_ends_in_00(transaction),
+        # Merchant recurring flags and frequencies
         "is_recurring_merchant": is_recurring_merchant(transaction),
         "n_transactions_same_amount": get_n_transactions_same_amount(transaction, all_transactions),
         "percent_transactions_same_amount": get_percent_transactions_same_amount(transaction, all_transactions),
@@ -328,6 +389,7 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         "percent_transactions_same_merchant_amount": get_percent_transactions_same_merchant_amount(
             transaction, all_transactions
         ),
+        # Temporal interval features for same merchant & amount
         "avg_days_between_same_merchant_amount": get_avg_days_between_same_merchant_amount(
             transaction, all_transactions
         ),
@@ -336,18 +398,13 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         ),
         "days_since_last_same_merchant_amount": get_days_since_last_same_merchant_amount(transaction, all_transactions),
         "recurring_frequency": get_recurring_frequency(transaction, all_transactions),
-        "is_always_recurring": get_is_always_recurring(transaction, all_transactions),
+        # Other flags
         "is_insurance": get_is_insurance(transaction),
         "is_utility": get_is_utility(transaction),
         "is_phone": get_is_phone(transaction),
         "is_subscription_amount": is_subscription_amount(transaction),
     }
-    # Add additional temporal and merchant consistency features
-    additional_features: dict[str, float | int | bool] = get_additional_features(transaction, all_transactions)
-    features.update(additional_features)
-
-    # Add amount variation features
-    amount_variation_features = get_amount_variation_features(transaction, all_transactions, threshold=0.2)
-    features.update(amount_variation_features)
-
+    # Merge in additional features and amount variation features
+    features.update(get_additional_features(transaction, all_transactions))
+    features.update(get_amount_variation_features(transaction, all_transactions))
     return features
