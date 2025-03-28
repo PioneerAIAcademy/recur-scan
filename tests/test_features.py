@@ -20,7 +20,6 @@ from recur_scan.features import (
 )
 from recur_scan.transactions import Transaction
 
-
 # Helper function to create transactions
 def create_transaction(id, user_id, name, date, amount):
     return Transaction(id=id, user_id=user_id, name=name, date=date, amount=amount)
