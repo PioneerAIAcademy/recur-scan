@@ -178,3 +178,9 @@ node_modules/
 **/*.csv
 **/*.json
 **/*.joblib
+**/*.pkl
+**/*.pickle
+**/*.pt
+**/*.pth
+**/*.pth.tar
+**/*.pth.tar.gz

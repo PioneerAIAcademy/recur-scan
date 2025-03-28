@@ -7,7 +7,7 @@ requires-python = ">=3.12"
 authors = [
     {name = "Recur-Scan Team"}
 ]
-license = {text = "MIT"}
+license = {text = "Apache-2.0"}
 keywords = ["finance", "machine-learning", "transactions", "recurring"]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -24,6 +24,8 @@ dependencies = [
     "pandas-stubs>=2.2.0.230605",
     "scikit-learn>=1.6.1",
     "scipy>=1.15.2",
+    "matplotlib>=3.10.1",
+    "shap>=0.47.0",
 ]
 
 [build-system]
