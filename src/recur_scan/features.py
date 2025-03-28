@@ -84,6 +84,18 @@ def get_n_transactions_days_apart(
     return n_txs
 
 
+def get_pct_transactions_days_apart(
+    transaction: Transaction, all_transactions: list[Transaction], n_days_apart: int, n_days_off: int
+) -> float:
+    """
+    Get the percentage of transactions in all_transactions that are within
+    n_days_off of being n_days_apart from transaction
+    """
+    return get_n_transactions_days_apart(transaction, all_transactions, n_days_apart, n_days_off) / len(
+        all_transactions
+    )
+
+
 def _get_day(date: str) -> int:
     """Get the day of the month from a transaction date."""
     return int(date.split("-")[2])
@@ -378,6 +390,20 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         "has_incrementing_numbers": has_incrementing_numbers(transaction, all_transactions),
         "has_consistent_reference_codes": has_consistent_reference_codes(transaction, all_transactions),
         "is_always_recurring": get_is_always_recurring(transaction),
+        "ends_in_99": get_ends_in_99(transaction),
+        "amount": transaction.amount,
+        "same_day_exact": get_n_transactions_same_day(transaction, all_transactions, 0),
+        "pct_transactions_same_day": get_pct_transactions_same_day(transaction, all_transactions, 0),
+        "same_day_off_by_1": get_n_transactions_same_day(transaction, all_transactions, 1),
+        "same_day_off_by_2": get_n_transactions_same_day(transaction, all_transactions, 2),
+        "14_days_apart_exact": get_n_transactions_days_apart(transaction, all_transactions, 14, 0),
+        "pct_14_days_apart_exact": get_pct_transactions_days_apart(transaction, all_transactions, 14, 0),
+        "14_days_apart_off_by_1": get_n_transactions_days_apart(transaction, all_transactions, 14, 1),
+        "pct_14_days_apart_off_by_1": get_pct_transactions_days_apart(transaction, all_transactions, 14, 1),
+        "7_days_apart_exact": get_n_transactions_days_apart(transaction, all_transactions, 7, 0),
+        "pct_7_days_apart_exact": get_pct_transactions_days_apart(transaction, all_transactions, 7, 0),
+        "7_days_apart_off_by_1": get_n_transactions_days_apart(transaction, all_transactions, 7, 1),
+        "pct_7_days_apart_off_by_1": get_pct_transactions_days_apart(transaction, all_transactions, 7, 1),
         "is_insurance": get_is_insurance(transaction),
         "is_utility": get_is_utility(transaction),
         "is_phone": get_is_phone(transaction),
