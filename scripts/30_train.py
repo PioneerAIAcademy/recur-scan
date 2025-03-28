@@ -33,7 +33,7 @@ n_hpo_iters = 20  # number of hyperparameter optimization iterations
 n_jobs = -1  # number of jobs to run in parallel (set to 1 if your laptop gets too hot)
 
 in_path = "spreadsheet2.csv"
-out_dir = "your output directory goes here"
+out_dir = "."
 
 # %%
 # parse script arguments from command line
@@ -140,7 +140,7 @@ logger.info("Model trained")
 proba = model.predict_proba(X)[:, 1]  # Probability of "recurring"
 print(f"Max probability: {proba.max()}, Min probability: {proba.min()}")
 print(f"Number of predictions above 0.9999: {(proba >= 0.9999).sum()}")
-y_pred = (proba >= 0.9999).astype(int)  # Higher threshold for precision
+y_pred = (proba >= 0.9).astype(int)  # Higher threshold for precision
 
 # %%
 # review feature importances

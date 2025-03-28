@@ -35,6 +35,8 @@ def get_is_always_recurring(transaction: Transaction) -> bool:
         "hbo max",
         "paramount+",
         "peacock",
+        "crunchyroll",
+        "masterclass",
     }
     return transaction.name.lower() in always_recurring_vendors
 
@@ -96,18 +98,6 @@ def get_n_transactions_days_apart(
     return n_txs
 
 
-def get_pct_transactions_days_apart(
-    transaction: Transaction, all_transactions: list[Transaction], n_days_apart: int, n_days_off: int
-) -> float:
-    """
-    Get the percentage of transactions in all_transactions that are within
-    n_days_off of being n_days_apart from transaction
-    """
-    return get_n_transactions_days_apart(transaction, all_transactions, n_days_apart, n_days_off) / len(
-        all_transactions
-    )
-
-
 def _get_day(date: str) -> int:
     """Get the day of the month from a transaction date."""
     return int(date.split("-")[2])
@@ -116,13 +106,6 @@ def _get_day(date: str) -> int:
 def get_n_transactions_same_day(transaction: Transaction, all_transactions: list[Transaction], n_days_off: int) -> int:
     """Get the number of transactions on the same day of the month as transaction."""
     return len([t for t in all_transactions if abs(_get_day(t.date) - _get_day(transaction.date)) <= n_days_off])
-
-
-def get_pct_transactions_same_day(
-    transaction: Transaction, all_transactions: list[Transaction], n_days_off: int
-) -> float:
-    """Get the percentage of transactions in all_transactions that are on the same day of the month as transaction"""
-    return get_n_transactions_same_day(transaction, all_transactions, n_days_off) / len(all_transactions)
 
 
 def get_ends_in_99(transaction: Transaction) -> bool:
@@ -143,7 +126,6 @@ def get_percent_transactions_same_amount(transaction: Transaction, all_transacti
     return n_same_amount / len(all_transactions)
 
 
-# Refined Features
 def get_days_between_std(transaction: Transaction, all_transactions: list[Transaction]) -> float:
     """Calculate the standard deviation of days between transactions for this user_id and name."""
     user_transactions = [t for t in all_transactions if t.user_id == transaction.user_id and t.name == transaction.name]
@@ -166,6 +148,75 @@ def get_amount_cv(transaction: Transaction, all_transactions: list[Transaction])
     return min(cv, 10.0)
 
 
+# Duplicate function removed to resolve the conflict.
+
+
+def get_has_recurring_keyword(transaction: Transaction) -> int:
+    """Check if the transaction name contains recurring-related keywords using regex."""
+    recurring_keywords = (
+        r"\b(sub|membership|renewal|monthly|annual|premium|bill|plan|fee|auto|pay|service|"
+        r"recurring|subscription|auto-renew|recurr|autopay|rec|month|year|quarterly|weekly|due)\b"
+    )
+    return int(bool(re.search(recurring_keywords, transaction.name, re.IGNORECASE)))
+
+
+def get_is_convenience_store(transaction: Transaction) -> int:
+    """Check if the transaction is at a convenience store using regex."""
+    return int(
+        bool(
+            re.search(
+                r"\b(7-eleven|cvs|walgreens|rite aid|circle k|quiktrip|speedway|ampm|"
+                r"7 eleven|seven eleven|sheetz)\b",
+                transaction.name,
+                re.IGNORECASE,
+            )
+        )
+    )
+
+
+def get_pct_transactions_days_apart(
+    transaction: Transaction,
+    all_transactions: list[Transaction],
+    n_days_apart: int,
+    n_days_off: int,
+) -> float:
+    """Get the percentage of transactions within n_days_off of being n_days_apart from transaction."""
+    if not all_transactions:
+        return 0.0
+    n_txs = get_n_transactions_days_apart(transaction, all_transactions, n_days_apart, n_days_off)
+    return n_txs / len(all_transactions)
+
+
+def get_pct_transactions_same_day(
+    transaction: Transaction, all_transactions: list[Transaction], n_days_off: int
+) -> float:
+    """Get the percentage of transactions on the same day of the month as transaction."""
+    if not all_transactions:
+        return 0.0
+    n_txs = get_n_transactions_same_day(transaction, all_transactions, n_days_off)
+    return n_txs / len(all_transactions)
+
+
+def get_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float | int]:
+    """Return a feature dictionary for the transaction."""
+    return {
+        "n_transactions_same_amount": get_n_transactions_same_amount(transaction, all_transactions),
+        "percent_transactions_same_amount": get_percent_transactions_same_amount(transaction, all_transactions),
+        "days_between_std": get_days_between_std(transaction, all_transactions),
+        "amount_cv": get_amount_cv(transaction, all_transactions),
+        "day_of_month_consistency": get_day_of_month_consistency(transaction, all_transactions),
+        "exact_amount_count": get_exact_amount_count(transaction, all_transactions),
+        "has_recurring_keyword": get_has_recurring_keyword(transaction),
+        "is_always_recurring": int(get_is_always_recurring(transaction)),
+        "n_transactions_30_days_apart": get_n_transactions_days_apart(transaction, all_transactions, 30, 2),
+        "is_convenience_store": get_is_convenience_store(transaction),
+        "ends_in_99": int(get_ends_in_99(transaction)),
+        "is_insurance": int(get_is_insurance(transaction)),
+        "is_utility": int(get_is_utility(transaction)),
+        "is_phone": int(get_is_phone(transaction)),
+    }
+
+
 def get_day_of_month_consistency(transaction: Transaction, all_transactions: list[Transaction]) -> float:
     """Calculate entropy of day-of-month distribution for this user_id and name (low = consistent)."""
     user_transactions = [t for t in all_transactions if t.user_id == transaction.user_id and t.name == transaction.name]
@@ -181,109 +232,3 @@ def get_exact_amount_count(transaction: Transaction, all_transactions: list[Tran
     """Count transactions with the exact same amount for this user_id and name."""
     user_transactions = [t for t in all_transactions if t.user_id == transaction.user_id and t.name == transaction.name]
     return sum(1 for t in user_transactions if t.amount == transaction.amount)
-
-
-def get_has_recurring_keyword(transaction: Transaction) -> int:
-    """Check if the transaction name contains recurring-related keywords using regex."""
-    recurring_keywords = (
-        r"\b(sub|membership|renewal|monthly|annual|premium|bill|plan|fee|auto|pay|service|recurring|"
-        r"subscription|auto-renew|recurr|autopay|rec|month|year|quarterly|weekly)\b"
-    )
-    return int(bool(re.search(recurring_keywords, transaction.name, re.IGNORECASE)))
-
-
-def get_is_convenience_store(transaction: Transaction) -> int:
-    """Check if the transaction is at a convenience store using regex."""
-    convenience_stores = (
-        r"\b(7-eleven|cvs|walgreens|rite aid|circle k|quiktrip|speedway|ampm|7 eleven|seven eleven|sheetz|wawa)\b"
-    )
-    return int(bool(re.search(convenience_stores, transaction.name, re.IGNORECASE)))
-
-
-def get_amount_date_cluster_score(transaction: Transaction, all_transactions: list[Transaction]) -> float:
-    """Score how tightly amounts and dates cluster (high = recurring)."""
-    user_transactions = [t for t in all_transactions if t.user_id == transaction.user_id and t.name == transaction.name]
-    if len(user_transactions) < 3:
-        return 0.0
-    amounts = [t.amount for t in user_transactions]
-    dates = [(_parse_date(t.date) - _parse_date(user_transactions[0].date)).days for t in user_transactions]
-    amount_std = float(np.std(amounts))
-    date_std = float(np.std([dates[i + 1] - dates[i] for i in range(len(dates) - 1)] if len(dates) > 1 else 100.0))
-    score = 1.0 / (1.0 + 0.1 * amount_std + 3.0 * date_std)  # Reduce date_std weight slightly
-    return float(min(score, 1.0))
-
-
-def get_transaction_frequency_score(transaction: Transaction, all_transactions: list[Transaction]) -> float:
-    """Score the frequency of transactions for this user_id and name."""
-    user_transactions = [t for t in all_transactions if t.user_id == transaction.user_id and t.name == transaction.name]
-    if len(user_transactions) < 2:
-        return 0.0
-    dates = sorted([_parse_date(t.date) for t in user_transactions])
-    total_days = (dates[-1] - dates[0]).days
-    if total_days == 0:
-        return 0.0
-    frequency = len(user_transactions) / total_days
-    return float(min(frequency * 100, 1.0))
-
-
-def get_is_transactional_merchant(transaction: Transaction) -> int:
-    """Check if the merchant is typically transactional using regex."""
-    transactional_merchants = (
-        r"\b(7-eleven|cvs|walgreens|rite aid|circle k|quiktrip|speedway|ampm|7 eleven|seven eleven|walmart|"
-        r"target|costco|safeway|kroger|starbucks|mcdonalds|chipotle|whole foods|trader joe's|albertsons|"
-        r"publix|dunkin|taco bell|wendys|sheetz|wawa|ralphs|vons)\b"
-    )
-    return int(bool(re.search(transactional_merchants, transaction.name, re.IGNORECASE)))
-
-
-def get_is_subscription_merchant(transaction: Transaction) -> int:
-    """Check if the merchant is typically subscription-based using regex."""
-    subscription_merchants = (
-        r"\b(netflix|hulu|spotify|amazon prime|disney\+|apple music|xbox live|playstation plus|adobe|"
-        r"microsoft 365|audible|dropbox|zoom|grammarly|nordvpn|expressvpn|patreon|onlyfans|youtube premium|"
-        r"apple tv|hbo max|paramount\+|peacock|crunchyroll|masterclass)\b"
-    )
-    return int(bool(re.search(subscription_merchants, transaction.name, re.IGNORECASE)))
-
-
-def get_amount_roundness_score(transaction: Transaction) -> float:
-    """Score how 'round' the amount is (e.g., $10.00 vs. $10.53). Recurring often have round amounts."""
-    cents = (transaction.amount * 100) % 100
-    if cents == 0 or cents == 99:  # $10.00 or $9.99
-        return 1.0
-    return 1.0 - (cents / 100.0)  # Closer to 0 or 99 → higher score
-
-
-def get_timing_consistency_score(transaction: Transaction, all_transactions: list[Transaction]) -> float:
-    """Score the consistency of transaction timing intervals (high = recurring)."""
-    user_transactions = [t for t in all_transactions if t.user_id == transaction.user_id and t.name == transaction.name]
-    if len(user_transactions) < 3:
-        return 0.0
-    dates = sorted([_parse_date(t.date) for t in user_transactions])
-    intervals = [(dates[i + 1] - dates[i]).days for i in range(len(dates) - 1)]
-    if not intervals:
-        return 0.0
-    mean_interval = np.mean(intervals)
-    consistency = 1.0 / (1.0 + np.std(intervals) / (mean_interval + 1e-10))  # High if intervals are consistent
-    return float(min(float(consistency), 1.0))
-
-
-def get_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float | int]:
-    """Return a feature dictionary for the transaction."""
-    return {
-        "n_transactions_same_amount": get_n_transactions_same_amount(transaction, all_transactions),
-        "percent_transactions_same_amount": get_percent_transactions_same_amount(transaction, all_transactions),
-        "ends_in_99": get_ends_in_99(transaction),
-        "amount": transaction.amount,
-        "same_day_exact": get_n_transactions_same_day(transaction, all_transactions, 0),
-        "same_day_off_by_1": get_n_transactions_same_day(transaction, all_transactions, 1),
-        "same_day_off_by_2": get_n_transactions_same_day(transaction, all_transactions, 2),
-        "14_days_apart_exact": get_n_transactions_days_apart(transaction, all_transactions, 14, 0),
-        "14_days_apart_off_by_1": get_n_transactions_days_apart(transaction, all_transactions, 14, 1),
-        "7_days_apart_exact": get_n_transactions_days_apart(transaction, all_transactions, 7, 0),
-        "7_days_apart_off_by_1": get_n_transactions_days_apart(transaction, all_transactions, 7, 1),
-        "is_insurance": get_is_insurance(transaction),
-        "is_utility": get_is_utility(transaction),
-        "is_phone": get_is_phone(transaction),
-        "is_always_recurring": get_is_always_recurring(transaction),
-    }
