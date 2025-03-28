@@ -363,4 +363,5 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         "min_transaction_amount": get_min_transaction_amount(all_transactions),
         "most_frequent_names": len(get_most_frequent_names(all_transactions)),
         "is_recurring": is_recurring(transaction, all_transactions),
+        ""
     }
