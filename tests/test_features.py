@@ -1,5 +1,3 @@
-import pytest
-
 from recur_scan.features import (
     get_average_transaction_amount,
     get_avg_days_between_same_merchant_amount,
@@ -28,25 +26,6 @@ def create_transaction(id, user_id, name, date, amount):
     return Transaction(id=id, user_id=user_id, name=name, date=date, amount=amount)
 
 
-@pytest.fixture
-def transactions():
-    return [
-        create_transaction(1, "user1", "name1", "2024-01-01", 100.0),
-        create_transaction(2, "user1", "name1", "2024-01-01", 100.0),
-        create_transaction(3, "user1", "name1", "2024-01-02", 200.0),
-        create_transaction(4, "user1", "name1", "2024-01-03", 2.99),
-    ]
-
-
-@pytest.fixture
-def recurring_transactions():
-    return [
-        create_transaction(1, "user1", "Netflix", "2024-01-01", 15.99),
-        create_transaction(2, "user1", "Netflix", "2024-02-01", 15.99),
-        create_transaction(3, "user1", "Netflix", "2024-03-01", 15.99),
-    ]
-
-
 def test_get_n_transactions_same_amount() -> None:
     """Test that get_n_transactions_same_amount returns the correct number of transactions with the same amount."""
     transactions = [
@@ -59,8 +38,14 @@ def test_get_n_transactions_same_amount() -> None:
     assert get_n_transactions_same_amount(transactions[2], transactions) == 1
 
 
-def test_get_percent_transactions_same_amount(transactions) -> None:
+def test_get_percent_transactions_same_amount() -> None:
     """Test that get_percent_transactions_same_amount returns correct percentage."""
+    transactions = [
+        create_transaction(1, "user1", "name1", "2024-01-01", 100.0),
+        create_transaction(2, "user1", "name1", "2024-01-01", 100.0),
+        create_transaction(3, "user1", "name1", "2024-01-02", 200.0),
+        create_transaction(4, "user1", "name1", "2024-01-03", 2.99),
+    ]
     assert get_percent_transactions_same_amount(transactions[0], transactions) == 0.5  # 2/4
 
 
@@ -83,8 +68,14 @@ def test_get_avg_days_between_same_merchant_amount() -> None:
     assert get_avg_days_between_same_merchant_amount(transaction, transactions) == 7.0
 
 
-def test_get_features(transactions) -> None:
+def test_get_features() -> None:
     """Test that get_features returns the correct features for a transaction."""
+    transactions = [
+        create_transaction(1, "user1", "name1", "2024-01-01", 100.0),
+        create_transaction(2, "user1", "name1", "2024-01-01", 100.0),
+        create_transaction(3, "user1", "name1", "2024-01-02", 200.0),
+        create_transaction(4, "user1", "name1", "2024-01-03", 2.99),
+    ]
     transaction = transactions[0]
     features = get_features(transaction, transactions)
     assert features["n_transactions_same_amount"] == 2
@@ -131,14 +122,18 @@ def test_get_is_phone() -> None:
 
 
 def test_get_n_transactions_days_apart() -> None:
-    """Test get_n_transactions_days_apart counts transactions with regular intervals."""
+    """Test get_n_transactions_days_apart."""
     transactions = [
-        create_transaction(1, "user1", "Netflix", "2024-01-01", 15.99),
-        create_transaction(2, "user1", "Netflix", "2024-01-31", 15.99),
-        create_transaction(3, "user1", "Netflix", "2024-03-01", 15.99),
+        Transaction(id=1, user_id="user1", name="name1", amount=2.99, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="name1", amount=2.99, date="2024-01-02"),
+        Transaction(id=3, user_id="user1", name="name1", amount=2.99, date="2024-01-14"),
+        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-15"),
+        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-16"),
+        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-29"),
+        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-31"),
     ]
-    transaction = transactions[0]
-    assert get_n_transactions_days_apart(transaction, transactions, 30, 2) == 2
+    assert get_n_transactions_days_apart(transactions[0], transactions, 14, 0) == 2
+    assert get_n_transactions_days_apart(transactions[0], transactions, 14, 1) == 4
 
 
 def test_get_n_transactions_same_day() -> None:
@@ -164,27 +159,48 @@ def test_get_pct_transactions_same_day() -> None:
 
 
 def test_get_ends_in_99() -> None:
-    """Test get_ends_in_99 identifies amounts ending in .99."""
-    transaction = create_transaction(1, "user1", "Store", "2024-01-01", 9.99)
-    assert get_ends_in_99(transaction)
-    transaction = create_transaction(2, "user1", "Store", "2024-01-02", 10.00)
-    assert not get_ends_in_99(transaction)
+    """Test that get_ends_in_99 returns True for amounts ending in 99."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="name1", amount=100, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="name1", amount=100, date="2024-01-01"),
+        Transaction(id=3, user_id="user1", name="name1", amount=200, date="2024-01-02"),
+        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-03"),
+    ]
+    assert not get_ends_in_99(transactions[0])
+    assert get_ends_in_99(transactions[3])
 
 
-def test_get_average_transaction_amount(transactions) -> None:
+def test_get_average_transaction_amount() -> None:
     """Test get_average_transaction_amount calculates correct average."""
-    # Correct expected value to match actual calculation:
+    transactions = [
+        create_transaction(1, "user1", "name1", "2024-01-01", 100.0),
+        create_transaction(2, "user1", "name1", "2024-01-01", 100.0),
+        create_transaction(3, "user1", "name1", "2024-01-02", 200.0),
+        create_transaction(4, "user1", "name1", "2024-01-03", 2.99),
+    ]
     # (100 + 100 + 200 + 2.99) / 4 = 100.7475 ≈ 100.75
     assert round(get_average_transaction_amount(transactions), 2) == 100.75
 
 
-def test_get_max_transaction_amount(transactions) -> None:
+def test_get_max_transaction_amount() -> None:
     """Test get_max_transaction_amount identifies maximum amount."""
+    transactions = [
+        create_transaction(1, "user1", "name1", "2024-01-01", 100.0),
+        create_transaction(2, "user1", "name1", "2024-01-01", 100.0),
+        create_transaction(3, "user1", "name1", "2024-01-02", 200.0),
+        create_transaction(4, "user1", "name1", "2024-01-03", 2.99),
+    ]
     assert get_max_transaction_amount(transactions) == 200.0
 
 
-def test_get_min_transaction_amount(transactions) -> None:
+def test_get_min_transaction_amount() -> None:
     """Test get_min_transaction_amount identifies minimum amount."""
+    transactions = [
+        create_transaction(1, "user1", "name1", "2024-01-01", 100.0),
+        create_transaction(2, "user1", "name1", "2024-01-01", 100.0),
+        create_transaction(3, "user1", "name1", "2024-01-02", 200.0),
+        create_transaction(4, "user1", "name1", "2024-01-03", 2.99),
+    ]
     assert get_min_transaction_amount(transactions) == 2.99
 
 
@@ -200,7 +216,12 @@ def test_get_most_frequent_names() -> None:
     assert len(get_most_frequent_names(transactions)) == 1  # StoreA has multiple amounts
 
 
-def test_is_recurring(recurring_transactions) -> None:
+def test_is_recurring() -> None:
     """Test is_recurring identifies recurring transactions."""
-    transaction = recurring_transactions[0]
-    assert is_recurring(transaction, recurring_transactions)
+    transactions = [
+        create_transaction(1, "user1", "Netflix", "2024-01-01", 15.99),
+        create_transaction(2, "user1", "Netflix", "2024-02-01", 15.99),
+        create_transaction(3, "user1", "Netflix", "2024-03-01", 15.99),
+    ]
+    transaction = transactions[0]
+    assert is_recurring(transaction, transactions)
