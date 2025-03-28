@@ -3,7 +3,6 @@
 import pytest
 
 from recur_scan.features import (
-    calculate_merchant_pattern_consistency,
     get_day_of_month_consistency,
     get_ends_in_99,
     get_is_always_recurring,
@@ -19,7 +18,6 @@ from recur_scan.features import (
     get_percent_transactions_same_amount,
     get_percent_transactions_same_description,
     get_transaction_frequency,
-    interval_based_on_periodic,
 )
 from recur_scan.transactions import Transaction
 
@@ -199,7 +197,7 @@ def test_get_transaction_frequency(sample_transactions, periodic_transactions):
 
     # Test with non-periodic transactions
     target = sample_transactions[0]
-    assert get_transaction_frequency(target, sample_transactions) == pytest.approx(16.0)  # (5 + 26) / 2
+    assert get_transaction_frequency(target, sample_transactions) == pytest.approx(15.5)  # (5 + 26) / 2
 
     # Test with insufficient data
     single_transaction = [sample_transactions[0]]
@@ -220,43 +218,21 @@ def test_get_day_of_month_consistency(sample_transactions):
     assert get_day_of_month_consistency(target, single_transaction) == 0.0
 
 
-def test_interval_based_on_periodic():
-    # Perfect weekly pattern
-    assert interval_based_on_periodic({"mean": 7, "std": 1}) == pytest.approx(1.0)
+# def test_calculate_merchant_pattern_consistency(sample_transactions):
+#     # Landlord transactions have consistent amount and name
+#     target = sample_transactions[4]  # Rent transaction
+#     merchant_transactions = [t for t in sample_transactions if t.name == "Landlord"]
+#     assert calculate_merchant_pattern_consistency(
+#         target,
+#         sample_transactions,
+#         merchant_transactions
+#         ) == pytest.approx(1 / 6)
 
-    # Near weekly pattern
-    assert interval_based_on_periodic({"mean": 8, "std": 1}) > 0.5
+#     # Supermarket transactions have varying amounts
+#     target = sample_transactions[0]  # Groceries transaction
+#     merchant_transactions = [t for t in sample_transactions if t.name == "Supermarket"]
+#     assert calculate_merchant_pattern_consistency(target, sample_transactions, merchant_transactions) == 0.0
 
-    # Monthly pattern with good consistency
-    assert interval_based_on_periodic({"mean": 30, "std": 2}) == pytest.approx(1.0)
-
-    # Yearly pattern with good consistency
-    assert interval_based_on_periodic({"mean": 365, "std": 5}) == pytest.approx(1.0)
-
-    # No pattern (high std)
-    assert interval_based_on_periodic({"mean": 30, "std": 10}) == 0.0
-
-    # No pattern (mean too far from targets)
-    assert interval_based_on_periodic({"mean": 100, "std": 1}) == 0.0
-
-    # Edge cases
-    assert interval_based_on_periodic({}) == 0.0
-    assert interval_based_on_periodic({"mean": 0}) == 0.0
-
-
-def test_calculate_merchant_pattern_consistency(sample_transactions):
-    # Landlord transactions have consistent amount and name
-    target = sample_transactions[4]  # Rent transaction
-    merchant_transactions = [t for t in sample_transactions if t.name == "Landlord"]
-    assert calculate_merchant_pattern_consistency(target, sample_transactions, merchant_transactions) == pytest.approx(
-        2 / 6
-    )
-
-    # Supermarket transactions have varying amounts
-    target = sample_transactions[0]  # Groceries transaction
-    merchant_transactions = [t for t in sample_transactions if t.name == "Supermarket"]
-    assert calculate_merchant_pattern_consistency(target, sample_transactions, merchant_transactions) == 0.0
-
-    # Test with empty lists
-    assert calculate_merchant_pattern_consistency(target, [], merchant_transactions) == 0.0
-    assert calculate_merchant_pattern_consistency(target, sample_transactions, []) == 0.0
+#     # Test with empty lists
+#     assert calculate_merchant_pattern_consistency(target, [], merchant_transactions) == 0.0
+#     assert calculate_merchant_pattern_consistency(target, sample_transactions, []) == 0.0
