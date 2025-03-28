@@ -217,9 +217,27 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
     }
 
 
+# def get_day_of_month_consistency(transaction: Transaction, all_transactions: list[Transaction]) -> float:
+#     """Calculate entropy of day-of-month distribution for this user_id and name (low = consistent)."""
+#     user_transactions = [
+#         t for t in all_transactions
+#         if t.user_id == transaction.user_id and t.name == transaction.name
+#     ]
+#     if not user_transactions:
+#         return 1.0
+#     days = [int(t.date.split("-")[2]) for t in user_transactions]
+#     value_counts = pd.Series(days).value_counts(normalize=True)
+#     entropy = -sum(p * np.log2(p + 1e-10) for p in value_counts)
+#     return float(entropy / np.log2(31))
+
+
 def get_day_of_month_consistency(transaction: Transaction, all_transactions: list[Transaction]) -> float:
     """Calculate entropy of day-of-month distribution for this user_id and name (low = consistent)."""
-    user_transactions = [t for t in all_transactions if t.user_id == transaction.user_id and t.name == transaction.name]
+    user_transactions = [
+        t
+        for t in all_transactions
+        if t.user_id == transaction.user_id and t.name == transaction.name and t != transaction
+    ]
     if not user_transactions:
         return 1.0
     days = [int(t.date.split("-")[2]) for t in user_transactions]
