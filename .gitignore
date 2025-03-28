@@ -184,7 +184,3 @@ node_modules/
 **/*.pth
 **/*.pth.tar
 **/*.pth.tar.gz
-
-
-# Data file for training model
-data
