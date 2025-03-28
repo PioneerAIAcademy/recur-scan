@@ -173,7 +173,7 @@ cython_debug/
 # node_modules
 node_modules/
 
-# data and model files
+# making data files confidential
 /data
 **/*.csv
 **/*.json
