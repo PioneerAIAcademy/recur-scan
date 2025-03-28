@@ -137,3 +137,89 @@ def test_get_is_always_recurring() -> None:
     assert not get_is_always_recurring(
         Transaction(id=2, user_id="user1", name="walmart", amount=100, date="2024-01-01")
     )
+
+def test_has_min_recurrence_period() -> None:
+    """Test that has_min_recurrence_period correctly identifies if transactions span min_days."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="Netflix", amount=15.99, date="2024-01-15"),
+        Transaction(id=2, user_id="user1", name="Netflix", amount=15.99, date="2024-02-15"),
+        Transaction(id=3, user_id="user1", name="Netflix", amount=15.99, date="2024-03-15"),
+        Transaction(id=4, user_id="user1", name="Spotify", amount=9.99, date="2024-01-01"),
+    ]
+    assert has_min_recurrence_period(transactions[0], transactions, min_days=60)
+    assert not has_min_recurrence_period(transactions[3], transactions)
+
+
+def test_get_day_of_month_consistency() -> None:
+    """Test that get_day_of_month_consistency calculates correct fraction of matching dates."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="Netflix", amount=15.99, date="2024-01-15"),
+        Transaction(id=2, user_id="user1", name="Netflix", amount=15.99, date="2024-02-15"),
+        Transaction(id=3, user_id="user1", name="Netflix", amount=15.99, date="2024-03-16"),
+        Transaction(id=4, user_id="user1", name="Netflix", amount=15.99, date="2024-04-10"),
+        Transaction(id=5, user_id="user1", name="Amazon", amount=12.99, date="2024-01-31"),
+        Transaction(id=6, user_id="user1", name="Amazon", amount=12.99, date="2024-02-28"),
+    ]
+    assert get_day_of_month_consistency(transactions[0], transactions, tolerance_days=1) == 0.75
+    assert get_day_of_month_consistency(transactions[4], transactions, tolerance_days=3) == 1.0
+
+
+def test_get_day_of_month_variability() -> None:
+    """Test that get_day_of_month_variability calculates correct standard deviation."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="Consistent", amount=10.00, date="2024-01-15"),
+        Transaction(id=2, user_id="user1", name="Consistent", amount=10.00, date="2024-02-15"),
+        Transaction(id=3, user_id="user1", name="Variable", amount=10.00, date="2024-01-05"),
+        Transaction(id=4, user_id="user1", name="Variable", amount=10.00, date="2024-02-20"),
+        Transaction(id=5, user_id="user1", name="MonthEnd", amount=10.00, date="2024-01-31"),
+        Transaction(id=6, user_id="user1", name="MonthEnd", amount=10.00, date="2024-02-28"),
+    ]
+    assert get_day_of_month_variability(transactions[0], transactions) < 1.0
+    assert get_day_of_month_variability(transactions[2], transactions) > 7.0
+    assert get_day_of_month_variability(transactions[4], transactions) < 3.0
+
+
+def test_get_recurrence_confidence() -> None:
+    """Test that get_recurrence_confidence calculates correct weighted confidence score."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="Regular", amount=10.00, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="Regular", amount=10.00, date="2024-02-01"),
+        Transaction(id=3, user_id="user1", name="Regular", amount=10.00, date="2024-03-01"),
+        Transaction(id=4, user_id="user1", name="Irregular", amount=10.00, date="2024-01-01"),
+        Transaction(id=5, user_id="user1", name="Irregular", amount=10.00, date="2024-01-15"),
+        Transaction(id=6, user_id="user1", name="Irregular", amount=10.00, date="2024-03-20"),
+    ]
+    assert get_recurrence_confidence(transactions[0], transactions) > 0.7
+    assert get_recurrence_confidence(transactions[3], transactions) < 0.5
+
+
+def test_is_weekday_consistent() -> None:
+    """Test that is_weekday_consistent correctly identifies consistent weekdays."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="Weekly", amount=5.00, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="Weekly", amount=5.00, date="2024-01-08"),
+        Transaction(id=3, user_id="user1", name="Biweekly", amount=10.00, date="2024-01-01"),
+        Transaction(id=4, user_id="user1", name="Biweekly", amount=10.00, date="2024-01-15"),
+        Transaction(id=5, user_id="user1", name="Random", amount=15.00, date="2024-01-01"),
+        Transaction(id=6, user_id="user1", name="Random", amount=15.00, date="2024-01-03"),
+        Transaction(id=7, user_id="user1", name="Random", amount=15.00, date="2024-01-07"),
+    ]
+    assert is_weekday_consistent(transactions[0], transactions)
+    assert is_weekday_consistent(transactions[2], transactions)
+    assert not is_weekday_consistent(transactions[4], transactions)
+
+
+def test_get_median_period() -> None:
+    """Test that get_median_period calculates correct median days between transactions."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="Monthly", amount=10.00, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="Monthly", amount=10.00, date="2024-02-01"),
+        Transaction(id=3, user_id="user1", name="Monthly", amount=10.00, date="2024-03-01"),
+        Transaction(id=4, user_id="user1", name="Biweekly", amount=5.00, date="2024-01-01"),
+        Transaction(id=5, user_id="user1", name="Biweekly", amount=5.00, date="2024-01-15"),
+        Transaction(id=6, user_id="user1", name="Biweekly", amount=5.00, date="2024-01-29"),
+        Transaction(id=7, user_id="user1", name="Single", amount=20.00, date="2024-01-01"),
+    ]
+    assert get_median_period(transactions[0], transactions) == pytest.approx(30.0, abs=1.0)
+    assert get_median_period(transactions[3], transactions) == 14.0
+    assert get_median_period(transactions[6], transactions) == 0.0
