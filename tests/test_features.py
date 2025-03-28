@@ -18,6 +18,7 @@ from recur_scan.features import (
     get_n_transactions_same_amount,
     get_n_transactions_same_day,
     get_n_transactions_same_merchant_amount,
+    get_pct_transactions_days_apart,
     get_pct_transactions_same_day,
     get_percent_transactions_same_amount,
     get_percent_transactions_same_merchant_amount,
@@ -107,14 +108,6 @@ def test_get_is_always_recurring() -> None:
     assert not get_is_always_recurring(transaction)
 
 
-def test_get_is_insurance() -> None:
-    """Test get_is_insurance identifies insurance payments."""
-    transaction = create_transaction(1, "user1", "Geico Insurance", "2024-01-01", 150.0)
-    assert get_is_insurance(transaction)
-    transaction = create_transaction(2, "user1", "Grocery Store", "2024-01-02", 50.0)
-    assert not get_is_insurance(transaction)
-
-
 def test_get_is_utility() -> None:
     """Test get_is_utility identifies utility payments."""
     transaction = create_transaction(1, "user1", "Electric Utility", "2024-01-01", 75.0)
@@ -155,6 +148,29 @@ def test_get_n_transactions_same_day() -> None:
     ]
     transaction = transactions[0]
     assert get_n_transactions_same_day(transaction, transactions, 1) == 2
+
+
+def test_get_pct_transactions_days_apart() -> None:
+    """Test get_pct_transactions_days_apart."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="name1", amount=2.99, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="name1", amount=2.99, date="2024-01-02"),
+        Transaction(id=3, user_id="user1", name="name1", amount=2.99, date="2024-01-14"),
+        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-15"),
+        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-16"),
+        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-29"),
+        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-31"),
+    ]
+    assert get_pct_transactions_days_apart(transactions[0], transactions, 14, 0) == 2 / 7
+    assert get_pct_transactions_days_apart(transactions[0], transactions, 14, 1) == 4 / 7
+
+
+def test_get_is_insurance() -> None:
+    """Test get_is_insurance."""
+    assert get_is_insurance(
+        Transaction(id=1, user_id="user1", name="Allstate Insurance", amount=100, date="2024-01-01")
+    )
+    assert not get_is_insurance(Transaction(id=2, user_id="user1", name="AT&T", amount=100, date="2024-01-01"))
 
 
 def test_get_pct_transactions_same_day() -> None:
