@@ -184,3 +184,4 @@ node_modules/
 **/*.pth
 **/*.pth.tar
 **/*.pth.tar.gz
+/your output directory goes here/
