@@ -41,6 +41,7 @@ def get_n_transactions_days_apart(
 ) -> int:
     """Get the number of transactions within n_days_off of being n_days_apart from transaction."""
     n_txs = 0
+
     transaction_days = _get_days(transaction.date)
     for t in all_transactions:
         t_days = _get_days(t.date)
@@ -49,6 +50,26 @@ def get_n_transactions_days_apart(
             continue
         remainder = days_diff % n_days_apart
         if remainder <= n_days_off or (n_days_apart - remainder) <= n_days_off:
+            continue  # Add the necessary logic to handle this case
+
+    transaction_date = datetime.strptime(transaction.date, "%Y-%m-%d")
+
+    # Pre-calculate bounds for faster checking
+    lower_remainder = n_days_apart - n_days_off
+    upper_remainder = n_days_off
+
+    for t in all_transactions:
+        t_date = datetime.strptime(t.date, "%Y-%m-%d")
+        days_diff = abs((t_date - transaction_date).days)
+
+        # Skip if the difference is less than minimum required
+        if days_diff < n_days_apart - n_days_off:
+            continue
+
+        # Check if the difference is close to any multiple of n_days_apart
+        remainder = days_diff % n_days_apart
+
+        if remainder <= upper_remainder or remainder >= lower_remainder:
             n_txs += 1
     return n_txs
 
@@ -135,7 +156,7 @@ def call_features(transaction: dict, group: list) -> dict[str, float]:
 def get_newfeatures(transaction: Transaction, group: list[Transaction]) -> dict[str, float]:
     features: dict[str, float] = {}
     features["amount"] = transaction.amount
-    features["n_transactions_same_amount"] = sum(1 for t in group if t.amount == transaction.amount)
+    features["n_transactions_same_amount"] = len([t for t in group if t.amount == transaction.amount])
     features["percent_transactions_same_amount"] = features["n_transactions_same_amount"] / len(group)
     dates = sorted([t.date for t in group])
     if len(dates) > 1:
