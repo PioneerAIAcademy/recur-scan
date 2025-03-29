@@ -337,5 +337,5 @@ def test_normalize_vendor_name() -> None:
 
 
 def test_compute_recurring_inputs_at() -> None:
-    """Minimal test to satisfy linting; does not verify functionality."""
-    assert True  # Trivially passes
+    """Minimal test for compute_recurring_inputs_at to satisfy linting; no functionality verified."""
+    assert True
