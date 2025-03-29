@@ -154,21 +154,37 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
     }
 
 
-def get_days_since_last_transaction(
-    transaction: Transaction, all_transactions: list[Transaction], lookback_days: int = 90
-) -> float:
-    """Get days since last similar transaction (same amount ±1%) within lookback window"""
-    similar_trans = [
-        t
-        for t in all_transactions
-        if t != transaction
-        and abs(t.amount - transaction.amount) / transaction.amount < 0.01
-        and (_parse_date(transaction.date) - _parse_date(t.date)).days <= lookback_days
-    ]
-    if not similar_trans:
-        return float("inf")
-    last_date = max(t.date for t in similar_trans)
-    return (_parse_date(transaction.date) - _parse_date(last_date)).days
+# def get_days_since_last_transaction(
+#     transaction: Transaction, all_transactions: list[Transaction], lookback_days: int = 90
+# ) -> float:
+#     """Get days since last similar transaction (same amount ±1%) within lookback window"""
+#     similar_trans = [
+#         t
+#         for t in all_transactions
+#         if t != transaction
+#         and abs(t.amount - transaction.amount) / transaction.amount < 0.01
+#         and (_parse_date(transaction.date) - _parse_date(t.date)).days <= lookback_days
+#     ]
+#     if not similar_trans:
+#         return float("inf")
+#     last_date = max(t.date for t in similar_trans)
+#     return (_parse_date(transaction.date) - _parse_date(last_date)).days
+
+
+# def get_days_since_last_transaction(transaction, transactions):
+#     # Find all transactions for the same user after the current transaction
+#     later_transactions = [t for t in transactions if t.user_id == transaction.user_id and t.date > transaction.date]
+
+#     if not later_transactions:
+#         return None
+
+#     # Find the earliest subsequent transaction
+#     next_transaction = min(later_transactions, key=lambda t: t.date)
+
+#     # Calculate days difference
+#     current_date = datetime.strptime(transaction.date, "%Y-%m-%d").date()
+#     next_date = datetime.strptime(next_transaction.date, "%Y-%m-%d").date()
+#     return (next_date - current_date).days
 
 
 def get_day_of_week(transaction: Transaction) -> int:

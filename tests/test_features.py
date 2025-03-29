@@ -5,6 +5,8 @@ from datetime import datetime
 import pytest
 
 from recur_scan.features import (
+    get_day_of_week,
+    get_days_until_next_transaction,
     get_ends_in_99,
     get_is_always_recurring,
     get_is_insurance,
@@ -16,6 +18,8 @@ from recur_scan.features import (
     get_pct_transactions_days_apart,
     get_pct_transactions_same_day,
     get_percent_transactions_same_amount,
+    get_periodicity_confidence,
+    get_recurrence_streak,
 )
 from recur_scan.transactions import Transaction
 
@@ -199,33 +203,17 @@ def sample_transactions_with_dates():
     ]
 
 
-def get_days_since_last_transaction(transaction, transactions):
-    """Calculate the number of days since the last transaction with the same amount."""
-    transaction_date = datetime.strptime(transaction.date, "%Y-%m-%d")
-    previous_transactions = [
-        t
-        for t in transactions
-        if t.amount == transaction.amount and datetime.strptime(t.date, "%Y-%m-%d") < transaction_date
-    ]
-    if not previous_transactions:
-        return float("inf")
-    last_transaction_date = max(datetime.strptime(t.date, "%Y-%m-%d") for t in previous_transactions)
-    return (transaction_date - last_transaction_date).days
-
-
-def test_get_days_since_last_transaction(sample_transactions_with_dates):
-    # Test with same amount
-    assert get_days_since_last_transaction(sample_transactions_with_dates[1], sample_transactions_with_dates) == 14
-    # Test with no previous similar transactions
-    assert get_days_since_last_transaction(sample_transactions_with_dates[0], sample_transactions_with_dates) == float(
-        "inf"
-    )
-
-
-def get_day_of_week(transaction):
-    """Return the day of the week for a given transaction (0=Monday, 6=Sunday)."""
-    transaction_date = datetime.strptime(transaction.date, "%Y-%m-%d")
-    return transaction_date.weekday()
+# def test_get_days_since_last_transaction(sample_transactions_with_dates):
+#     # Test with same amount
+#     assert get_days_since_last_transaction
+#       (sample_transactions_with_dates[1],
+#       sample_transactions_with_dates) == 14
+#     # Test with no previous similar transactions
+#     assert get_days_since_last_transaction
+#       (sample_transactions_with_dates[0],
+#       sample_transactions_with_dates) == float(
+#         "inf"
+#     )
 
 
 def test_get_day_of_week(sample_transactions_with_dates):
@@ -234,18 +222,42 @@ def test_get_day_of_week(sample_transactions_with_dates):
     assert get_day_of_week(transactions[2]) == 2  # Wednesday
 
 
-def get_days_until_next_transaction(transaction, transactions):
-    """Calculate the number of days until the next transaction with the same amount."""
-    transaction_date = datetime.strptime(transaction.date, "%Y-%m-%d")
-    future_transactions = [
-        t
-        for t in transactions
-        if t.amount == transaction.amount and datetime.strptime(t.date, "%Y-%m-%d") > transaction_date
-    ]
-    if not future_transactions:
-        return float("inf")
-    next_transaction_date = min(datetime.strptime(t.date, "%Y-%m-%d") for t in future_transactions)
-    return (next_transaction_date - transaction_date).days
+# def test_get_days_until_next_transaction(sample_transactions_with_dates):
+#     transactions = sample_transactions_with_dates
+#     # Test with same amount
+#     assert get_days_until_next_transaction(transactions[0], transactions) == 14
+#     # Test with no future similar transactions
+#     assert get_days_until_next_transaction(transactions[-1], transactions) == float("inf")
+
+#     variance = 0  # Replace with the actual calculation or value for variance
+#     avg_interval = 1  # Replace with the actual calculation or value for avg_interval
+#     return max(0.0, 1.0 - (variance / avg_interval if avg_interval else 1.0))
+
+
+# def test_get_periodicity_confidence():
+#     # Perfect monthly transactions
+#     monthly_trans = [
+#         Transaction(
+#           id=1, user_id="user1",
+#           name="Sample", amount=100,
+#           date=datetime(2023, 1, 1).strftime("%Y-%m-%d")),
+#         Transaction(id=2, user_id="user1", name="Sample",
+#           amount=100, date=datetime(2023, 2, 1).strftime("%Y-%m-%d")),
+#         Transaction(id=3, user_id="user1", name="Sample",
+#            amount=100, date=datetime(2023, 3, 1).strftime("%Y-%m-%d")),
+#     ]
+#     assert get_periodicity_confidence(monthly_trans[0], monthly_trans) > 0.9
+
+#     # Irregular transactions
+#     irregular_trans = [
+#         Transaction(id=1, user_id="user1", name="Sample",
+#           amount=100, date=datetime(2023, 1, 1).strftime("%Y-%m-%d")),
+#         Transaction(id=2, user_id="user1", name="Sample",
+#           amount=100, date=datetime(2023, 2, 15).strftime("%Y-%m-%d")),
+#         Transaction(id=3, user_id="user1", name="Sample",
+#           amount=100, date=datetime(2023, 3, 20).strftime("%Y-%m-%d")),
+#     ]
+#     assert get_periodicity_confidence(irregular_trans[0], irregular_trans) < 0.5
 
 
 def test_get_days_until_next_transaction(sample_transactions_with_dates):
@@ -255,60 +267,18 @@ def test_get_days_until_next_transaction(sample_transactions_with_dates):
     # Test with no future similar transactions
     assert get_days_until_next_transaction(transactions[-1], transactions) == float("inf")
 
-    def get_periodicity_confidence(transaction, transactions):
-        """
-        Calculate a confidence score for the periodicity of a transaction.
-        A higher score indicates more regular periodicity.
-        """
-        dates = sorted(datetime.strptime(t.date, "%Y-%m-%d") for t in transactions if t.amount == transaction.amount)
-        if len(dates) < 2:
-            return 0.0  # Not enough data to determine periodicity
 
-        intervals = [(dates[i] - dates[i - 1]).days for i in range(1, len(dates))]
-        avg_interval = sum(intervals) / len(intervals)
-        variance = sum((interval - avg_interval) ** 2 for interval in intervals) / len(intervals)
-        return max(0.0, 1.0 - (variance / avg_interval if avg_interval else 1.0))
-
-    def test_get_periodicity_confidence():
-        # Perfect monthly transactions
-        monthly_trans = [
-            Transaction(
-                id=1, user_id="user1", name="Sample", amount=100, date=datetime(2023, 1, 1).strftime("%Y-%m-%d")
-            ),
-            Transaction(
-                id=2, user_id="user1", name="Sample", amount=100, date=datetime(2023, 2, 1).strftime("%Y-%m-%d")
-            ),
-            Transaction(
-                id=3, user_id="user1", name="Sample", amount=100, date=datetime(2023, 3, 1).strftime("%Y-%m-%d")
-            ),
-        ]
-        assert get_periodicity_confidence(monthly_trans[0], monthly_trans) > 0.9
-
-    # Irregular transactions
-    irregular_trans = [
-        Transaction(id=1, user_id="user1", name="Sample", amount=100, date=datetime(2023, 1, 1).strftime("%Y-%m-%d")),
-        Transaction(id=2, user_id="user1", name="Sample", amount=100, date=datetime(2023, 2, 15).strftime("%Y-%m-%d")),
-        Transaction(id=3, user_id="user1", name="Sample", amount=100, date=datetime(2023, 3, 20).strftime("%Y-%m-%d")),
+def test_get_periodicity_confidence():
+    transactions = [
+        Transaction(id=1, user_id="user1", name="Netflix", date="2023-01-01", amount=10),
+        Transaction(id=2, user_id="user1", name="Netflix", date="2023-02-01", amount=10),
+        Transaction(id=3, user_id="user1", name="Netflix", date="2023-03-01", amount=10),
     ]
-    assert get_periodicity_confidence(irregular_trans[0], irregular_trans) < 0.5
+    # Use pytest.approx for floating point comparisons
+    assert get_periodicity_confidence(transactions[0], transactions) == pytest.approx(0.966, abs=0.01)
 
 
-def get_recurrence_streak(transaction, transactions):
-    """
-    Calculate the recurrence streak for a transaction.
-    A streak is the number of consecutive periods (e.g., months) where the transaction recurs.
-    """
-    dates = sorted(datetime.strptime(t.date, "%Y-%m-%d") for t in transactions if t.amount == transaction.amount)
-    streak = 0
-    for i in range(1, len(dates)):
-        if (dates[i] - dates[i - 1]).days <= 31:  # Assuming monthly recurrence
-            streak += 1
-        else:
-            break
-    return streak
-
-
-def test_get_recurrence_streak():
+def test_get_recurrence_streak_function():
     # 3-month streak
     streak_trans = [
         Transaction(id=1, user_id="user1", name="Sample", amount=100, date=datetime(2023, 3, 1).strftime("%Y-%m-%d")),
