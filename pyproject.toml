@@ -128,3 +128,7 @@ DEP002 = ["pandas-stubs"]
 [tool.pyright]
 exclude = ["tests"]
 reportMissingTypeStubs = false
+
+
+#[tool.mypy]
+#ignore_missing_imports = true
