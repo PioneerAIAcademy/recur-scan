@@ -33,8 +33,13 @@ do_hyperparameter_optimization = False  # set to False to use the default hyperp
 n_hpo_iters = 20  # number of hyperparameter optimization iterations
 n_jobs = -1  # number of jobs to run in parallel (set to 1 if your laptop gets too hot)
 
-in_path = "training file goes here"
-out_dir = "output directory goes here"
+in_path = (
+    r"C:\Users\LENOVO X1 CARBON\Desktop\PioneerAIAcademyrecur-scan\recur-scan"
+    r"\src\recur_scan\recur_scan_train - train (1).csv"
+)
+# input path to the CSV file containing transactions
+out_dir = r"C:\Users\LENOVO X1 CARBON\Desktop\PioneerAIAcademyrecur-scan\recur-scan\src\recur_scan\output"
+# output directory for the model and results
 
 # %%
 # parse script arguments from command line
@@ -179,7 +184,6 @@ print(f"     {cm[0][0]:<20} {cm[0][1]}")
 print("Actual Recurring    ", end="")
 print(f"     {cm[1][0]:<20} {cm[1][1]}")
 
-
 # %%
 # get the misclassified transactions
 
@@ -268,7 +272,6 @@ shap.summary_plot(shap_values, X_sample, feature_names=feature_names)
 # Split the data
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
-
 # RFECV performs recursive feature elimination with cross-validation
 # to find the optimal number of features
 logger.info("Performing recursive feature elimination")
@@ -337,3 +340,5 @@ print("All Features:")
 print(f"Precision: {precision}")
 print(f"Recall: {recall}")
 print(f"F1 Score: {f1}")
+
+# %%

@@ -4,8 +4,11 @@ import pytest
 from recur_scan.features import (
     get_ends_in_99,
     get_is_always_recurring,
+    get_is_gym_membership,
     get_is_insurance,
     get_is_phone,
+    get_is_streaming_service,
+    get_is_subscription,
     get_is_utility,
     get_n_transactions_days_apart,
     get_n_transactions_same_amount,
@@ -136,4 +139,32 @@ def test_get_is_always_recurring() -> None:
     assert get_is_always_recurring(Transaction(id=1, user_id="user1", name="netflix", amount=100, date="2024-01-01"))
     assert not get_is_always_recurring(
         Transaction(id=2, user_id="user1", name="walmart", amount=100, date="2024-01-01")
+    )
+
+
+def test_get_is_subscription() -> None:
+    """Test get_is_subscription."""
+    assert get_is_subscription(
+        Transaction(id=1, user_id="user1", name="Monthly Subscription", amount=10, date="2024-01-01")
+    )
+    assert not get_is_subscription(
+        Transaction(id=2, user_id="user1", name="One-time Purchase", amount=50, date="2024-01-01")
+    )
+
+
+def test_get_is_streaming_service() -> None:
+    """Test get_is_streaming_service."""
+    assert get_is_streaming_service(Transaction(id=1, user_id="user1", name="Netflix", amount=15, date="2024-01-01"))
+    assert not get_is_streaming_service(
+        Transaction(id=2, user_id="user1", name="Walmart", amount=100, date="2024-01-01")
+    )
+
+
+def test_get_is_gym_membership() -> None:
+    """Test get_is_gym_membership."""
+    assert get_is_gym_membership(
+        Transaction(id=1, user_id="user1", name="Planet Fitness Membership", amount=30, date="2024-01-01")
+    )
+    assert not get_is_gym_membership(
+        Transaction(id=2, user_id="user1", name="Amazon Purchase", amount=200, date="2024-01-01")
     )
