@@ -19,12 +19,15 @@ from recur_scan.features import (
     get_n_transactions_same_amount_at,
     get_n_transactions_same_day,
     get_n_transactions_same_day_at,
+    get_pct_transactions_days_apart,  # Already imported
     get_pct_transactions_days_apart_at,
+    get_pct_transactions_same_day,  # Already imported
     get_pct_transactions_same_day_at,
     get_percent_transactions_same_amount,
     get_percent_transactions_same_amount_at,
     is_recurring_allowance_at,
     is_recurring_core_at,
+    normalize_vendor_name,  # Add import
     normalize_vendor_name_at,
     preprocess_transactions_at,
 )
@@ -292,3 +295,42 @@ def test_preprocess_transactions_at() -> None:
     assert len(preprocessed["by_vendor"]["netflix"]) == 3
     assert len(preprocessed["by_user_vendor"][("user1", "netflix")]) == 2
     assert preprocessed["date_objects"][transactions[0]].day == 1
+
+
+# Tests for previously missing functions
+def test_get_pct_transactions_days_apart() -> None:
+    """Test that get_pct_transactions_days_apart returns the correct percentage of transactions n days apart."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="name1", amount=2.99, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="name1", amount=2.99, date="2024-01-02"),
+        Transaction(id=3, user_id="user1", name="name1", amount=2.99, date="2024-01-14"),
+        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-15"),
+        Transaction(id=5, user_id="user1", name="name1", amount=2.99, date="2024-01-16"),
+        Transaction(id=6, user_id="user1", name="name1", amount=2.99, date="2024-01-29"),
+        Transaction(id=7, user_id="user1", name="name1", amount=2.99, date="2024-01-31"),
+    ]
+    assert pytest.approx(get_pct_transactions_days_apart(transactions[0], transactions, 14, 0)) == 2 / 7  # 14, 28 days
+    assert (
+        pytest.approx(get_pct_transactions_days_apart(transactions[0], transactions, 14, 1)) == 4 / 7
+    )  # 13, 14, 15, 28 days
+
+
+def test_get_pct_transactions_same_day() -> None:
+    """Test that get_pct_transactions_same_day returns the"""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="name1", amount=100, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="name1", amount=100, date="2024-01-01"),
+        Transaction(id=3, user_id="user1", name="name1", amount=200, date="2024-01-02"),
+        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-03"),
+    ]
+    assert pytest.approx(get_pct_transactions_same_day(transactions[0], transactions, 0)) == 2 / 4  # Exact same day
+    assert (
+        pytest.approx(get_pct_transactions_same_day(transactions[0], transactions, 1)) == 3 / 4
+    )  # Within 1 day (01-01, 01-02)
+
+
+def test_normalize_vendor_name() -> None:
+    """Test that normalize_vendor_name correctly normalizes vendor names."""
+    assert normalize_vendor_name("AT&T Wireless") == "at&t"
+    assert normalize_vendor_name("Netflix.com") == "netflix"
+    assert normalize_vendor_name("Random Store") == "randomstore"
