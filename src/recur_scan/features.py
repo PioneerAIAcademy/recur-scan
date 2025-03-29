@@ -40,6 +40,24 @@ def get_is_phone(transaction: Transaction) -> bool:
     return bool(match)
 
 
+def get_is_subscription(transaction: Transaction) -> bool:
+    """Check if the transaction is a subscription payment."""
+    match = re.search(r"\b(subscription|monthly|recurring)\b", transaction.name, re.IGNORECASE)
+    return bool(match)
+
+
+def get_is_streaming_service(transaction: Transaction) -> bool:
+    """Check if the transaction is a streaming service payment."""
+    streaming_services = {"netflix", "hulu", "spotify", "disney+"}
+    return transaction.name.lower() in streaming_services
+
+
+def get_is_gym_membership(transaction: Transaction) -> bool:
+    """Check if the transaction is a gym membership payment."""
+    match = re.search(r"\b(gym|fitness|membership|planet fitness)\b", transaction.name, re.IGNORECASE)
+    return bool(match)
+
+
 @lru_cache(maxsize=1024)
 def _parse_date(date_str: str) -> date:
     """Parse a date string into a datetime.date object."""
@@ -127,26 +145,29 @@ def get_percent_transactions_same_amount(transaction: Transaction, all_transacti
     return n_same_amount / len(all_transactions)
 
 
-def get_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float | int]:
+def get_features(transaction: Transaction, _all_transactions: list[Transaction]) -> dict[str, float | int]:
     return {
-        "n_transactions_same_amount": get_n_transactions_same_amount(transaction, all_transactions),
-        "percent_transactions_same_amount": get_percent_transactions_same_amount(transaction, all_transactions),
-        "ends_in_99": get_ends_in_99(transaction),
-        "amount": transaction.amount,
-        "same_day_exact": get_n_transactions_same_day(transaction, all_transactions, 0),
-        "pct_transactions_same_day": get_pct_transactions_same_day(transaction, all_transactions, 0),
-        "same_day_off_by_1": get_n_transactions_same_day(transaction, all_transactions, 1),
-        "same_day_off_by_2": get_n_transactions_same_day(transaction, all_transactions, 2),
-        "14_days_apart_exact": get_n_transactions_days_apart(transaction, all_transactions, 14, 0),
-        "pct_14_days_apart_exact": get_pct_transactions_days_apart(transaction, all_transactions, 14, 0),
-        "14_days_apart_off_by_1": get_n_transactions_days_apart(transaction, all_transactions, 14, 1),
-        "pct_14_days_apart_off_by_1": get_pct_transactions_days_apart(transaction, all_transactions, 14, 1),
-        "7_days_apart_exact": get_n_transactions_days_apart(transaction, all_transactions, 7, 0),
-        "pct_7_days_apart_exact": get_pct_transactions_days_apart(transaction, all_transactions, 7, 0),
-        "7_days_apart_off_by_1": get_n_transactions_days_apart(transaction, all_transactions, 7, 1),
-        "pct_7_days_apart_off_by_1": get_pct_transactions_days_apart(transaction, all_transactions, 7, 1),
-        "is_insurance": get_is_insurance(transaction),
-        "is_utility": get_is_utility(transaction),
-        "is_phone": get_is_phone(transaction),
-        "is_always_recurring": get_is_always_recurring(transaction),
+        # "n_transactions_same_amount": get_n_transactions_same_amount(transaction, all_transactions),
+        # "percent_transactions_same_amount": get_percent_transactions_same_amount(transaction, all_transactions),
+        # "ends_in_99": get_ends_in_99(transaction),
+        # "amount": transaction.amount,
+        # "same_day_exact": get_n_transactions_same_day(transaction, all_transactions, 0),
+        # "pct_transactions_same_day": get_pct_transactions_same_day(transaction, all_transactions, 0),
+        # "same_day_off_by_1": get_n_transactions_same_day(transaction, all_transactions, 1),
+        # "same_day_off_by_2": get_n_transactions_same_day(transaction, all_transactions, 2),
+        # "14_days_apart_exact": get_n_transactions_days_apart(transaction, all_transactions, 14, 0),
+        # "pct_14_days_apart_exact": get_pct_transactions_days_apart(transaction, all_transactions, 14, 0),
+        # "14_days_apart_off_by_1": get_n_transactions_days_apart(transaction, all_transactions, 14, 1),
+        # "pct_14_days_apart_off_by_1": get_pct_transactions_days_apart(transaction, all_transactions, 14, 1),
+        # "7_days_apart_exact": get_n_transactions_days_apart(transaction, all_transactions, 7, 0),
+        # "pct_7_days_apart_exact": get_pct_transactions_days_apart(transaction, all_transactions, 7, 0),
+        # "7_days_apart_off_by_1": get_n_transactions_days_apart(transaction, all_transactions, 7, 1),
+        # "pct_7_days_apart_off_by_1": get_pct_transactions_days_apart(transaction, all_transactions, 7, 1),
+        # "is_insurance": get_is_insurance(transaction),
+        # "is_utility": get_is_utility(transaction),
+        # "is_phone": get_is_phone(transaction),
+        # "is_always_recurring": get_is_always_recurring(transaction),
+        "is_subscription": get_is_subscription(transaction),
+        "is_streaming_service": get_is_streaming_service(transaction),
+        "is_gym_membership": get_is_gym_membership(transaction),
     }
