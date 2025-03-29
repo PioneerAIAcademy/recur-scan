@@ -2,6 +2,7 @@
 import pytest
 
 from recur_scan.features import (
+    compute_recurring_inputs_at,  # Add missing import
     get_ends_in_99,
     get_ends_in_99_at,
     get_is_always_recurring,
@@ -337,5 +338,13 @@ def test_normalize_vendor_name() -> None:
 
 
 def test_compute_recurring_inputs_at() -> None:
-    """Minimal test for compute_recurring_inputs_at to satisfy linting; no functionality verified."""
-    assert True
+    """Test compute_recurring_inputs_at for correct grouping and date parsing."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="Netflix", amount=15.99, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="Netflix", amount=15.99, date="2024-02-01"),
+    ]
+    vendor_txns, user_vendor_txns, preprocessed = compute_recurring_inputs_at(transactions[0], transactions)
+    assert len(vendor_txns) == 2
+    assert len(user_vendor_txns) == 2
+    assert "by_vendor" in preprocessed
+    assert "netflix" in preprocessed["by_vendor"]
