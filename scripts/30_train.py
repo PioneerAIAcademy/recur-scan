@@ -33,8 +33,8 @@ do_hyperparameter_optimization = False  # set to False to use the default hyperp
 n_hpo_iters = 20  # number of hyperparameter optimization iterations
 n_jobs = -1  # number of jobs to run in parallel (set to 1 if your laptop gets too hot)
 
-in_path = "training file goes here"
-out_dir = "output directory goes here"
+in_path = cvs_path = os.path.join(os.path.dirname(__file__), "../recur_scan_train - train.csv")
+out_dir = "/mnt/c/Users/Toshiba/Downloads/recur_scan_train"  # output directory for the model and results
 
 # %%
 # parse script arguments from command line
