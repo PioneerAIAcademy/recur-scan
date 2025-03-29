@@ -14,9 +14,15 @@ from recur_scan.features import (
     get_is_utility,
     get_is_utility_at,
     get_n_transactions_days_apart,
+    get_n_transactions_days_apart_at,
     get_n_transactions_same_amount,
+    get_n_transactions_same_amount_at,
     get_n_transactions_same_day,
+    get_n_transactions_same_day_at,
+    get_pct_transactions_days_apart_at,
+    get_pct_transactions_same_day_at,
     get_percent_transactions_same_amount,
+    get_percent_transactions_same_amount_at,
     is_recurring_allowance_at,
     is_recurring_core_at,
     normalize_vendor_name_at,
@@ -72,7 +78,7 @@ def test_get_n_transactions_days_apart() -> None:
         Transaction(id=5, user_id="user1", name="name1", amount=2.99, date="2024-01-16"),
     ]
     assert get_n_transactions_days_apart(transactions[0], transactions, 14, 0) == 1  # Only Jan 15 matches exactly
-    assert get_n_transactions_days_apart(transactions[0], transactions, 14, 1) == 4  # 13, 14, 15 days
+    assert get_n_transactions_days_apart(transactions[0], transactions, 14, 1) == 3  # 13, 14, 15 days
 
 
 def test_get_is_insurance(transactions) -> None:
@@ -99,41 +105,138 @@ def test_get_is_always_recurring(transactions) -> None:
     assert get_is_always_recurring(transactions[3])  # "Netflix"
 
 
-def test_get_ends_in_99_at(transactions) -> None:
+def test_get_n_transactions_same_amount_at() -> None:
+    """Test that get_n_transactions_same_amount_at returns the correct number of transactions with the same amount."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="name1", amount=100, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="name1", amount=100, date="2024-01-01"),
+        Transaction(id=3, user_id="user1", name="name1", amount=200, date="2024-01-02"),
+        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-03"),
+    ]
+    assert get_n_transactions_same_amount_at(transactions[0], transactions) == 2
+    assert get_n_transactions_same_amount_at(transactions[2], transactions) == 1
+
+
+def test_get_percent_transactions_same_amount_at() -> None:
+    """
+    Test that get_percent_transactions_same_amount_at returns correct percentage.
+    Tests that the function calculates the right percentage of transactions with matching amounts.
+    """
+    transactions = [
+        Transaction(id=1, user_id="user1", name="name1", amount=100, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="name1", amount=100, date="2024-01-01"),
+        Transaction(id=3, user_id="user1", name="name1", amount=200, date="2024-01-02"),
+        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-03"),
+    ]
+    assert pytest.approx(get_percent_transactions_same_amount_at(transactions[0], transactions)) == 2 / 4
+
+
+def test_get_ends_in_99_at() -> None:
     """Test that get_ends_in_99_at returns True for amounts ending in 99."""
-    assert not get_ends_in_99_at(transactions[0])  # 100
-    assert get_ends_in_99_at(transactions[3])  # 15.99
+    transactions = [
+        Transaction(id=1, user_id="user1", name="name1", amount=100, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="name1", amount=100, date="2024-01-01"),
+        Transaction(id=3, user_id="user1", name="name1", amount=200, date="2024-01-02"),
+        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-03"),
+    ]
+    assert not get_ends_in_99_at(transactions[0])
+    assert get_ends_in_99_at(transactions[3])
 
 
-def test_get_is_insurance_at(transactions) -> None:
+def test_get_n_transactions_same_day_at() -> None:
+    """Test that get_n_transactions_same_day_at returns the correct number of transactions on the same day."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="name1", amount=100, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="name1", amount=100, date="2024-01-01"),
+        Transaction(id=3, user_id="user1", name="name1", amount=200, date="2024-01-02"),
+        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-03"),
+    ]
+    assert get_n_transactions_same_day_at(transactions[0], transactions, 0) == 2
+    assert get_n_transactions_same_day_at(transactions[0], transactions, 1) == 3
+    assert get_n_transactions_same_day_at(transactions[2], transactions, 0) == 1
+
+
+def test_get_pct_transactions_same_day_at() -> None:
+    """Test that get_pct_transactions_same_day_at returns the correct percentage of transactions on the same day."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="name1", amount=100, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="name1", amount=100, date="2024-01-01"),
+        Transaction(id=3, user_id="user1", name="name1", amount=200, date="2024-01-02"),
+        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-03"),
+    ]
+    assert get_pct_transactions_same_day_at(transactions[0], transactions, 0) == 2 / 4
+
+
+def test_get_n_transactions_days_apart_at() -> None:
+    """Test get_n_transactions_days_apart_at."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="name1", amount=2.99, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="name1", amount=2.99, date="2024-01-02"),
+        Transaction(id=3, user_id="user1", name="name1", amount=2.99, date="2024-01-14"),
+        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-15"),
+        Transaction(id=5, user_id="user1", name="name1", amount=2.99, date="2024-01-16"),
+        Transaction(id=6, user_id="user1", name="name1", amount=2.99, date="2024-01-29"),
+        Transaction(id=7, user_id="user1", name="name1", amount=2.99, date="2024-01-31"),
+    ]
+    assert get_n_transactions_days_apart_at(transactions[0], transactions, 14, 0) == 2
+    assert get_n_transactions_days_apart_at(transactions[0], transactions, 14, 1) == 5
+
+
+def test_get_pct_transactions_days_apart_at() -> None:
+    """Test get_pct_transactions_days_apart_at."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="name1", amount=2.99, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="name1", amount=2.99, date="2024-01-02"),
+        Transaction(id=3, user_id="user1", name="name1", amount=2.99, date="2024-01-14"),
+        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-15"),
+        Transaction(id=5, user_id="user1", name="name1", amount=2.99, date="2024-01-16"),
+        Transaction(id=6, user_id="user1", name="name1", amount=2.99, date="2024-01-29"),
+        Transaction(id=7, user_id="user1", name="name1", amount=2.99, date="2024-01-31"),
+    ]
+    assert get_pct_transactions_days_apart_at(transactions[0], transactions, 14, 0) == 2 / 7
+
+
+def test_get_is_insurance_at() -> None:
     """Test get_is_insurance_at."""
-    assert get_is_insurance_at(transactions[0])  # "Allstate Insurance"
-    assert not get_is_insurance_at(transactions[1])  # "AT&T"
+    assert get_is_insurance_at(
+        Transaction(id=1, user_id="user1", name="Allstate Insurance", amount=100, date="2024-01-01")
+    )
+    assert not get_is_insurance_at(Transaction(id=2, user_id="user1", name="AT&T", amount=100, date="2024-01-01"))
 
 
-def test_get_is_phone_at(transactions) -> None:
+def test_get_is_phone_at() -> None:
     """Test get_is_phone_at."""
-    assert get_is_phone_at(transactions[1])  # "AT&T"
-    assert not get_is_phone_at(transactions[2])  # "Duke Energy"
+    assert get_is_phone_at(Transaction(id=2, user_id="user1", name="AT&T", amount=100, date="2024-01-01"))
+    assert not get_is_phone_at(Transaction(id=3, user_id="user1", name="Duke Energy", amount=200, date="2024-01-02"))
 
 
-def test_get_is_utility_at(transactions) -> None:
+def test_get_is_utility_at() -> None:
     """Test get_is_utility_at."""
-    assert get_is_utility_at(transactions[2])  # "Duke Energy"
-    assert not get_is_utility_at(transactions[3])  # "Netflix"
+    assert get_is_utility_at(Transaction(id=3, user_id="user1", name="Duke Energy", amount=200, date="2024-01-02"))
+    assert not get_is_utility_at(
+        Transaction(id=4, user_id="user1", name="HighEnergy Soft Drinks", amount=2.99, date="2024-01-03")
+    )
 
 
-def test_get_is_communication_or_energy_at(transactions) -> None:
-    """Test get_is_communication_or_energy_at."""
-    assert get_is_communication_or_energy_at(transactions[1])  # "AT&T" is phone
-    assert get_is_communication_or_energy_at(transactions[2])  # "Duke Energy" is utility
-    assert not get_is_communication_or_energy_at(transactions[0])  # "Allstate Insurance"
-
-
-def test_get_is_always_recurring_at(transactions) -> None:
+def test_get_is_always_recurring_at() -> None:
     """Test get_is_always_recurring_at."""
-    assert not get_is_always_recurring_at(transactions[0])  # "Allstate Insurance"
-    assert get_is_always_recurring_at(transactions[3])  # "Netflix"
+    assert get_is_always_recurring_at(Transaction(id=1, user_id="user1", name="netflix", amount=100, date="2024-01-01"))
+    assert not get_is_always_recurring_at(
+        Transaction(id=2, user_id="user1", name="walmart", amount=100, date="2024-01-01")
+    )
+
+
+def test_get_is_communication_or_energy_at() -> None:
+    """Test get_is_communication_or_energy_at."""
+    assert get_is_communication_or_energy_at(
+        Transaction(id=1, user_id="user1", name="AT&T", amount=100, date="2024-01-01")
+    )
+    assert get_is_communication_or_energy_at(
+        Transaction(id=2, user_id="user1", name="Duke Energy", amount=200, date="2024-01-02")
+    )
+    assert not get_is_communication_or_energy_at(
+        Transaction(id=3, user_id="user1", name="Allstate Insurance", amount=100, date="2024-01-01")
+    )
 
 
 def test_normalize_vendor_name_at() -> None:
@@ -143,24 +246,49 @@ def test_normalize_vendor_name_at() -> None:
     assert normalize_vendor_name_at("Random Store") == "randomstore"
 
 
-def test_is_recurring_core_at(transactions) -> None:
+def test_is_recurring_core_at() -> None:
     """Test is_recurring_core_at for monthly recurrence."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="Netflix", amount=15.99, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="Netflix", amount=15.99, date="2024-02-01"),
+        Transaction(id=3, user_id="user1", name="Allstate Insurance", amount=100, date="2024-01-01"),
+        Transaction(id=4, user_id="user1", name="Allstate Insurance", amount=100, date="2024-02-01"),
+    ]
     preprocessed = preprocess_transactions_at(transactions)
-    vendor_txns = preprocessed["by_vendor"][normalize_vendor_name_at("Netflix")]
+    vendor_txns_netflix = preprocessed["by_vendor"][normalize_vendor_name_at("Netflix")]
     assert is_recurring_core_at(
-        transactions[3], vendor_txns, preprocessed, interval=30, variance=4, min_occurrences=2
-    )  # Netflix monthly
-    vendor_txns = preprocessed["by_vendor"][normalize_vendor_name_at("Allstate Insurance")]
+        transactions[0], vendor_txns_netflix, preprocessed, interval=30, variance=4, min_occurrences=2
+    )
+    vendor_txns_allstate = preprocessed["by_vendor"][normalize_vendor_name_at("Allstate Insurance")]
     assert is_recurring_core_at(
-        transactions[0], vendor_txns, preprocessed, interval=30, variance=4, min_occurrences=2
-    )  # Allstate recurring
+        transactions[2], vendor_txns_allstate, preprocessed, interval=30, variance=4, min_occurrences=2
+    )
 
 
-def test_is_recurring_allowance_at(transactions) -> None:
+def test_is_recurring_allowance_at() -> None:
     """Test is_recurring_allowance_at for monthly recurrence with tolerance."""
-    assert is_recurring_allowance_at(
-        transactions[3], transactions, expected_interval=30, allowance=2, min_occurrences=2
-    )  # Netflix monthly
+    transactions = [
+        Transaction(id=1, user_id="user1", name="Netflix", amount=15.99, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="Netflix", amount=15.99, date="2024-02-01"),
+        Transaction(id=3, user_id="user1", name="Allstate Insurance", amount=100, date="2024-01-01"),
+        Transaction(id=4, user_id="user1", name="Allstate Insurance", amount=100, date="2024-02-01"),
+    ]
     assert is_recurring_allowance_at(
         transactions[0], transactions, expected_interval=30, allowance=2, min_occurrences=2
-    )  # Allstate recurring
+    )
+    assert is_recurring_allowance_at(
+        transactions[2], transactions, expected_interval=30, allowance=2, min_occurrences=2
+    )
+
+
+def test_preprocess_transactions_at() -> None:
+    """Test preprocess_transactions_at for correct grouping and date parsing."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="Netflix", amount=15.99, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="Netflix", amount=15.99, date="2024-02-01"),
+        Transaction(id=3, user_id="user2", name="Netflix", amount=15.99, date="2024-01-01"),
+    ]
+    preprocessed = preprocess_transactions_at(transactions)
+    assert len(preprocessed["by_vendor"]["netflix"]) == 3
+    assert len(preprocessed["by_user_vendor"][("user1", "netflix")]) == 2
+    assert preprocessed["date_objects"][transactions[0]].day == 1
