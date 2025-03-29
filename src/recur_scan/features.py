@@ -378,7 +378,6 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         # "time_of_month": float(["early", "mid", "late"].index(get_time_of_month(transaction))),
         # "quarter_of_year": get_quarter_of_year(transaction),
         "transaction_gap_mean": get_transaction_gap_stats(transaction, all_transactions)[0],
-        "transaction_gap_variance": get_transaction_gap_stats(transaction, all_transactions)[1],
         # "vendor_popularity": get_vendor_popularity(transaction, all_transactions),
         "transaction_frequency": get_transaction_frequency(transaction, all_transactions),
         "is_recurring_vendor": float(get_is_recurring_vendor(transaction)),

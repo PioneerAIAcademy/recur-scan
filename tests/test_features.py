@@ -33,7 +33,7 @@ from recur_scan.features import (
     get_transaction_frequency,
     # get_quarter_of_year,
     # get_time_of_month,
-    # get_transaction_gap_stats,
+    get_transaction_gap_stats,
     get_vendor_amount_variance,
     # get_vendor_name_similarity,
     # get_vendor_popularity,
@@ -406,6 +406,28 @@ def test_get_is_same_day_of_month() -> None:
         Transaction(id=2, user_id="user1", name="name1", amount=10, date="2024-02-02"),
     ]
     assert not get_is_same_day_of_month(transactions_varied_days[0], transactions_varied_days)
+
+
+def test_get_transaction_gap_stats() -> None:
+    """Test get_transaction_gap_stats."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="name1", amount=10, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="name1", amount=10, date="2024-01-08"),
+        Transaction(id=3, user_id="user1", name="name1", amount=10, date="2024-01-15"),
+        Transaction(id=4, user_id="user1", name="name1", amount=10, date="2024-01-22"),
+    ]
+    stats = get_transaction_gap_stats(transactions[0], transactions)
+    assert stats[0] == 7  # Mean gap
+    assert stats[1] == 0  # Variance gap
+
+    transactions_varied = [
+        Transaction(id=1, user_id="user1", name="name1", amount=10, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="name1", amount=10, date="2024-01-10"),
+        Transaction(id=3, user_id="user1", name="name1", amount=10, date="2024-01-20"),
+    ]
+    stats_varied = get_transaction_gap_stats(transactions_varied[0], transactions_varied)
+    assert stats_varied[0] == 9.5  # Mean gap
+    assert pytest.approx(stats_varied[1]) == 0.25  # Variance gap
 
 
 # Commenting out less important features and their tests
