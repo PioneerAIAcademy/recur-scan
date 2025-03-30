@@ -2,10 +2,16 @@ from datetime import datetime
 
 import pytest
 
-from recur_scan.features import (
-    get_cluster_label,
+
+
+# test features_original.py
+
+import pytest
+
+from recur_scan.features_original import (
     get_ends_in_99,
     get_features,
+    get_cluster_label,
     get_is_always_recurring,
     get_is_insurance,
     get_is_monthly_recurring,
@@ -24,6 +30,7 @@ from recur_scan.features import (
     get_time_regularity_score,
     get_transaction_interval_consistency,
     parse_date,
+    get_transaction_z_score,
 )
 from recur_scan.transactions import Transaction
 
@@ -287,3 +294,20 @@ def test_get_features():
     assert isinstance(features, dict)
     assert features["recurring_confidence_score"] > 0.5
     assert features["ends_in_99"] == 1.0
+def test_get_transaction_z_score():
+    """Test get_transaction_z_score."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="name1", amount=100, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="name1", amount=100, date="2024-01-01"),
+    ]
+    assert get_transaction_z_score(transactions[0], transactions) == 0
+
+    # Test with varying amounts
+    transactions = [
+        Transaction(id=1, user_id="user1", name="name1", amount=90, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="name1", amount=100, date="2024-01-01"),
+        Transaction(id=3, user_id="user1", name="name1", amount=110, date="2024-01-01"),
+    ]
+    # Use approximate comparison with pytest
+    z_score = get_transaction_z_score(transactions[0], transactions)
+    assert -1.3 < z_score < -1.1  # Allow a small tolerance for floating-point precision
