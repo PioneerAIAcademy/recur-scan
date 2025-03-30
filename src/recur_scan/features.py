@@ -46,60 +46,63 @@ def get_n_transactions_days_apart(
     n_days_apart: int,
     n_days_off: int,
 ) -> int:
-    """Get the number of transactions within n_days_off of being n_days_apart from transaction."""
+    """Get the number of transactions approximately n_days_apart from the given transaction."""
     n_txs = 0
-
-    # Convert transaction date once
     transaction_date = datetime.strptime(transaction.date, "%Y-%m-%d")
-
-    # Pre-calculate bounds for faster checking
     lower_remainder = n_days_apart - n_days_off
     upper_remainder = n_days_off
-
-    # Single loop over all transactions
     for t in all_transactions:
+        if t.id == transaction.id:  # Skip self
+            continue
         t_date = datetime.strptime(t.date, "%Y-%m-%d")
         days_diff = abs((t_date - transaction_date).days)
-
-        # Skip if the difference is less than minimum required
-        if days_diff < n_days_apart - n_days_off:
+        if days_diff < lower_remainder:
             continue
-
-        # Check if the difference is close to any multiple of n_days_apart
         remainder = days_diff % n_days_apart
         if remainder <= upper_remainder or remainder >= lower_remainder:
             n_txs += 1
+    return n_txs
 
+
+def get_n_transactions_same_day(
+    transaction: Transaction,
+    all_transactions: list[Transaction],
+    n_days_off: int,
+) -> int:
+    """Get the number of transactions within n_days_off of the same date as the given transaction."""
+    n_txs = 0
+    transaction_date = datetime.strptime(transaction.date, "%Y-%m-%d")
+    for t in all_transactions:
+        if t.id == transaction.id:  # Skip self
+            continue
+        t_date = datetime.strptime(t.date, "%Y-%m-%d")
+        days_diff = abs((t_date - transaction_date).days)
+        if days_diff <= n_days_off:
+            n_txs += 1
     return n_txs
 
 
 def get_pct_transactions_days_apart(
-    transaction: Transaction, all_transactions: list[Transaction], n_days_apart: int, n_days_off: int
+    transaction: Transaction,
+    all_transactions: list[Transaction],
+    n_days_apart: int,
+    n_days_off: int,
 ) -> float:
-    """
-    Get the percentage of transactions in all_transactions that are within
-    n_days_off of being n_days_apart from transaction
-    """
-    return get_n_transactions_days_apart(transaction, all_transactions, n_days_apart, n_days_off) / len(
-        all_transactions
-    )
-
-
-def _get_day(date: str) -> int:
-    """Get the day of the month from a transaction date."""
-    return int(date.split("-")[2])
-
-
-def get_n_transactions_same_day(transaction: Transaction, all_transactions: list[Transaction], n_days_off: int) -> int:
-    """Get the number of transactions on the same day of the month as transaction."""
-    return len([t for t in all_transactions if abs(_get_day(t.date) - _get_day(transaction.date)) <= n_days_off])
+    """Calculate the percentage of transactions within n_days_off of being n_days_apart from the given transaction."""
+    n_txs = get_n_transactions_days_apart(transaction, all_transactions, n_days_apart, n_days_off)
+    total_txs = len(all_transactions) - 1  # Exclude self
+    return n_txs / total_txs if total_txs > 0 else 0.0
 
 
 def get_pct_transactions_same_day(
-    transaction: Transaction, all_transactions: list[Transaction], n_days_off: int
+    transaction: Transaction,
+    all_transactions: list[Transaction],
+    n_days_off: int,
 ) -> float:
-    """Get the percentage of transactions in all_transactions that are on the same day of the month as transaction"""
-    return get_n_transactions_same_day(transaction, all_transactions, n_days_off) / len(all_transactions)
+    """Calculate the percentage of transactions within n_days_off of the same date as the given transaction."""
+    n_txs = get_n_transactions_same_day(transaction, all_transactions, n_days_off)
+    total_txs = len(all_transactions) - 1  # Exclude self
+    return n_txs / total_txs if total_txs > 0 else 0.0
 
 
 def get_ends_in_99(transaction: Transaction) -> bool:
@@ -157,9 +160,7 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
 
 # Optional functions (not used in 30_train.py but kept for completeness)
 def call_features(transaction: dict, group: list) -> dict[str, float]:
-    features: dict[str, float] = {}
-    features["amount"] = transaction["amount"]
-    features["frequency"] = len(group)
+    features: dict[str, float] = {"amount": transaction["amount"], "frequency": len(group)}
     dates = sorted([t.date for t in group])
     if len(dates) > 1:
         deltas = [
@@ -177,9 +178,10 @@ def call_features(transaction: dict, group: list) -> dict[str, float]:
 
 
 def get_newfeatures(transaction: Transaction, group: list[Transaction]) -> dict[str, float]:
-    features: dict[str, float] = {}
-    features["amount"] = transaction.amount
-    features["n_transactions_same_amount"] = len([t for t in group if t.amount == transaction.amount])
+    features: dict[str, float] = {
+        "amount": transaction.amount,
+        "n_transactions_same_amount": len([t for t in group if t.amount == transaction.amount]),
+    }
     features["percent_transactions_same_amount"] = features["n_transactions_same_amount"] / len(group)
     dates = sorted([t.date for t in group])
     if len(dates) > 1:

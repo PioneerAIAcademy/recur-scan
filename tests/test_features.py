@@ -13,6 +13,8 @@ from recur_scan.features import (
     get_n_transactions_same_amount,
     get_n_transactions_same_day,
     get_newfeatures,
+    get_pct_transactions_days_apart,
+    get_pct_transactions_same_day,
     get_percent_transactions_same_amount,
 )
 from recur_scan.transactions import Transaction
@@ -55,16 +57,17 @@ def test_get_ends_in_99() -> None:
 
 
 def test_get_n_transactions_same_day() -> None:
-    """Test that get_n_transactions_same_day returns the correct number of transactions on the same day."""
+    """Test that get_n_transactions_same_day returns the correct number of transactions
+    within n_days_off of the same date."""
     transactions = [
         Transaction(id=1, user_id="user1", name="name1", amount=100, date="2024-01-01"),
         Transaction(id=2, user_id="user1", name="name1", amount=100, date="2024-01-01"),
         Transaction(id=3, user_id="user1", name="name1", amount=200, date="2024-01-02"),
         Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-03"),
     ]
-    assert get_n_transactions_same_day(transactions[0], transactions, 0) == 2
-    assert get_n_transactions_same_day(transactions[0], transactions, 1) == 3
-    assert get_n_transactions_same_day(transactions[2], transactions, 0) == 1
+    assert get_n_transactions_same_day(transactions[0], transactions, 0) == 1  # 1 other on same date
+    assert get_n_transactions_same_day(transactions[0], transactions, 1) == 2  # 1 same + 1 off by 1
+    assert get_n_transactions_same_day(transactions[2], transactions, 0) == 0  # No others on 2024-01-02
 
 
 def test_get_n_transactions_days_apart() -> None:
@@ -80,6 +83,37 @@ def test_get_n_transactions_days_apart() -> None:
     ]
     assert get_n_transactions_days_apart(transactions[0], transactions, 14, 0) == 2
     assert get_n_transactions_days_apart(transactions[0], transactions, 14, 1) == 4
+
+
+def test_get_pct_transactions_days_apart() -> None:
+    """Test get_pct_transactions_days_apart calculates the correct percentage, excluding self from denominator."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="name1", amount=2.99, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="name1", amount=2.99, date="2024-01-02"),
+        Transaction(id=3, user_id="user1", name="name1", amount=2.99, date="2024-01-14"),
+        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-15"),
+        Transaction(id=5, user_id="user1", name="name1", amount=2.99, date="2024-01-16"),
+        Transaction(id=6, user_id="user1", name="name1", amount=2.99, date="2024-01-29"),
+        Transaction(id=7, user_id="user1", name="name1", amount=2.99, date="2024-01-31"),
+    ]
+    # 2 transactions (14, 28 days) out of 6 others = 2/6 ≈ 0.3333
+    assert pytest.approx(get_pct_transactions_days_apart(transactions[0], transactions, 14, 0)) == 2 / 6
+    # 4 transactions (13, 14, 15, 28 days) out of 6 others = 4/6 ≈ 0.6667
+    assert pytest.approx(get_pct_transactions_days_apart(transactions[0], transactions, 14, 1)) == 4 / 6
+
+
+def test_get_pct_transactions_same_day() -> None:
+    """Test get_pct_transactions_same_day calculates the correct percentage, excluding self from denominator."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="name1", amount=100, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="name1", amount=100, date="2024-01-01"),
+        Transaction(id=3, user_id="user1", name="name1", amount=200, date="2024-01-02"),
+        Transaction(id=4, user_id="user1", name="name1", amount=2.99, date="2024-01-03"),
+    ]
+    # 1 transaction (same date, excluding self) out of 3 others = 1/3 ≈ 0.3333
+    assert pytest.approx(get_pct_transactions_same_day(transactions[0], transactions, 0)) == 1 / 3
+    # 2 transactions (same date + 1 day off, excluding self) out of 3 others = 2/3 ≈ 0.6667
+    assert pytest.approx(get_pct_transactions_same_day(transactions[0], transactions, 1)) == 2 / 3
 
 
 def test_get_is_insurance() -> None:

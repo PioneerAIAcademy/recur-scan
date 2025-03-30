@@ -14,7 +14,6 @@ import os
 
 import joblib
 import matplotlib.pyplot as plt
-import shap
 from loguru import logger
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_extraction import DictVectorizer
@@ -136,11 +135,11 @@ logger.info("Model trained")
 importances = model.feature_importances_
 
 # sort the importances
-sorted_importances = sorted(zip(importances, feature_names, strict=True), key=lambda x: x[0], reverse=True)
+# sorted_importances = sorted(zip(importances, feature_names, strict=True), key=lambda x: x[0], reverse=True)
 
 # print the features and their importances
-for importance, feature in sorted_importances:
-    print(f"{feature}: {importance}")
+# for importance, feature in sorted_importances:
+#   print(f"{feature}: {importance}")
 
 # %%
 # save the model using joblib
@@ -251,14 +250,14 @@ write_transactions(os.path.join(out_dir, "variance_errors.csv"), misclassified, 
 # create a tree explainer
 # explainer = shap.TreeExplainer(model)
 # Faster approximation using PermutationExplainer
-X_sample = X[:10000]  # type: ignore
+"""X_sample = X[:10000]  # type: ignore
 explainer = shap.explainers.Permutation(model.predict, X_sample)
 
 logger.info("Calculating SHAP values")
 shap_values = explainer.shap_values(X_sample)
 
 # Plot SHAP summary
-shap.summary_plot(shap_values, X_sample, feature_names=feature_names)
+shap.summary_plot(shap_values, X_sample, feature_names=feature_names)"""
 
 # %%
 #
