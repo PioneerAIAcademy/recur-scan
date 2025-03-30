@@ -11,10 +11,10 @@ module from recur_scan.features to prepare the input data.
 import argparse
 import json
 import os
+import sys
 
 import joblib
 import matplotlib.pyplot as plt
-import shap
 from loguru import logger
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_extraction import DictVectorizer
@@ -22,6 +22,7 @@ from sklearn.feature_selection import RFECV
 from sklearn.metrics import confusion_matrix, f1_score, precision_score, recall_score
 from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold, train_test_split
 
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from recur_scan.features import get_features
 from recur_scan.transactions import group_transactions, read_labeled_transactions, write_transactions
 
@@ -33,8 +34,8 @@ do_hyperparameter_optimization = False  # set to False to use the default hyperp
 n_hpo_iters = 20  # number of hyperparameter optimization iterations
 n_jobs = -1  # number of jobs to run in parallel (set to 1 if your laptop gets too hot)
 
-in_path = "training file goes here"
-out_dir = "output directory goes here"
+in_path = "C:\\Users\\Nina\\Downloads\\recur_scan_train - train.csv"
+out_dir = "C:\\Users\\Nina\\Downloads\\nina_output"
 
 # %%
 # parse script arguments from command line
@@ -251,14 +252,14 @@ write_transactions(os.path.join(out_dir, "variance_errors.csv"), misclassified, 
 # create a tree explainer
 # explainer = shap.TreeExplainer(model)
 # Faster approximation using PermutationExplainer
-X_sample = X[:10000]  # type: ignore
-explainer = shap.explainers.Permutation(model.predict, X_sample)
+# X_sample = X[:10000]  # type: ignore
+# explainer = shap.explainers.Permutation(model.predict, X_sample)
 
-logger.info("Calculating SHAP values")
-shap_values = explainer.shap_values(X_sample)
+# logger.info("Calculating SHAP values")
+# shap_values = explainer.shap_values(X_sample)
 
 # Plot SHAP summary
-shap.summary_plot(shap_values, X_sample, feature_names=feature_names)
+# shap.summary_plot(shap_values, X_sample, feature_names=feature_names)
 
 # %%
 #
