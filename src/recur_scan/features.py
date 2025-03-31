@@ -11,6 +11,17 @@ def get_is_always_recurring(transaction: Transaction) -> bool:
         "netflix",
         "hulu",
         "spotify",
+        "Empower",
+        "T-Mobile",
+        "AT&T",
+        "Verizon",
+        "Amazon Prime",
+        "Amazon",
+        "Apple",
+        "Apple Music",
+        "Apple TV",
+        "Youtube G.co",
+
     }
     return transaction.name.lower() in always_recurring_vendors
 
@@ -105,6 +116,31 @@ def get_percent_transactions_same_amount(transaction: Transaction, all_transacti
     n_same_amount = len([t for t in all_transactions if t.amount == transaction.amount])
     return n_same_amount / len(all_transactions)
 
+def is_microsoft_xbox_same_or_near_day(transaction: Transaction, all_transactions: list[Transaction]) -> bool:
+    """
+    Check if the transaction is for 'Microsoft Xbox' and occurs on the same day of the month
+    or within 2 days before or after the previous transaction date.
+    """
+    if "microsoft xbox" not in transaction.name.lower():
+        return False
+
+    transaction_day = _get_day(transaction.date)
+    for t in all_transactions:
+        if "microsoft xbox" in t.name.lower():
+            previous_day = _get_day(t.date)
+            if abs(transaction_day - previous_day) <= 2:
+                return True
+
+    return False
+
+def calculate_avg_days_between_transactions(transaction: Transaction, all_transactions: list[Transaction]) -> float:
+    """Calculate the average number of days between transactions for the same vendor."""
+    transaction_days = [_get_days(t.date) for t in all_transactions]
+    transaction_days.sort()
+    if len(transaction_days) < 2:
+        return 0.0  # Not enough transactions to calculate
+    day_differences = [transaction_days[i] - transaction_days[i - 1] for i in range(1, len(transaction_days))]
+    return sum(day_differences) / len(day_differences)
 
 def get_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float | int]:
     return {
@@ -123,4 +159,8 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         "is_utility": get_is_utility(transaction),
         "is_phone": get_is_phone(transaction),
         "is_always_recurring": get_is_always_recurring(transaction),
+        "is_microsoft_xbox_same_or_near_day": is_microsoft_xbox_same_or_near_day(transaction, all_transactions),
+
+
     }
+# def is_sub_company(): 
