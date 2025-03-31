@@ -2,16 +2,11 @@ from datetime import datetime
 
 import pytest
 
-
-
 # test features_original.py
-
-import pytest
-
 from recur_scan.features_original import (
+    get_cluster_label,
     get_ends_in_99,
     get_features,
-    get_cluster_label,
     get_is_always_recurring,
     get_is_insurance,
     get_is_monthly_recurring,
@@ -29,8 +24,8 @@ from recur_scan.features_original import (
     get_subscription_keyword_score,
     get_time_regularity_score,
     get_transaction_interval_consistency,
-    parse_date,
     get_transaction_z_score,
+    parse_date,
 )
 from recur_scan.transactions import Transaction
 
@@ -294,6 +289,8 @@ def test_get_features():
     assert isinstance(features, dict)
     assert features["recurring_confidence_score"] > 0.5
     assert features["ends_in_99"] == 1.0
+
+
 def test_get_transaction_z_score():
     """Test get_transaction_z_score."""
     transactions = [

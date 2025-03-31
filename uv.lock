@@ -1111,7 +1111,6 @@ dependencies = [
     { name = "scikit-learn" },
 
     { name = "scipy" },
-    { name = "shap" },
     { name = "thefuzz" },
 
 ]
@@ -1141,7 +1140,6 @@ requires-dist = [
     { name = "python-levenshtein", specifier = ">=0.27.1" },
     { name = "scikit-learn", specifier = ">=1.6.1" },
     { name = "scipy", specifier = ">=1.15.2" },
-    { name = "shap", specifier = ">=0.47.0" },
     { name = "thefuzz", specifier = ">=0.22.1" },
 ]
 
