@@ -9,6 +9,8 @@ from recur_scan.features_original import (
     get_is_phone,
     get_is_utility,
     get_n_transactions_days_apart,
+    get_n_transactions_delayed,
+    get_n_transactions_early,
     get_n_transactions_same_amount,
     get_n_transactions_same_day,
     get_pct_transactions_days_apart,
@@ -158,3 +160,17 @@ def test_get_transaction_z_score():
     # Use approximate comparison with pytest
     z_score = get_transaction_z_score(transactions[0], transactions)
     assert -1.3 < z_score < -1.1  # Allow a small tolerance for floating-point precision
+
+def test_get_n_transactions_delayed(recurring_transactions):
+    """Test detection of delayed recurring transactions."""
+    assert get_n_transactions_delayed(recurring_transactions[0], recurring_transactions, 30, 5) == 1  # Netflix
+    assert get_n_transactions_delayed(recurring_transactions[4], recurring_transactions, 14, 3) == 1  # Spotify
+    assert get_n_transactions_delayed(recurring_transactions[8], recurring_transactions, 7, 2) == 1  # Gym Membership
+
+
+def test_get_n_transactions_early(recurring_transactions):
+    """Test detection of early recurring transactions."""
+    assert get_n_transactions_early(recurring_transactions[0], recurring_transactions, 30, 5) == 1  # Netflix (early)
+    assert get_n_transactions_early(
+        recurring_transactions[4], recurring_transactions, 14, 3) == 0  # Spotify (not early)
+    assert get_n_transactions_early(recurring_transactions[8], recurring_transactions, 7, 2) == 0  # Gym (not early)
