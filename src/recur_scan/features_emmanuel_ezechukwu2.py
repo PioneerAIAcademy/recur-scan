@@ -127,14 +127,14 @@ def get_recurrence_patterns(transaction: Transaction, transactions: list[Transac
     # Weighted recurrence score
     recurrence_score = sum(1 / (1 + abs(diff - avg_days_between)) for diff in date_diffs) / len(date_diffs)
 
-    recurrence_flags = {
-        # "is_biweekly": int(14 in date_diffs),
-        # "is_semimonthly": int(any(d in {14, 15, 16, 17} for d in date_diffs)),
-        # "is_monthly": int(any(27 <= d <= 31 for d in date_diffs)),
-        # "is_bimonthly": int(any(55 <= d <= 65 for d in date_diffs)),
-        # "is_quarterly": int(any(85 <= d <= 95 for d in date_diffs)),
-        # "is_annual": int(any(360 <= d <= 370 for d in date_diffs)),
-    }
+    # recurrence_flags = {
+    #     # "is_biweekly": int(14 in date_diffs),
+    #     # "is_semimonthly": int(any(d in {14, 15, 16, 17} for d in date_diffs)),
+    #     # "is_monthly": int(any(27 <= d <= 31 for d in date_diffs)),
+    #     # "is_bimonthly": int(any(55 <= d <= 65 for d in date_diffs)),
+    #     # "is_quarterly": int(any(85 <= d <= 95 for d in date_diffs)),
+    #     # "is_annual": int(any(360 <= d <= 370 for d in date_diffs)),
+    # }
 
     return {
         # **recurrence_flags,
@@ -162,13 +162,13 @@ def get_recurring_consistency_score(transaction: Transaction, transactions: list
     amount_stability = 1 - (stdev(amount_variations) / (mean(amount_variations) + 1e-6))  # Normalize stability score
 
     # Frequency-based confidence (e.g., monthly = strong, yearly = weaker)
-    recurrence_flags = {
-        # "biweekly": int(14 in date_diffs),
-        # "monthly": int(any(27 <= d <= 31 for d in date_diffs)),
-        # "bimonthly": int(any(55 <= d <= 65 for d in date_diffs)),
-        # "quarterly": int(any(85 <= d <= 95 for d in date_diffs)),
-        # "annual": int(any(360 <= d <= 370 for d in date_diffs)),
-    }
+    # recurrence_flags = {
+    #     # "biweekly": int(14 in date_diffs),
+    #     # "monthly": int(any(27 <= d <= 31 for d in date_diffs)),
+    #     # "bimonthly": int(any(55 <= d <= 65 for d in date_diffs)),
+    #     # "quarterly": int(any(85 <= d <= 95 for d in date_diffs)),
+    #     # "annual": int(any(360 <= d <= 370 for d in date_diffs)),
+    # }
 
     # Weight factors based on common recurrence patterns
     recurrence_weight = (
@@ -183,7 +183,7 @@ def get_recurring_consistency_score(transaction: Transaction, transactions: list
     consistency_score = (
         0.5 * amount_stability  # Amount consistency
         + 0.3 * (1 - (std_days_between / (avg_days_between + 1e-6)))  # Time interval consistency
-        # + 0.2 * recurrence_weight  
+        # + 0.2 * recurrence_weight
     )
 
     return {"recurring_consistency_score": round(max(0, min(consistency_score, 1)), 2)}
@@ -227,10 +227,10 @@ def get_amount_features(transaction: Transaction, transactions: list[Transaction
 
     if not vendor_txns:
         return {
-            # "is_fixed_amount_recurring": 0, 
-            # "amount_fluctuation": 0.0, 
+            # "is_fixed_amount_recurring": 0,
+            # "amount_fluctuation": 0.0,
             # "price_cluster": -1
-            }
+        }
 
     price_fluctuation = max(vendor_txns) - min(vendor_txns)
 
@@ -260,10 +260,10 @@ def get_user_behavior_features(transaction: Transaction, transactions: list[Tran
 
     if not user_txns:
         return {
-            "user_avg_spent": 0.0, 
-            "user_total_spent": 0.0, 
+            "user_avg_spent": 0.0,
+            "user_total_spent": 0.0,
             # "user_subscription_count": 0
-            }
+        }
 
     # Ensure subscriptions are only counted for the given user
     user_subscription_count = sum(t.name in RECURRING_VENDORS for t in transactions if t.user_id == transaction.user_id)
@@ -281,9 +281,9 @@ def get_refund_features(transaction: Transaction, transactions: list[Transaction
 
     if not refunds:
         return {
-            # "refund_rate": 0.0, 
+            # "refund_rate": 0.0,
             # "avg_refund_time_lag": 0.0
-            }
+        }
 
     refund_time_lags = [
         (datetime.strptime(t.date, "%Y-%m-%d") - datetime.strptime(transaction.date, "%Y-%m-%d")).days for t in refunds

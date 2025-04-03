@@ -2,58 +2,27 @@ from collections import defaultdict
 
 from recur_scan.features_adedotun import (
     compute_recurring_inputs_at,
-    get_is_always_recurring_at,
     get_is_communication_or_energy_at,
     get_percent_transactions_same_amount_tolerant,
     is_recurring_allowance_at,
-    is_recurring_core_at,
 )
 from recur_scan.features_adeyinka import (
-    get_average_days_between_transactions,
-    get_outlier_score,
     get_recurring_confidence_score,
     get_same_amount_vendor_transactions,
     get_subscription_keyword_score,
-    get_time_regularity_score,
-    get_transaction_amount_variance,
-)
-from recur_scan.features_adeyinka import (
-    get_is_always_recurring as get_is_always_recurring_adeyinka,
-)
-from recur_scan.features_adeyinka import (
-    get_n_transactions_days_apart as get_n_transactions_days_apart_adeyinka,
 )
 from recur_scan.features_asimi import (
-    get_amount_category,
     get_amount_pattern_features,
     get_temporal_consistency_features,
-    get_user_recurring_vendor_count,
     get_user_specific_features,
     get_user_transaction_frequency,
-    get_user_vendor_interaction_count,
-    get_user_vendor_recurrence_rate,
     get_user_vendor_relationship_features,
-    get_user_vendor_transaction_count,
-    get_vendor_amount_std,
     get_vendor_recurrence_profile,
-    get_vendor_recurring_user_count,
     get_vendor_transaction_frequency,
-    is_valid_recurring_transaction,
-)
-from recur_scan.features_asimi import (
-    get_amount_features as get_amount_features_asimi,
-)
-from recur_scan.features_bassey import (
-    get_is_gym_membership,
-    get_is_streaming_service,
-    get_is_subscription,
 )
 from recur_scan.features_christopher import (
-    detect_skipped_months,
-    follows_regular_interval,
     get_coefficient_of_variation,
     get_day_of_month_consistency,
-    get_median_interval,
     get_n_transactions_same_amount_chris,
     get_percent_transactions_same_amount_chris,
     get_transaction_frequency,
@@ -62,34 +31,14 @@ from recur_scan.features_christopher import (
     is_known_recurring_company,
 )
 from recur_scan.features_ebenezer import (
-    get_avg_amount_same_day_of_week,
-    get_avg_amount_same_month,
     get_avg_amount_same_name,
-    get_n_transactions_same_month,
-    get_n_transactions_same_name,
-    get_n_transactions_same_user_id,
     get_n_transactions_within_amount_range,
-    get_percent_transactions_same_day_of_week,
     get_percent_transactions_same_month,
-    get_percent_transactions_same_name,
-    get_percent_transactions_same_user_id,
     get_percent_transactions_within_amount_range,
-    get_std_amount_same_day_of_week,
-    get_std_amount_same_month,
-    get_std_amount_same_name,
 )
 from recur_scan.features_efehi import (
-    get_irregular_periodicity,
     get_irregular_periodicity_with_tolerance,
-    get_n_same_name_transactions,
-    get_time_between_transactions,
-    get_transaction_amount_stability,
-    get_transaction_time_of_month,
-    get_vendor_recurrence_consistency,
     get_vendor_recurring_ratio,
-)
-from recur_scan.features_efehi import (
-    get_transaction_frequency as get_transaction_frequency_efehi,
 )
 from recur_scan.features_efehi import (
     get_user_transaction_frequency as get_user_transaction_frequency_efehi,
@@ -98,47 +47,21 @@ from recur_scan.features_elliot import (
     get_is_always_recurring as get_is_always_recurring_elliot,
 )
 from recur_scan.features_elliot import (
-    get_is_near_same_amount,
-    get_transaction_similarity,
-    is_auto_pay,
-    is_membership,
     is_price_trending,
-    is_recurring_based_on_99,
-    is_split_transaction,
-    is_utility_bill,
-    is_weekday_transaction,
 )
 from recur_scan.features_emmanuel_eze import (
     detect_sequence_patterns,
-    get_recurring_transaction_confidence,
-)
-from recur_scan.features_emmanuel_eze import (
-    get_is_recurring as get_is_recurring_emmanuel_eze,
 )
 from recur_scan.features_emmanuel_ezechukwu1 import (
     get_amount_cv,
     get_days_between_std,
     get_exact_amount_count,
-    get_has_recurring_keyword,
-    get_is_convenience_store,
 )
 from recur_scan.features_emmanuel_ezechukwu1 import (
     get_day_of_month_consistency as get_day_of_month_consistency_emmanuel1,
 )
 from recur_scan.features_emmanuel_ezechukwu1 import (
-    get_is_always_recurring as get_is_always_recurring_emmanuel1,
-)
-from recur_scan.features_emmanuel_ezechukwu1 import (
-    get_is_insurance as get_is_insurance_emmanuel1,
-)
-from recur_scan.features_emmanuel_ezechukwu1 import (
     get_is_phone as get_is_phone_emmanuel1,
-)
-from recur_scan.features_emmanuel_ezechukwu1 import (
-    get_is_utility as get_is_utility_emmanuel1,
-)
-from recur_scan.features_emmanuel_ezechukwu1 import (
-    get_n_transactions_days_apart as get_n_transactions_days_apart_emmanuel1,
 )
 from recur_scan.features_emmanuel_ezechukwu1 import (
     get_n_transactions_same_amount as get_n_transactions_same_amount_emmanuel1,
@@ -147,51 +70,23 @@ from recur_scan.features_emmanuel_ezechukwu1 import (
     get_percent_transactions_same_amount as get_percent_transactions_same_amount_emmanuel1,
 )
 from recur_scan.features_emmanuel_ezechukwu2 import (
-    classify_subscription_tier,
     get_monthly_spending_trend,
     get_recurrence_patterns,
     get_recurring_consistency_score,
-    get_refund_features,
     get_user_behavior_features,
     validate_recurring_transaction,
-)
-from recur_scan.features_emmanuel_ezechukwu2 import (
-    get_amount_features as get_amount_features_emmanuel2,
 )
 from recur_scan.features_ernest import (
     get_average_transaction_amount as get_average_transaction_amount_ernest,
 )
 from recur_scan.features_ernest import (
-    get_is_biweekly,
-    get_is_fixed_amount,
-    get_is_high_frequency_vendor,
-    get_is_monthly,
-    get_is_quarterly,
-    get_is_recurring_vendor,
-    get_is_round_amount,
-    get_is_same_day_of_month,
-    get_is_small_amount,
-    get_is_subscription_based,
-    get_is_weekly,
-    get_recurring_interval_score,
-    get_transaction_gap_stats,
-    get_vendor_amount_variance,
-    get_vendor_transaction_count,
-)
-from recur_scan.features_ernest import (
-    get_is_weekend_transaction as get_is_weekend_transaction_ernest,
-)
-from recur_scan.features_ernest import (
     get_transaction_frequency as get_transaction_frequency_ernest,
+)
+from recur_scan.features_ernest import (
+    get_transaction_gap_stats,
 )
 from recur_scan.features_felix import (
     get_average_transaction_amount as get_average_transaction_amount_felix,
-)
-from recur_scan.features_felix import (
-    get_day as get_day_felix,
-)
-from recur_scan.features_felix import (
-    get_dispersion_transaction_amount as get_dispersion_transaction_amount_felix,
 )
 from recur_scan.features_felix import (
     get_is_always_recurring as get_is_always_recurring_felix,
@@ -203,19 +98,13 @@ from recur_scan.features_felix import (
     get_is_phone as get_is_phone_felix,
 )
 from recur_scan.features_felix import (
-    get_is_utility as get_is_utility_felix,
-)
-from recur_scan.features_felix import (
     get_max_transaction_amount as get_max_transaction_amount_felix,
 )
 from recur_scan.features_felix import (
     get_median_variation_transaction_amount,
-    get_month,
     get_n_transactions_same_vendor,
-    get_transaction_rate,
     get_transactions_interval_stability,
     get_variation_ratio,
-    get_year,
 )
 from recur_scan.features_felix import (
     get_min_transaction_amount as get_min_transaction_amount_felix,
@@ -227,172 +116,79 @@ from recur_scan.features_frank import (
     amount_coefficient_of_variation,
     amount_similarity,
     amount_stability_score,
-    amount_variability_ratio,
     amount_variability_score,
-    amount_z_score,
     calculate_cycle_consistency,
     coefficient_of_variation_intervals,
-    date_irregularity_score,
-    enhanced_amt_iqr,
-    enhanced_days_since_last,
     enhanced_n_similar_last_n_days,
     get_amount_consistency,
     get_same_amount_ratio,
     get_subscription_score,
-    inconsistent_amount_score,
     irregular_interval_score,
     is_recurring_company,
-    is_utility_company,
-    matches_common_cycle,
     most_common_interval,
-    non_recurring_score,
-    normalized_days_difference,
-    proportional_timing_deviation,
-    recurrence_interval_variance,
     recurring_confidence,
     recurring_score,
     robust_interval_iqr,
     robust_interval_median,
-    seasonal_spending_cycle,
     transaction_frequency,
     transactions_per_month,
     transactions_per_week,
-    vendor_recurrence_trend,
-    weekly_spending_cycle,
 )
 from recur_scan.features_freedom import (
-    get_day_of_week,
-    get_days_until_next_transaction,
     get_periodicity_confidence,
-    get_recurrence_streak,
-)
-from recur_scan.features_gideon import is_microsoft_xbox_same_or_near_day
-from recur_scan.features_happy import (
-    get_day_of_month_consistency as get_day_of_month_consistency_happy,
-)
-from recur_scan.features_happy import (
-    get_n_transactions_same_description,
-    get_percent_transactions_same_description,
-)
-from recur_scan.features_happy import (
-    get_transaction_frequency as get_transaction_frequency_happy,
 )
 from recur_scan.features_laurels import (
     _aggregate_transactions,
     _calculate_intervals,
     _calculate_statistics,
     date_irregularity_dominance,
-    day_consistency_score_feature,
-    day_of_week_feature,
     identical_transaction_ratio_feature,
     interval_variability_feature,
-    is_deposit_feature,
-    is_monthly_recurring_feature,
-    is_near_periodic_interval_feature,
-    is_single_transaction_feature,
-    is_varying_amount_recurring_feature,
-    low_amount_variation_feature,
     merchant_amount_frequency_feature,
     merchant_amount_std_feature,
-    merchant_interval_mean_feature,
-    merchant_interval_std_feature,
     non_recurring_irregularity_score,
     recurrence_likelihood_feature,
     rolling_amount_mean_feature,
     time_since_last_transaction_same_merchant_feature,
-    transaction_month_feature,
     transaction_pattern_complexity,
-)
-from recur_scan.features_naomi import (
-    get_cluster_label,
-)
-from recur_scan.features_naomi import (
-    get_is_monthly_recurring as get_is_monthly_recurring_naomi,
-)
-from recur_scan.features_naomi import (
-    get_is_similar_amount as get_is_similar_amount_naomi,
-)
-from recur_scan.features_naomi import (
-    get_outlier_score as get_outlier_score_naomi,
-)
-from recur_scan.features_naomi import (
-    get_recurring_confidence_score as get_recurring_confidence_score_naomi,
-)
-from recur_scan.features_naomi import (
-    get_subscription_keyword_score as get_subscription_keyword_score_naomi,
-)
-from recur_scan.features_naomi import (
-    get_time_regularity_score as get_time_regularity_score_naomi,
 )
 from recur_scan.features_naomi import (
     get_transaction_interval_consistency as get_transaction_interval_consistency_naomi,
 )
 from recur_scan.features_nnanna import (
     get_average_transaction_amount,
-    get_dispersion_transaction_amount,
     get_mad_transaction_amount,
     get_mobile_transaction,
     get_time_interval_between_transactions,
-    get_transaction_interval_consistency,
 )
 from recur_scan.features_nnanna import (
     get_coefficient_of_variation as get_coefficient_of_variation_nnanna,
 )
-from recur_scan.features_nnanna import (
-    get_transaction_frequency as get_transaction_frequency_nnanna,
-)
 from recur_scan.features_original import (
-    get_ends_in_99,
-    get_is_always_recurring,
-    get_is_insurance,
     get_is_phone,
-    get_is_utility,
-    get_n_transactions_days_apart,
     get_n_transactions_same_amount,
-    get_n_transactions_same_day,
-    get_pct_transactions_days_apart,
-    get_pct_transactions_same_day,
     get_percent_transactions_same_amount,
-    get_transaction_z_score,
-)
-from recur_scan.features_osasere import (
-    get_day_of_month_consistency as get_day_of_month_consistency_osasere,
 )
 from recur_scan.features_osasere import (
     get_day_of_month_variability,
     get_median_period,
-    get_recurrence_confidence,
-    has_min_recurrence_period,
-    is_weekday_consistent,
 )
 from recur_scan.features_praise import (
-    amount_ends_in_00,
-    amount_ends_in_99,
+    get_average_transaction_amount as get_average_transaction_amount_praise,
+)
+from recur_scan.features_praise import (
     get_avg_days_between_same_merchant_amount,
     get_days_since_last_same_merchant_amount,
     get_interval_variance_coefficient,
     get_max_transaction_amount,
     get_min_transaction_amount,
-    get_most_frequent_names,
     get_n_transactions_same_merchant_amount,
     get_percent_transactions_same_merchant_amount,
     get_stddev_days_between_same_merchant_amount,
-    has_consistent_reference_codes,
-    has_incrementing_numbers,
-    is_expected_transaction_date,
-    is_recurring,
-    is_recurring_merchant,
-)
-from recur_scan.features_praise import (
-    get_average_transaction_amount as get_average_transaction_amount_praise,
-)
-from recur_scan.features_precious import (
-    amount_ends_in_00 as amount_ends_in_00_precious,
 )
 from recur_scan.features_precious import (
     get_additional_features,
     get_amount_variation_features,
-    get_recurring_frequency,
     is_subscription_amount,
 )
 from recur_scan.features_precious import (
@@ -413,36 +209,11 @@ from recur_scan.features_precious import (
 from recur_scan.features_precious import (
     is_recurring_merchant as is_recurring_merchant_precious,
 )
-from recur_scan.features_raphael import (
-    get_has_irregular_spike,
-    get_is_common_subscription_amount,
-    get_is_first_of_month,
-    get_is_fixed_interval,
-    get_is_similar_name,
-    get_occurs_same_week,
-)
-from recur_scan.features_raphael import (
-    get_n_transactions_days_apart as get_n_transactions_days_apart_raphael,
-)
-from recur_scan.features_raphael import (
-    get_n_transactions_same_day as get_n_transactions_same_day_raphael,
-)
-from recur_scan.features_raphael import (
-    get_pct_transactions_days_apart as get_pct_transactions_days_apart_raphael,
-)
-from recur_scan.features_raphael import (
-    get_pct_transactions_same_day as get_pct_transactions_same_day_raphael,
-)
-from recur_scan.features_samuel import (
-    get_amount_std_dev,
-    get_is_weekend_transaction,
-    get_median_transaction_amount,
-)
 from recur_scan.features_samuel import (
     get_is_always_recurring as get_is_always_recurring_samuel,
 )
 from recur_scan.features_samuel import (
-    get_transaction_frequency as get_transaction_frequency_samuel,
+    get_median_transaction_amount,
 )
 from recur_scan.features_segun import (
     get_average_transaction_amount as get_average_transaction_amount_segun,
@@ -452,9 +223,6 @@ from recur_scan.features_segun import (
     get_total_transaction_amount,
     get_transaction_amount_frequency,
     get_transaction_amount_median,
-    get_transaction_amount_std,
-    get_transaction_day_of_week,
-    get_transaction_time_of_day,
     get_unique_transaction_amount_count,
 )
 from recur_scan.features_segun import (
@@ -463,46 +231,19 @@ from recur_scan.features_segun import (
 from recur_scan.features_segun import (
     get_min_transaction_amount as get_min_transaction_amount_segun,
 )
-from recur_scan.features_segun import (
-    get_transaction_amount_range as get_transaction_amount_range_segun,
-)
 from recur_scan.features_tife import (
     get_amount_cluster_count,
-    get_amount_range,
-    get_amount_relative_change,
     get_amount_variability,
     get_days_since_last_same_amount,
     get_dominant_interval_strength,
-    get_interval_consistency,
     get_interval_histogram,
     get_interval_mode,
     get_merchant_amount_signature,
-    get_merchant_name_frequency,
-    get_near_amount_consistency,
     get_normalized_interval_consistency,
-    get_transaction_count,
     get_transaction_density,
 )
 from recur_scan.features_tife import (
-    get_amount_stability_score as get_amount_stability_score_tife,
-)
-from recur_scan.features_tife import (
     get_transaction_frequency as get_transaction_frequency_tife,
-)
-from recur_scan.features_victor import get_avg_days_between
-from recur_scan.features_yoloye import (
-    get_delayed_annual,
-    get_delayed_fortnightly,
-    get_delayed_monthly,
-    get_delayed_quarterly,
-    get_delayed_semi_annual,
-    get_delayed_weekly,
-    get_early_annual,
-    get_early_fortnightly,
-    get_early_monthly,
-    get_early_quarterly,
-    get_early_semi_annual,
-    get_early_weekly,
 )
 from recur_scan.transactions import Transaction
 from recur_scan.utils import parse_date
@@ -549,7 +290,7 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
     histogram = get_interval_histogram(all_transactions)
 
     vendor_txns, user_vendor_txns, preprocessed = compute_recurring_inputs_at(transaction, all_transactions)
-    date_obj = preprocessed["date_objects"][transaction]
+    # date_obj = preprocessed["date_objects"][transaction]
     total_txns = len(vendor_txns)
 
     sequence_features = detect_sequence_patterns(transaction, all_transactions)
