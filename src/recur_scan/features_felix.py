@@ -196,9 +196,9 @@ def get_transaction_intervals(transactions: list[Transaction]) -> dict[str, floa
     if len(transactions) < 2:
         return {
             "avg_days_between_transactions": 0.0,
-            "std_dev_days_between_transactions": 0.0,
+            # "std_dev_days_between_transactions": 0.0,
             "monthly_recurrence": 0,
-            "same_weekday": 0,
+            # "same_weekday": 0,
             "same_amount": 0,
         }
     # Sort transactions by date
@@ -237,9 +237,9 @@ def get_transaction_intervals(transactions: list[Transaction]) -> dict[str, floa
 
     return {
         "avg_days_between_transactions": avg_days,
-        "std_dev_days_between_transactions": std_dev_days,
+        # "std_dev_days_between_transactions": std_dev_days,
         "monthly_recurrence": monthly_recurrence,
-        "same_weekday": same_weekday,
+        # "same_weekday": same_weekday,
         "same_amount": consistent_amount,
     }
 

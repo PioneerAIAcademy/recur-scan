@@ -212,16 +212,16 @@ def get_additional_features(
         abs(transaction.amount - merchant_avg) / merchant_avg if merchant_avg != 0 else 0.0
     )
     return {
-        "day_of_week": day_of_week,
-        "day_of_month": day_of_month,
-        "is_weekend": is_weekend,
-        "is_end_of_month": is_end_of_month,
-        "days_since_first_occurrence": days_since_first,
-        "min_days_between": min_interval,
-        "max_days_between": max_interval,
-        "merchant_total_count": merchant_total_count,
-        "merchant_recent_count": merchant_recent_count,
-        "merchant_amount_stddev": amount_stddev,
+        # "day_of_week": day_of_week,
+        # "day_of_month": day_of_month,
+        # "is_weekend": is_weekend,
+        # "is_end_of_month": is_end_of_month,
+        # "days_since_first_occurrence": days_since_first,
+        # "min_days_between": min_interval,
+        # "max_days_between": max_interval,
+        # "merchant_total_count": merchant_total_count,
+        # "merchant_recent_count": merchant_recent_count,
+        # "merchant_amount_stddev": amount_stddev,
         "relative_amount_difference": relative_amount_difference,
     }
 
@@ -242,5 +242,5 @@ def get_amount_variation_features(
     return {
         "merchant_avg": merchant_avg,
         "relative_amount_diff": relative_diff,
-        "amount_anomaly": amount_anomaly,
+        # "amount_anomaly": amount_anomaly,
     }
