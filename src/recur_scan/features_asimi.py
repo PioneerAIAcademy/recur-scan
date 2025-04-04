@@ -103,18 +103,18 @@ def get_user_specific_features(transaction: Transaction, all_transactions: list[
     user_transactions = [t for t in all_transactions if t.user_id == transaction.user_id]
     if len(user_transactions) < 2:
         return {
-            "user_transaction_count": 0.0,
+            # "user_transaction_count": 0.0,
             "user_recurring_transaction_count": 0.0,
-            "user_recurring_transaction_rate": 0.0,
+            # "user_recurring_transaction_rate": 0.0,
         }
 
     recurring_count = sum(1 for t in user_transactions if is_valid_recurring_transaction(t))
-    user_recurring_transaction_rate = recurring_count / len(user_transactions)
+    # user_recurring_transaction_rate = recurring_count / len(user_transactions)
 
     return {
-        "user_transaction_count": len(user_transactions),
+        # "user_transaction_count": len(user_transactions),
         "user_recurring_transaction_count": recurring_count,
-        "user_recurring_transaction_rate": user_recurring_transaction_rate,
+        # "user_recurring_transaction_rate": user_recurring_transaction_rate,
     }
 
 
@@ -220,10 +220,10 @@ def get_amount_pattern_features(transaction: Transaction, all_transactions: list
     vendor_amounts = [t.amount for t in vendor_transactions]
 
     # Common recurring amount patterns
-    is_common_recurring_amount = (
-        amount in {5.99, 9.99, 14.99, 19.99, 29.99, 39.99, 49.99, 99.99}
-        or (amount - int(amount)) >= 0.98  # Common .99 pricing
-    )
+    # is_common_recurring_amount = (
+    #     amount in {5.99, 9.99, 14.99, 19.99, 29.99, 39.99, 49.99, 99.99}
+    #     or (amount - int(amount)) >= 0.98  # Common .99 pricing
+    # )
 
     # Check if amount is one of the top 3 most common amounts for this vendor
     if vendor_amounts:
@@ -234,7 +234,7 @@ def get_amount_pattern_features(transaction: Transaction, all_transactions: list
         is_common_for_vendor = False
 
     return {
-        "is_common_recurring_amount": int(is_common_recurring_amount),
+        # "is_common_recurring_amount": int(is_common_recurring_amount),
         "is_common_for_vendor": int(is_common_for_vendor),
         "amount_decimal_part": amount - int(amount),
     }
@@ -261,8 +261,8 @@ def get_temporal_consistency_features(
 
     return {
         "temporal_consistency_score": (monthly_consistency + weekly_consistency) / 2,
-        "is_monthly_consistent": int(monthly_consistency > 0.7),
-        "is_weekly_consistent": int(weekly_consistency > 0.7),
+        # "is_monthly_consistent": int(monthly_consistency > 0.7),
+        # "is_weekly_consistent": int(weekly_consistency > 0.7),
     }
 
 
@@ -304,7 +304,7 @@ def get_vendor_recurrence_profile(transaction: Transaction, all_transactions: li
     }
 
     return {
-        "vendor_recurrence_score": len(recurring_users) / len({t.user_id for t in vendor_transactions}),
+        # "vendor_recurrence_score": len(recurring_users) / len({t.user_id for t in vendor_transactions}),
         "vendor_recurrence_consistency": amount_consistency,
         "vendor_is_common_recurring": int(vendor_name in common_recurring_vendors),
     }
