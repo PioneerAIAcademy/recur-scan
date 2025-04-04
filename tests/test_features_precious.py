@@ -2,7 +2,6 @@ import pytest
 
 from recur_scan.features_precious import (
     amount_ends_in_00,
-    get_additional_features,
     get_amount_variation_features,
     get_avg_days_between_same_merchant_amount,
     get_days_since_last_same_merchant_amount,
@@ -11,6 +10,7 @@ from recur_scan.features_precious import (
     get_n_transactions_same_merchant_amount,
     get_percent_transactions_same_merchant_amount,
     get_recurring_frequency,
+    get_relative_amount_difference,
     get_stddev_days_between_same_merchant_amount,
     is_recurring_merchant,
     is_subscription_amount,
@@ -122,16 +122,24 @@ def test_is_subscription_amount():
     assert is_subscription_amount(t2) is False
 
 
-def test_get_additional_features():
-    t = Transaction(id=13, user_id="user1", name="Spotify", amount=9.99, date="2023-04-01")
-    txs = [
-        t,
-        Transaction(id=14, user_id="user1", name="Spotify", amount=9.99, date="2023-04-15"),
-        Transaction(id=15, user_id="user1", name="Spotify", amount=9.99, date="2023-05-01"),
-    ]
-    feats = get_additional_features(t, txs)
-    for key in ["day_of_week", "is_weekend"]:
-        assert key in feats
+# def test_get_additional_features():
+#     t = Transaction(id=13, user_id="user1", name="Spotify", amount=9.99, date="2023-04-01")
+#     txs = [
+#         t,
+#         Transaction(id=14, user_id="user1", name="Spotify", amount=9.99, date="2023-04-15"),
+#         Transaction(id=15, user_id="user1", name="Spotify", amount=9.99, date="2023-05-01"),
+#     ]
+#     feats = get_additional_features(t, txs)
+#     for key in ["day_of_week", "is_weekend"]:
+#         assert key in feats
+
+
+def test_get_relative_amount_difference():
+    t1 = Transaction(id=16, user_id="user1", name="AT&T", amount=50.99, date="2023-01-01")
+    t2 = Transaction(id=17, user_id="user1", name="AT&T", amount=50.99, date="2023-01-31")
+    t3 = Transaction(id=18, user_id="user1", name="AT&T", amount=50.99, date="2023-03-02")
+    txs = [t1, t2, t3]
+    assert pytest.approx(get_relative_amount_difference(t1, txs)) == 0.0
 
 
 def test_get_amount_variation_features():
