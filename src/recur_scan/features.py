@@ -12,19 +12,11 @@ from recur_scan.features_adeyinka import (
     get_subscription_keyword_score,
 )
 from recur_scan.features_asimi import (
-    get_amount_category,
-    get_amount_pattern_features,
-    get_temporal_consistency_features,
-    get_user_recurring_vendor_count,
-    get_user_specific_features,
-    get_user_transaction_frequency,
-    get_user_vendor_interaction_count,
-    get_user_vendor_recurrence_rate,
+    get_amount_decimal_part,
+    get_temporal_consistency_score,
+    get_user_recurring_transaction_count,
     get_user_vendor_relationship_features,
-    get_user_vendor_transaction_count,
-    get_vendor_amount_std,
-    get_vendor_recurrence_profile,
-    get_vendor_recurring_user_count,
+    get_vendor_is_common_recurring,
     get_vendor_transaction_frequency,
 )
 from recur_scan.features_christopher import (
@@ -39,7 +31,6 @@ from recur_scan.features_christopher import (
     is_known_recurring_company,
 )
 from recur_scan.features_ebenezer import (
-    get_avg_amount_same_month,
     get_avg_amount_same_name,
     get_n_transactions_within_amount_range,
     get_percent_transactions_same_month,
@@ -78,13 +69,7 @@ from recur_scan.features_emmanuel_ezechukwu1 import (
     get_percent_transactions_same_amount as get_percent_transactions_same_amount_emmanuel1,
 )
 from recur_scan.features_emmanuel_ezechukwu2 import (
-    get_amount_features as get_amount_features_emmanuel2,
-)
-from recur_scan.features_emmanuel_ezechukwu2 import (
-    # get_monthly_spending_trend,
-    get_recurrence_patterns,
     get_recurring_consistency_score,
-    get_refund_features,
     get_user_behavior_features,
     validate_recurring_transaction,
 )
@@ -92,11 +77,10 @@ from recur_scan.features_ernest import (
     get_average_transaction_amount as get_average_transaction_amount_ernest,
 )
 from recur_scan.features_ernest import (
-    get_is_recurring_vendor,
-    get_transaction_gap_stats,
+    get_transaction_frequency as get_transaction_frequency_ernest,
 )
 from recur_scan.features_ernest import (
-    get_transaction_frequency as get_transaction_frequency_ernest,
+    get_transaction_gap_stats,
 )
 from recur_scan.features_felix import (
     get_average_transaction_amount as get_average_transaction_amount_felix,
@@ -186,14 +170,12 @@ from recur_scan.features_nnanna import (
 )
 from recur_scan.features_original import (
     get_is_phone,
-    get_n_transactions_days_apart,
     get_n_transactions_same_amount,
     get_percent_transactions_same_amount,
 )
 from recur_scan.features_osasere import (
     get_day_of_month_variability,
     get_median_period,
-    get_recurrence_confidence,
 )
 from recur_scan.features_praise import (
     get_average_transaction_amount as get_average_transaction_amount_praise,
@@ -209,8 +191,8 @@ from recur_scan.features_praise import (
     get_stddev_days_between_same_merchant_amount,
 )
 from recur_scan.features_precious import (
-    get_additional_features,
     get_amount_variation_features,
+    get_relative_amount_difference,
     is_subscription_amount,
 )
 from recur_scan.features_precious import (
@@ -267,7 +249,6 @@ from recur_scan.features_tife import (
 from recur_scan.features_tife import (
     get_transaction_frequency as get_transaction_frequency_tife,
 )
-from recur_scan.features_victor import get_avg_days_between
 from recur_scan.transactions import Transaction
 from recur_scan.utils import parse_date
 
@@ -319,6 +300,7 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
     sequence_features = detect_sequence_patterns(transaction, all_transactions)
 
     return {
+        # Original features
         "n_transactions_same_amount": get_n_transactions_same_amount(transaction, all_transactions),
         "percent_transactions_same_amount": get_percent_transactions_same_amount(transaction, all_transactions),
         # "ends_in_99": get_ends_in_99(transaction),
@@ -331,9 +313,9 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         # "pct_14_days_apart_exact": get_pct_transactions_days_apart(transaction, all_transactions, 14, 0),
         # "14_days_apart_off_by_1": get_n_transactions_days_apart(transaction, all_transactions, 14, 1),
         # "pct_14_days_apart_off_by_1": get_pct_transactions_days_apart(transaction, all_transactions, 14, 1),
-        "7_days_apart_exact": get_n_transactions_days_apart(transaction, all_transactions, 7, 0),
+        # "7_days_apart_exact": get_n_transactions_days_apart(transaction, all_transactions, 7, 0),
         # "pct_7_days_apart_exact": get_pct_transactions_days_apart(transaction, all_transactions, 7, 0),
-        "7_days_apart_off_by_1": get_n_transactions_days_apart(transaction, all_transactions, 7, 1),
+        # "7_days_apart_off_by_1": get_n_transactions_days_apart(transaction, all_transactions, 7, 1),
         # "pct_7_days_apart_off_by_1": get_pct_transactions_days_apart(transaction, all_transactions, 7, 1),
         # "is_insurance": get_is_insurance(transaction),
         # "is_utility": get_is_utility(transaction),
@@ -363,7 +345,7 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         # "amount_variability_ratio": amount_variability_ratio(all_transactions),
         "robust_interval_iqr": robust_interval_iqr(all_transactions),
         "robust_interval_median": robust_interval_median(all_transactions),
-        "transaction_frequency_Frank": transaction_frequency(all_transactions),
+        "transaction_frequency_frank": transaction_frequency(all_transactions),
         "most_common_interval": most_common_interval(all_transactions),
         # "enhanced_amt_iqr": enhanced_amt_iqr(all_transactions),
         # "enhanced_days_since_last": enhanced_days_since_last(transaction, all_transactions),
@@ -419,14 +401,10 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         "transaction_pattern_complexity": transaction_pattern_complexity(merchant_trans, interval_stats),
         "date_irregularity_dominance": date_irregularity_dominance(merchant_trans, interval_stats, amount_stats),
         # Emmanuel Ezechukwu (2)'s features
-        **get_recurrence_patterns(transaction, all_transactions),
-        **get_recurring_consistency_score(transaction, all_transactions),
+        "recurring_consistency_score": get_recurring_consistency_score(transaction, all_transactions),
         "is_recurring": int(validate_recurring_transaction(transaction)),
         # "subscription_tier": classify_subscription_tier(transaction),
-        **get_amount_features_emmanuel2(transaction, all_transactions),
         **get_user_behavior_features(transaction, all_transactions),
-        **get_refund_features(transaction, all_transactions),
-        # **get_monthly_spending_trend(transaction, all_transactions),
         # Nnanna's features
         "time_interval_between_transactions": get_time_interval_between_transactions(transaction, all_transactions),
         "mobile_company": get_mobile_transaction(transaction),
@@ -443,12 +421,12 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         # "std_amount_same_name": get_std_amount_same_name(transaction, all_transactions),
         # "n_transactions_same_month": get_n_transactions_same_month(transaction, all_transactions),
         "percent_transactions_same_month": get_percent_transactions_same_month(transaction, all_transactions),
-        "avg_amount_same_month": get_avg_amount_same_month(transaction, all_transactions),
+        # "avg_amount_same_month": get_avg_amount_same_month(transaction, all_transactions),
         # "std_amount_same_month": get_std_amount_same_month(transaction, all_transactions),
         # "n_transactions_same_user_id": get_n_transactions_same_user_id(transaction, all_transactions),
         # "percent_transactions_same_user_id": get_percent_transactions_same_user_id(transaction, all_transactions),
         # "percent_transactions_same_day_of_week": get_percent_transactions_same_day_of_week(
-        #    transaction, all_transactions
+        # transaction, all_transactions
         # ),
         # "avg_amount_same_day_of_week": get_avg_amount_same_day_of_week(transaction, all_transactions),
         # "std_amount_same_day_of_week": get_std_amount_same_day_of_week(transaction, all_transactions),
@@ -497,22 +475,13 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         # "is_utility_emmanuel1": int(get_is_utility_emmanuel1(transaction)),
         "is_phone_emmanuel1": int(get_is_phone_emmanuel1(transaction)),
         # Asimi's features
-        # **get_amount_features_asimi(transaction),
-        **get_user_recurring_vendor_count(transaction, all_transactions),
-        **get_user_transaction_frequency(transaction, all_transactions),
-        **get_vendor_amount_std(transaction, all_transactions),
-        **get_vendor_recurring_user_count(transaction, all_transactions),
-        **get_vendor_transaction_frequency(transaction, all_transactions),
-        **get_user_vendor_transaction_count(transaction, all_transactions),
-        **get_user_vendor_recurrence_rate(transaction, all_transactions),
-        **get_user_vendor_interaction_count(transaction, all_transactions),
-        **get_amount_category(transaction),
-        **get_amount_pattern_features(transaction, all_transactions),
-        **get_temporal_consistency_features(transaction, all_transactions),
-        **get_vendor_recurrence_profile(transaction, all_transactions),
+        "vendor_is_common_recurring": get_vendor_is_common_recurring(transaction),
+        "temporal_consistency_score": get_temporal_consistency_score(transaction, all_transactions),
+        "user_recurring_transaction_count": get_user_recurring_transaction_count(transaction, all_transactions),
+        "vendor_transaction_frequency": get_vendor_transaction_frequency(transaction, all_transactions),
+        "amount_decimal_part": get_amount_decimal_part(transaction),
         **get_user_vendor_relationship_features(transaction, all_transactions),
         # "is_recurring_asimi": is_valid_recurring_transaction(transaction),
-        **get_user_specific_features(transaction, all_transactions),
         # Samuel's features
         # "transaction_frequency_samuel": get_transaction_frequency_samuel(transaction, all_transactions),
         # "amount_std_dev": get_amount_std_dev(transaction, all_transactions),
@@ -539,12 +508,12 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         ),
         # "recurring_frequency": get_recurring_frequency(transaction, all_transactions),
         "is_subscription_amount": is_subscription_amount(transaction),
-        **get_additional_features(transaction, all_transactions),
+        "relative_amount_difference": get_relative_amount_difference(transaction, all_transactions),
         **get_amount_variation_features(transaction, all_transactions),
         # Happy's features
         # "get_n_transactions_same_description": get_n_transactions_same_description(transaction, all_transactions),
         # "get_percent_transactions_same_description": get_percent_transactions_same_description(
-        #    transaction, all_transactions
+        # transaction, all_transactions
         # ),
         "get_transaction_same_frequency": get_transaction_frequency_happy(transaction, all_transactions),
         "get_day_of_month_consistency": get_day_of_month_consistency_happy(transaction, all_transactions),
@@ -552,7 +521,7 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         # "has_min_recurrence_period_osasere": has_min_recurrence_period(transaction, all_transactions),
         # "day_of_month_consistency_osasere": get_day_of_month_consistency_osasere(transaction, all_transactions),
         "day_of_month_variability": get_day_of_month_variability(transaction, all_transactions),
-        "recurrence_confidence": get_recurrence_confidence(transaction, all_transactions),
+        # "recurrence_confidence": get_recurrence_confidence(transaction, all_transactions),
         "median_period_days": get_median_period(transaction, all_transactions),
         # "is_weekday_consistent": is_weekday_consistent(transaction, all_transactions),
         # Felix's features
@@ -574,8 +543,9 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         # "transaction_rate": get_transaction_rate(transaction, all_transactions),
         **get_transaction_intervals_felix(all_transactions),
         # Adeyinka's features
-        # "avg_days_between_transactions_adeyinka": get_average_days_between_transactions(transaction, all_transactions)
-        # ,
+        # "avg_days_between_transactions_adeyinka": get_average_days_between_transactions(
+        #   transaction, all_transactions
+        # ),
         # "time_regularity_score_adeyinka": get_time_regularity_score(transaction, all_transactions),
         # "is_always_recurring_adeyinka": get_is_always_recurring_adeyinka(transaction),
         # "transaction_amount_variance_adeyinka": get_transaction_amount_variance(transaction, all_transactions),
@@ -584,11 +554,13 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         "subscription_keyword_score_adeyinka": get_subscription_keyword_score(transaction),
         "same_amount_vendor_transactions_adeyinka": get_same_amount_vendor_transactions(transaction, all_transactions),
         # "30_days_apart_exact_adeyinka": get_n_transactions_days_apart_adeyinka(transaction, all_transactions, 30, 0),
-        # "30_days_apart_off_by_1_adeyinka": get_n_transactions_days_apart_adeyinka
-        # (transaction, all_transactions, 30, 1),
+        # "30_days_apart_off_by_1_adeyinka": get_n_transactions_days_apart_adeyinka(
+        #     transaction, all_transactions, 30, 1
+        # ),
         # "14_days_apart_exact_adeyinka": get_n_transactions_days_apart_adeyinka(transaction, all_transactions, 14, 0),
-        # "14_days_apart_off_by_1_adeyinka": get_n_transactions_days_apart_adeyinka
-        # (transaction, all_transactions, 14, 1),
+        # "14_days_apart_off_by_1_adeyinka": get_n_transactions_days_apart_adeyinka(
+        #     transaction, all_transactions, 14, 1
+        # ),
         # "7_days_apart_exact_adeyinka": get_n_transactions_days_apart_adeyinka(transaction, all_transactions, 7, 0),
         # "7_days_apart_off_by_1_adeyinka": get_n_transactions_days_apart_adeyinka(transaction, all_transactions, 7, 1),
         # Elliot's features
@@ -639,22 +611,23 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         # "same_day_off_by_2_raphael": get_n_transactions_same_day_raphael(transaction, all_transactions, 2),
         # "14_days_apart_exact_raphael": get_n_transactions_days_apart_raphael(transaction, all_transactions, 14, 0),
         # "pct_14_days_apart_exact_raphael": get_pct_transactions_days_apart_raphael(
-        #    transaction, all_transactions, 14, 0
+        #     transaction, all_transactions, 14, 0
         # ),
         # "14_days_apart_off_by_1_raphael": get_n_transactions_days_apart_raphael(transaction, all_transactions, 14, 1),
         # "pct_14_days_apart_off_by_1_raphael": get_pct_transactions_days_apart_raphael(
-        #    transaction, all_transactions, 14, 1
+        #     transaction, all_transactions, 14, 1
         # ),
         # "7_days_apart_exact_raphael": get_n_transactions_days_apart_raphael(transaction, all_transactions, 7, 0),
         # "pct_7_days_apart_exact_raphael": get_pct_transactions_days_apart_raphael
-        # (transaction, all_transactions, 7, 0),
+        #     (transaction, all_transactions, 7, 0
+        # ),
         # "7_days_apart_off_by_1_raphael": get_n_transactions_days_apart_raphael(transaction, all_transactions, 7, 1),
         # "pct_7_days_apart_off_by_1_raphael": get_pct_transactions_days_apart_raphael(
-        #    transaction, all_transactions, 7, 1
+        #     transaction, all_transactions, 7, 1
         # ),
-        # "is_common_subscription_amount": get_is_common_subscription_amount(transaction),
-        # "occurs_same_week": get_occurs_same_week(transaction, all_transactions),
-        # "is_similar_name": get_is_similar_name(transaction, all_transactions),
+        # "is_common_subscription_amount": get_is_common_subscription_amount_raphael(transaction),
+        # "occurs_same_week": get_occurs_same_week_raphael(transaction, all_transactions),
+        # "is_similar_name": get_is_similar_name_raphael(transaction, all_transactions),
         # "is_fixed_interval": get_is_fixed_interval(transaction, all_transactions),
         # "has_irregular_spike": get_has_irregular_spike(transaction, all_transactions),
         # "is_first_of_month": get_is_first_of_month(transaction),
@@ -668,7 +641,7 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         # "is_small_amount": get_is_small_amount(transaction),
         "transaction_gap_mean": get_transaction_gap_stats(transaction, all_transactions)[0],
         "transaction_frequency_ernest": get_transaction_frequency_ernest(transaction, all_transactions),
-        "is_recurring_vendor": get_is_recurring_vendor(transaction),
+        # "is_recurring_vendor": get_is_recurring_vendor(transaction),
         # "is_fixed_amount": get_is_fixed_amount(transaction, all_transactions),
         # "recurring_interval_score": get_recurring_interval_score(transaction, all_transactions),
         # "is_weekend_transaction_ernest": get_is_weekend_transaction_ernest(transaction),
@@ -720,7 +693,7 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         # "transaction_time_of_day": get_transaction_time_of_day(transaction),
         "average_transaction_interval": get_average_transaction_interval(all_transactions),
         # Victor's features
-        "avg_days_between": get_avg_days_between(all_transactions),
+        # "avg_days_between": get_avg_days_between(all_transactions),
         # Emmanuel Eze's features
         # "is_recurring_emmanuel_eze": get_is_recurring_emmanuel_eze(transaction, all_transactions),
         # "recurring_transaction_confidence": get_recurring_transaction_confidence(transaction, all_transactions),

@@ -187,18 +187,18 @@ def get_max_transaction_amount(all_transactions: list[Transaction]) -> float:
 def get_transaction_intervals(transactions: list[Transaction]) -> dict[str, float]:
     """
     Extracts time-based features for recurring transactions.
-    - Computes average days between transactions.
-    - Computes standard deviation of intervals.
-    - Checks for flexible monthly recurrence (±7 days).
-    - Identifies if transactions occur on the same weekday.
-    - Checks if payment amounts are within ±5% of each other.
+    - Computes average days between transactions
+    - Computes standard deviation of intervals
+    - Checks for monthly recurrence (28-31 days)
+    - Identifies if transactions occur on same weekday
+    - Checks if payment amounts are exactly the same
     """
     if len(transactions) < 2:
         return {
             "avg_days_between_transactions": 0.0,
-            # "std_dev_days_between_transactions": 0.0,
+            #  "std_dev_days_between_transactions": 0.0,
             "monthly_recurrence": 0,
-            # "same_weekday": 0,
+            #  "same_weekday": 0,
             "same_amount": 0,
         }
     # Sort transactions by date
