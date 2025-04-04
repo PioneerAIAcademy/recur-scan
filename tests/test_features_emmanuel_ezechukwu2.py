@@ -130,7 +130,7 @@ def test_classify_subscription_tier() -> None:
     )
 
 
-def test_get_amount_features(sample_transactions) -> None:
+def test_get_amount_features() -> None:
     """Test get_amount_features correctly identifies amount patterns."""
     # Fixed amount case
     # result = get_amount_features(sample_transactions[0], sample_transactions)
@@ -146,7 +146,7 @@ def test_get_amount_features(sample_transactions) -> None:
     # assert result["price_cluster"] in [0, 1, 2]  # Should be one of the clusters
 
 
-def test_get_refund_features(sample_transactions) -> None:
+def test_get_refund_features() -> None:
     """Test get_refund_features correctly identifies refund patterns."""
     # Create test transaction and refund
     # test_txn = Transaction(id=14, user_id="user1", name="Original", amount=100.00, date="2024-01-15")
