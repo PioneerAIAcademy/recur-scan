@@ -1,9 +1,7 @@
 from datetime import datetime
 from statistics import mean, stdev
 
-import numpy as np
 from fuzzywuzzy import process
-from sklearn.cluster import KMeans
 
 from recur_scan.transactions import Transaction
 
@@ -107,14 +105,14 @@ def get_recurrence_patterns(transaction: Transaction, transactions: list[Transac
             key: 0
             for key in [
                 "is_biweekly",
-                "is_semimonthly",
+                # "is_semimonthly",
                 "is_monthly",
-                "is_bimonthly",
+                # "is_bimonthly",
                 "is_quarterly",
-                "is_annual",
+                # "is_annual",
                 "avg_days_between",
-                "std_days_between",
-                "recurrence_score",
+                # "std_days_between",
+                # "recurrence_score",
             ]
         }
 
@@ -122,25 +120,25 @@ def get_recurrence_patterns(transaction: Transaction, transactions: list[Transac
     date_diffs = [(dates[i + 1] - dates[i]).days for i in range(len(dates) - 1)]
 
     avg_days_between = mean(date_diffs)
-    std_days_between = stdev(date_diffs) if len(date_diffs) > 1 else 0.0
+    # std_days_between = stdev(date_diffs) if len(date_diffs) > 1 else 0.0
 
     # Weighted recurrence score
-    recurrence_score = sum(1 / (1 + abs(diff - avg_days_between)) for diff in date_diffs) / len(date_diffs)
+    # recurrence_score = sum(1 / (1 + abs(diff - avg_days_between)) for diff in date_diffs) / len(date_diffs)
 
     recurrence_flags = {
         "is_biweekly": int(14 in date_diffs),
-        "is_semimonthly": int(any(d in {14, 15, 16, 17} for d in date_diffs)),
+        # "is_semimonthly": int(any(d in {14, 15, 16, 17} for d in date_diffs)),
         "is_monthly": int(any(27 <= d <= 31 for d in date_diffs)),
-        "is_bimonthly": int(any(55 <= d <= 65 for d in date_diffs)),
+        # "is_bimonthly": int(any(55 <= d <= 65 for d in date_diffs)),
         "is_quarterly": int(any(85 <= d <= 95 for d in date_diffs)),
-        "is_annual": int(any(360 <= d <= 370 for d in date_diffs)),
+        # "is_annual": int(any(360 <= d <= 370 for d in date_diffs)),
     }
 
     return {
         **recurrence_flags,
         "avg_days_between": avg_days_between,
-        "std_days_between": std_days_between,
-        "recurrence_score": recurrence_score,
+        # "std_days_between": std_days_between,
+        # "recurrence_score": recurrence_score,
     }
 
 
@@ -228,25 +226,25 @@ def get_amount_features(transaction: Transaction, transactions: list[Transaction
     if not vendor_txns:
         return {"is_fixed_amount_recurring": 0, "amount_fluctuation": 0.0, "price_cluster": -1}
 
-    price_fluctuation = max(vendor_txns) - min(vendor_txns)
+    # price_fluctuation = max(vendor_txns) - min(vendor_txns)
 
     # Handle edge cases for KMeans clustering
     if len(vendor_txns) < 3 or len(set(vendor_txns)) == 1:
         return {
-            "is_fixed_amount_recurring": int(max(vendor_txns) <= min(vendor_txns) * 1.02),
-            "amount_fluctuation": price_fluctuation,
-            "price_cluster": -1,  # Indicates clustering was not performed
+            # "is_fixed_amount_recurring": int(max(vendor_txns) <= min(vendor_txns) * 1.02),
+            # "amount_fluctuation": price_fluctuation,
+            # "price_cluster": -1,  # Indicates clustering was not performed
         }
 
     # Perform KMeans clustering
-    amounts = np.array(vendor_txns).reshape(-1, 1)
-    kmeans = KMeans(n_clusters=min(3, len(set(vendor_txns))), random_state=42).fit(amounts)
-    price_cluster = kmeans.predict([[transaction.amount]])[0]
+    # amounts = np.array(vendor_txns).reshape(-1, 1)
+    # kmeans = KMeans(n_clusters=min(3, len(set(vendor_txns))), random_state=42).fit(amounts)
+    # price_cluster = kmeans.predict([[transaction.amount]])[0]
 
     return {
-        "is_fixed_amount_recurring": int(max(vendor_txns) <= min(vendor_txns) * 1.02),
-        "amount_fluctuation": price_fluctuation,
-        "price_cluster": price_cluster,
+        # "is_fixed_amount_recurring": int(max(vendor_txns) <= min(vendor_txns) * 1.02),
+        # "amount_fluctuation": price_fluctuation,
+        # "price_cluster": price_cluster,
     }
 
 
@@ -258,12 +256,13 @@ def get_user_behavior_features(transaction: Transaction, transactions: list[Tran
         return {"user_avg_spent": 0.0, "user_total_spent": 0.0, "user_subscription_count": 0}
 
     # Ensure subscriptions are only counted for the given user
-    user_subscription_count = sum(t.name in RECURRING_VENDORS for t in transactions if t.user_id == transaction.user_id)
+    # user_subscription_count = sum(t.name in RECURRING_VENDORS for t in transactions if t.user_id
+    # == transaction.user_id)
 
     return {
         "user_avg_spent": mean(user_txns),
         "user_total_spent": sum(user_txns),
-        "user_subscription_count": user_subscription_count,
+        # "user_subscription_count": user_subscription_count,
     }
 
 
@@ -274,19 +273,19 @@ def get_refund_features(transaction: Transaction, transactions: list[Transaction
     if not refunds:
         return {"refund_rate": 0.0, "avg_refund_time_lag": 0.0}
 
-    refund_time_lags = [
-        (datetime.strptime(t.date, "%Y-%m-%d") - datetime.strptime(transaction.date, "%Y-%m-%d")).days for t in refunds
-    ]
+    # refund_time_lags = [
+    #    (datetime.strptime(t.date, "%Y-%m-%d") - datetime.strptime(transaction.date, "%Y-%m-%d")).days for t in refunds
+    # ]
 
     return {
-        "refund_rate": len(refunds) / len(transactions),
-        "avg_refund_time_lag": mean(refund_time_lags) if refund_time_lags else 0.0,
+        # "refund_rate": len(refunds) / len(transactions),
+        # "avg_refund_time_lag": mean(refund_time_lags) if refund_time_lags else 0.0,
     }
 
 
-def get_monthly_spending_trend(transaction: Transaction, transactions: list[Transaction]) -> dict:
-    """Calculates the total spending for the transaction's month."""
-    month_year = transaction.date[:7]  # Extracts YYYY-MM
-    monthly_spending = sum(t.amount for t in transactions if t.date.startswith(month_year))
+# def get_monthly_spending_trend(transaction: Transaction, transactions: list[Transaction]) -> dict:
+#    """Calculates the total spending for the transaction's month."""
+# month_year = transaction.date[:7]  # Extracts YYYY-MM
+# monthly_spending = sum(t.amount for t in transactions if t.date.startswith(month_year))
 
-    return {"monthly_spending_trend": monthly_spending}
+# return {"monthly_spending_trend": monthly_spending}

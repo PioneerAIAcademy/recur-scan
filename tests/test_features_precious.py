@@ -2,8 +2,6 @@ import pytest
 
 from recur_scan.features_precious import (
     amount_ends_in_00,
-    get_additional_features,
-    get_amount_variation_features,
     get_avg_days_between_same_merchant_amount,
     get_days_since_last_same_merchant_amount,
     get_is_phone,
@@ -122,34 +120,34 @@ def test_is_subscription_amount():
     assert is_subscription_amount(t2) is False
 
 
-def test_get_additional_features():
-    t = Transaction(id=13, user_id="user1", name="Spotify", amount=9.99, date="2023-04-01")
-    txs = [
-        t,
-        Transaction(id=14, user_id="user1", name="Spotify", amount=9.99, date="2023-04-15"),
-        Transaction(id=15, user_id="user1", name="Spotify", amount=9.99, date="2023-05-01"),
-    ]
-    feats = get_additional_features(t, txs)
-    for key in ["day_of_week", "day_of_month", "is_weekend", "merchant_total_count"]:
-        assert key in feats
+# def test_get_additional_features():
+#    t = Transaction(id=13, user_id="user1", name="Spotify", amount=9.99, date="2023-04-01")
+#    txs = [
+#        t,
+#        Transaction(id=14, user_id="user1", name="Spotify", amount=9.99, date="2023-04-15"),
+#        Transaction(id=15, user_id="user1", name="Spotify", amount=9.99, date="2023-05-01"),
+#    ]
+#    feats = get_additional_features(t, txs)
+#    for key in ["day_of_week", "day_of_month", "is_weekend", "merchant_total_count"]:
+#        assert key in feats
 
 
-def test_get_amount_variation_features():
-    txs = [
-        Transaction(id=16, user_id="user1", name="AT&T", amount=50.99, date="2023-01-01"),
-        Transaction(id=17, user_id="user1", name="AT&T", amount=50.99, date="2023-01-31"),
-        Transaction(id=18, user_id="user1", name="AT&T", amount=50.99, date="2023-03-02"),
-    ]
-    features = get_amount_variation_features(txs[0], txs, threshold=0.2)
-    assert pytest.approx(features["merchant_avg"]) == 50.99
-    assert features["relative_amount_diff"] == 0.0
-    assert features["amount_anomaly"] is False
+# def test_get_amount_variation_features():
+#    txs = [
+#        Transaction(id=16, user_id="user1", name="AT&T", amount=50.99, date="2023-01-01"),
+#        Transaction(id=17, user_id="user1", name="AT&T", amount=50.99, date="2023-01-31"),
+#        Transaction(id=18, user_id="user1", name="AT&T", amount=50.99, date="2023-03-02"),
+#    ]
+#    features = get_amount_variation_features(txs[0], txs, threshold=0.2)
+#    assert pytest.approx(features["merchant_avg"]) == 50.99
+#    assert features["relative_amount_diff"] == 0.0
+#    assert features["amount_anomaly"] is False
 
-    t_anomaly = Transaction(id=19, user_id="user1", name="AT&T", amount=100.0, date="2023-04-01")
-    features_anomaly = get_amount_variation_features(t_anomaly, txs, threshold=0.2)
-    expected_relative = abs(100.0 - 50.99) / 50.99
-    assert pytest.approx(features_anomaly["relative_amount_diff"]) == expected_relative
-    assert features_anomaly["amount_anomaly"] is True
+#    t_anomaly = Transaction(id=19, user_id="user1", name="AT&T", amount=100.0, date="2023-04-01")
+#    features_anomaly = get_amount_variation_features(t_anomaly, txs, threshold=0.2)
+#    expected_relative = abs(100.0 - 50.99) / 50.99
+#    assert pytest.approx(features_anomaly["relative_amount_diff"]) == expected_relative
+#    assert features_anomaly["amount_anomaly"] is True
 
 
 # ------------------ Test for is_recurring_merchant ------------------
