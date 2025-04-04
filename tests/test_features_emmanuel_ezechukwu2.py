@@ -130,34 +130,34 @@ def test_classify_subscription_tier() -> None:
     )
 
 
-# def test_get_amount_features(sample_transactions) -> None:
-#     """Test get_amount_features correctly identifies amount patterns."""
-#     # Fixed amount case
-#     result = get_amount_features(sample_transactions[0], sample_transactions)
-#     # assert result["is_fixed_amount_recurring"] == 1
-#     # assert result["amount_fluctuation"] == 0.0
+def test_get_amount_features(sample_transactions) -> None:
+    """Test get_amount_features correctly identifies amount patterns."""
+    # Fixed amount case
+    # result = get_amount_features(sample_transactions[0], sample_transactions)
+    # # assert result["is_fixed_amount_recurring"] == 1
+    # # assert result["amount_fluctuation"] == 0.0
 
-#     # Variable amount case
-#     result = get_amount_features(sample_transactions[5], sample_transactions)
-#     # assert result["is_fixed_amount_recurring"] == 0
-#     # assert result["amount_fluctuation"] == 5.00
+    # # Variable amount case
+    # result = get_amount_features(sample_transactions[5], sample_transactions)
+    # # assert result["is_fixed_amount_recurring"] == 0
+    # # assert result["amount_fluctuation"] == 5.00
 
-#     # Cluster test
-#     # assert result["price_cluster"] in [0, 1, 2]  # Should be one of the clusters
+    # Cluster test
+    # assert result["price_cluster"] in [0, 1, 2]  # Should be one of the clusters
 
 
-# def test_get_refund_features(sample_transactions) -> None:
-#     """Test get_refund_features correctly identifies refund patterns."""
-#     # Create test transaction and refund
-#     test_txn = Transaction(id=14, user_id="user1", name="Original", amount=100.00, date="2024-01-15")
-#     refund_txn = Transaction(id=13, user_id="user1", name="Refund", amount=-100.00, date="2024-01-20")
+def test_get_refund_features(sample_transactions) -> None:
+    """Test get_refund_features correctly identifies refund patterns."""
+    # Create test transaction and refund
+    # test_txn = Transaction(id=14, user_id="user1", name="Original", amount=100.00, date="2024-01-15")
+    # refund_txn = Transaction(id=13, user_id="user1", name="Refund", amount=-100.00, date="2024-01-20")
 
-#     # Use unpacking instead of concatenation (fixes RUF005)
-#     transactions_with_refund = [*sample_transactions, test_txn, refund_txn]
+    # # Use unpacking instead of concatenation (fixes RUF005)
+    # transactions_with_refund = [*sample_transactions, test_txn, refund_txn]
 
-#     result = get_refund_features(test_txn, transactions_with_refund)
-#     # assert result["refund_rate"] > 0
-#     # assert result["avg_refund_time_lag"] == 5
+    # result = get_refund_features(test_txn, transactions_with_refund)
+    # assert result["refund_rate"] > 0
+    # assert result["avg_refund_time_lag"] == 5
 
 
 def test_get_monthly_spending_trend(sample_transactions) -> None:
