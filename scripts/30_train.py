@@ -264,9 +264,9 @@ for fold, (train_idx, val_idx) in enumerate(cv.split(X_cv, y)):
 
 # print the average precision, recall, and f1 score for all folds
 print(f"\nAverage Metrics Across {n_cv_folds} Folds:")
-print(f"Precision: {sum(precisions) / len(precisions):.2f}")
-print(f"Recall: {sum(recalls) / len(recalls):.2f}")
-print(f"F1 Score: {sum(f1s) / len(f1s):.2f}")
+print(f"Precision: {sum(precisions) / len(precisions):.3f}")
+print(f"Recall: {sum(recalls) / len(recalls):.3f}")
+print(f"F1 Score: {sum(f1s) / len(f1s):.3f}")
 
 # %%
 # save the misclassified transactions to a csv file in the output directory
