@@ -284,8 +284,8 @@ def get_refund_features(transaction: Transaction, transactions: list[Transaction
 
 
 # def get_monthly_spending_trend(transaction: Transaction, transactions: list[Transaction]) -> dict:
-#    """Calculates the total spending for the transaction's month."""
-# month_year = transaction.date[:7]  # Extracts YYYY-MM
-# monthly_spending = sum(t.amount for t in transactions if t.date.startswith(month_year))
+#     """Calculates the total spending for the transaction's month."""
+#     # month_year = transaction.date[:7]  # Extracts YYYY-MM
+#     # monthly_spending = sum(t.amount for t in transactions if t.date.startswith(month_year))
 
-# return {"monthly_spending_trend": monthly_spending}
+#     # return {"monthly_spending_trend": monthly_spending}

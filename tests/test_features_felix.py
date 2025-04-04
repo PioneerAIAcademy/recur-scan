@@ -1,4 +1,6 @@
 # test features
+import datetime
+from math import isclose
 
 import pytest
 
@@ -15,7 +17,7 @@ from recur_scan.features_felix import (
     get_min_transaction_amount,
     get_month,
     get_n_transactions_same_vendor,
-    # get_transaction_intervals,
+    get_transaction_intervals,
     get_transaction_rate,
     get_transactions_interval_stability,
     get_variation_ratio,
@@ -96,26 +98,24 @@ def test_get_transaction_intervals_single_transaction():
 
     With a single transaction, there is no interval to compute so all features should be zero.
     """
-
-
-#    single_tx = [
-#        Transaction(
-#            id=1,
-#            user_id="user1",
-#            name="vendor1",
-#            amount=100,
-#            date=datetime.datetime.strptime("2024-01-02", "%Y-%m-%d").date(),
-#        )
-#    ]
-#    result = get_transaction_intervals(single_tx)
-#    expected = {
-#        "avg_days_between_transactions": 0.0,
-#        "std_dev_days_between_transactions": 0.0,
-#        "monthly_recurrence": 0,
-#        "same_weekday": 0,
-#        "same_amount": 0,
-#    }
-#    assert result == expected
+    single_tx = [
+        Transaction(
+            id=1,
+            user_id="user1",
+            name="vendor1",
+            amount=100,
+            date=datetime.datetime.strptime("2024-01-02", "%Y-%m-%d").date(),
+        )
+    ]
+    result = get_transaction_intervals(single_tx)
+    expected = {
+        "avg_days_between_transactions": 0.0,
+        # "std_dev_days_between_transactions": 0.0,
+        "monthly_recurrence": 0,
+        # "same_weekday": 0,
+        "same_amount": 0,
+    }
+    assert result == expected
 
 
 def test_get_transaction_intervals_multiple_transactions() -> None:
@@ -124,46 +124,44 @@ def test_get_transaction_intervals_multiple_transactions() -> None:
 
     This test includes transactions with different dates, amounts, and weekdays.
     """
-
-
-#    transactions = [
-#        Transaction(
-#            id=1,
-#            user_id="user1",
-#            name="vendor1",
-#            amount=100,
-#            date=datetime.datetime.strptime("2024-01-02", "%Y-%m-%d").date(),
-#        ),
-#        Transaction(
-#            id=2,
-#            user_id="user1",
-#            name="vendor1",
-#            amount=100,
-#            date=datetime.datetime.strptime("2024-02-09", "%Y-%m-%d").date(),
-#        ),
-#        Transaction(
-#            id=3,
-#            user_id="user1",
-#            name="vendor1",
-#            amount=200,
-#            date=datetime.datetime.strptime("2024-03-03", "%Y-%m-%d").date(),
-#        ),
-#    ]
-#    result = get_transaction_intervals(transactions)
-#    expected = {
-#        "avg_days_between_transactions": 30.5,
-#        "std_dev_days_between_transactions": 10.6066,
-#        "monthly_recurrence": 1.0,
-#        "same_weekday": 0,
-#        "same_amount": 2 / 3,
-#    }
-#    assert isclose(result["avg_days_between_transactions"], expected["avg_days_between_transactions"], rel_tol=1e-5)
-#    assert isclose(
-#        result["std_dev_days_between_transactions"], expected["std_dev_days_between_transactions"], rel_tol=1e-3
-#    )
-#    assert result["monthly_recurrence"] == expected["monthly_recurrence"]
-#    assert result["same_weekday"] == expected["same_weekday"]
-#    assert result["same_amount"] == expected["same_amount"]
+    transactions = [
+        Transaction(
+            id=1,
+            user_id="user1",
+            name="vendor1",
+            amount=100,
+            date=datetime.datetime.strptime("2024-01-02", "%Y-%m-%d").date(),
+        ),
+        Transaction(
+            id=2,
+            user_id="user1",
+            name="vendor1",
+            amount=100,
+            date=datetime.datetime.strptime("2024-02-09", "%Y-%m-%d").date(),
+        ),
+        Transaction(
+            id=3,
+            user_id="user1",
+            name="vendor1",
+            amount=200,
+            date=datetime.datetime.strptime("2024-03-03", "%Y-%m-%d").date(),
+        ),
+    ]
+    result = get_transaction_intervals(transactions)
+    expected = {
+        "avg_days_between_transactions": 30.5,
+        "std_dev_days_between_transactions": 10.6066,
+        "monthly_recurrence": 1.0,
+        "same_weekday": 0,
+        "same_amount": 2 / 3,
+    }
+    assert isclose(result["avg_days_between_transactions"], expected["avg_days_between_transactions"], rel_tol=1e-5)
+    # assert isclose(
+    #     result["std_dev_days_between_transactions"], expected["std_dev_days_between_transactions"], rel_tol=1e-3
+    # )
+    assert result["monthly_recurrence"] == expected["monthly_recurrence"]
+    # assert result["same_weekday"] == expected["same_weekday"]
+    assert result["same_amount"] == expected["same_amount"]
 
 
 def test_get_month() -> None:

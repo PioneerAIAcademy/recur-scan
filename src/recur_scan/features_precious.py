@@ -230,7 +230,8 @@ def get_additional_features(
 
 
 def get_amount_variation_features(
-    transaction: Transaction, all_transactions: list[Transaction]
+    transaction: Transaction,
+    all_transactions: list[Transaction],
 ) -> dict[str, FeatureValue]:
     """
     Calculate features related to amount variations for a given transaction.
