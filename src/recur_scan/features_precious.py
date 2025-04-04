@@ -174,39 +174,34 @@ def get_additional_features(
     transaction: Transaction, all_transactions: list[Transaction]
 ) -> dict[str, float | int | bool]:
     """Extract additional temporal and merchant consistency features that are not already included."""
-    trans_date = datetime.datetime.strptime(transaction.date, "%Y-%m-%d").date()
-    day_of_week: int = trans_date.weekday()
-    day_of_month: int = trans_date.day
-    is_weekend: bool = day_of_week >= 5
-    is_end_of_month: bool = day_of_month >= 28
+    # trans_date = datetime.datetime.strptime(transaction.date, "%Y-%m-%d").date()
+    # day_of_week: int = trans_date.weekday()
+    # day_of_month: int = trans_date.day
+    # is_weekend: bool = day_of_week >= 5
+    # is_end_of_month: bool = day_of_month >= 28
     same_merchant_transactions = sorted(
         [t for t in all_transactions if t.name == transaction.name], key=lambda x: x.date
     )
-    if same_merchant_transactions:
-        first_date = datetime.datetime.strptime(same_merchant_transactions[0].date, "%Y-%m-%d").date()
-        days_since_first: int = (trans_date - first_date).days
-    else:
-        days_since_first = 0
     intervals = []
     for t1, t2 in itertools.pairwise(same_merchant_transactions):
         d1 = datetime.datetime.strptime(t1.date, "%Y-%m-%d").date()
         d2 = datetime.datetime.strptime(t2.date, "%Y-%m-%d").date()
         intervals.append((d2 - d1).days)
-    min_interval: int = min(intervals) if intervals else 0
-    max_interval: int = max(intervals) if intervals else 0
-    merchant_total_count: int = sum(1 for t in all_transactions if t.name == transaction.name)
-    merchant_recent_count: int = sum(
-        1
-        for t in all_transactions
-        if t.name == transaction.name
-        and (trans_date - datetime.datetime.strptime(t.date, "%Y-%m-%d").date()).days <= 30
-    )
+    # min_interval: int = min(intervals) if intervals else 0
+    # max_interval: int = max(intervals) if intervals else 0
+    # merchant_total_count: int = sum(1 for t in all_transactions if t.name == transaction.name)
+    # merchant_recent_count: int = sum(
+    #     1
+    #     for t in all_transactions
+    #     if t.name == transaction.name
+    #     and (trans_date - datetime.datetime.strptime(t.date, "%Y-%m-%d").date()).days <= 30
+    # )
     merchant_amounts = [t.amount for t in all_transactions if t.name == transaction.name]
     if merchant_amounts:
-        amount_stddev: float = statistics.stdev(merchant_amounts) if len(merchant_amounts) > 1 else 0.0
+        # amount_stddev: float = statistics.stdev(merchant_amounts) if len(merchant_amounts) > 1 else 0.0
         merchant_avg: float = statistics.mean(merchant_amounts)
     else:
-        amount_stddev = 0.0
+        # amount_stddev = 0.0
         merchant_avg = 0.0
     relative_amount_difference: float = (
         abs(transaction.amount - merchant_avg) / merchant_avg if merchant_avg != 0 else 0.0
@@ -230,7 +225,7 @@ def get_additional_features(
 
 
 def get_amount_variation_features(
-    transaction: Transaction, all_transactions: list[Transaction], threshold: float = 0.2
+    transaction: Transaction, all_transactions: list[Transaction]
 ) -> dict[str, FeatureValue]:
     """
     Calculate features related to amount variations for a given transaction.
@@ -238,7 +233,7 @@ def get_amount_variation_features(
     merchant_transactions = [t for t in all_transactions if t.name == transaction.name]
     merchant_avg = statistics.mean([t.amount for t in merchant_transactions]) if merchant_transactions else 0.0
     relative_diff = abs(transaction.amount - merchant_avg) / merchant_avg if merchant_avg != 0 else 0.0
-    amount_anomaly = relative_diff > threshold
+    # amount_anomaly = relative_diff > threshold
     return {
         "merchant_avg": merchant_avg,
         "relative_amount_diff": relative_diff,

@@ -1,9 +1,7 @@
 from datetime import datetime
 from statistics import mean, stdev
 
-import numpy as np
 from fuzzywuzzy import process
-from sklearn.cluster import KMeans
 
 from recur_scan.transactions import Transaction
 
@@ -122,10 +120,10 @@ def get_recurrence_patterns(transaction: Transaction, transactions: list[Transac
     date_diffs = [(dates[i + 1] - dates[i]).days for i in range(len(dates) - 1)]
 
     avg_days_between = mean(date_diffs)
-    std_days_between = stdev(date_diffs) if len(date_diffs) > 1 else 0.0
+    # std_days_between = stdev(date_diffs) if len(date_diffs) > 1 else 0.0
 
     # Weighted recurrence score
-    recurrence_score = sum(1 / (1 + abs(diff - avg_days_between)) for diff in date_diffs) / len(date_diffs)
+    # recurrence_score = sum(1 / (1 + abs(diff - avg_days_between)) for diff in date_diffs) / len(date_diffs)
 
     # recurrence_flags = {
     #     # "is_biweekly": int(14 in date_diffs),
@@ -162,28 +160,28 @@ def get_recurring_consistency_score(transaction: Transaction, transactions: list
     amount_stability = 1 - (stdev(amount_variations) / (mean(amount_variations) + 1e-6))  # Normalize stability score
 
     # Frequency-based confidence (e.g., monthly = strong, yearly = weaker)
-    # recurrence_flags = {
-    #     # "biweekly": int(14 in date_diffs),
-    #     # "monthly": int(any(27 <= d <= 31 for d in date_diffs)),
-    #     # "bimonthly": int(any(55 <= d <= 65 for d in date_diffs)),
-    #     # "quarterly": int(any(85 <= d <= 95 for d in date_diffs)),
-    #     # "annual": int(any(360 <= d <= 370 for d in date_diffs)),
-    # }
+    recurrence_flags = {
+        "biweekly": int(14 in date_diffs),
+        "monthly": int(any(27 <= d <= 31 for d in date_diffs)),
+        "bimonthly": int(any(55 <= d <= 65 for d in date_diffs)),
+        "quarterly": int(any(85 <= d <= 95 for d in date_diffs)),
+        "annual": int(any(360 <= d <= 370 for d in date_diffs)),
+    }
 
     # Weight factors based on common recurrence patterns
     recurrence_weight = (
-        # 0.4 * recurrence_flags["monthly"]
-        # + 0.2 * recurrence_flags["biweekly"]
-        # + 0.15 * recurrence_flags["bimonthly"]
-        # + 0.1 * recurrence_flags["quarterly"]
-        # + 0.05 * recurrence_flags["annual"]
+        0.4 * recurrence_flags["monthly"]
+        + 0.2 * recurrence_flags["biweekly"]
+        + 0.15 * recurrence_flags["bimonthly"]
+        + 0.1 * recurrence_flags["quarterly"]
+        + 0.05 * recurrence_flags["annual"]
     )
 
     # Final consistency score (scales from 0 to 1)
     consistency_score = (
         0.5 * amount_stability  # Amount consistency
         + 0.3 * (1 - (std_days_between / (avg_days_between + 1e-6)))  # Time interval consistency
-        # + 0.2 * recurrence_weight
+        + 0.2 * recurrence_weight
     )
 
     return {"recurring_consistency_score": round(max(0, min(consistency_score, 1)), 2)}
@@ -232,7 +230,7 @@ def get_amount_features(transaction: Transaction, transactions: list[Transaction
             # "price_cluster": -1
         }
 
-    price_fluctuation = max(vendor_txns) - min(vendor_txns)
+    # price_fluctuation = max(vendor_txns) - min(vendor_txns)
 
     # Handle edge cases for KMeans clustering
     if len(vendor_txns) < 3 or len(set(vendor_txns)) == 1:
@@ -243,9 +241,9 @@ def get_amount_features(transaction: Transaction, transactions: list[Transaction
         }
 
     # Perform KMeans clustering
-    amounts = np.array(vendor_txns).reshape(-1, 1)
-    kmeans = KMeans(n_clusters=min(3, len(set(vendor_txns))), random_state=42).fit(amounts)
-    price_cluster = kmeans.predict([[transaction.amount]])[0]
+    # amounts = np.array(vendor_txns).reshape(-1, 1)
+    # kmeans = KMeans(n_clusters=min(3, len(set(vendor_txns))), random_state=42).fit(amounts)
+    # price_cluster = kmeans.predict([[transaction.amount]])[0]
 
     return {
         # "is_fixed_amount_recurring": int(max(vendor_txns) <= min(vendor_txns) * 1.02),
@@ -266,7 +264,8 @@ def get_user_behavior_features(transaction: Transaction, transactions: list[Tran
         }
 
     # Ensure subscriptions are only counted for the given user
-    user_subscription_count = sum(t.name in RECURRING_VENDORS for t in transactions if t.user_id == transaction.user_id)
+    # user_subscription_count = sum(
+    # t.name in RECURRING_VENDORS for t in transactions if t.user_id == transaction.user_id)
 
     return {
         "user_avg_spent": mean(user_txns),
@@ -285,9 +284,10 @@ def get_refund_features(transaction: Transaction, transactions: list[Transaction
             # "avg_refund_time_lag": 0.0
         }
 
-    refund_time_lags = [
-        (datetime.strptime(t.date, "%Y-%m-%d") - datetime.strptime(transaction.date, "%Y-%m-%d")).days for t in refunds
-    ]
+    # refund_time_lags = [
+    #     (
+    # datetime.strptime(t.date, "%Y-%m-%d") - datetime.strptime(transaction.date, "%Y-%m-%d")).days for t in refunds
+    # ]
 
     return {
         # "refund_rate": len(refunds) / len(transactions),
