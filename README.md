@@ -186,36 +186,37 @@ This project is licensed under the Apache License - see LICENSE file for details
   <tr>
     <td align="center"><a href="https://github.com/aghadiayeamayanvboernest"><img src="https://github.com/aghadiayeamayanvboernest.png" width="100px;" alt=""/><br /><sub><b>aghadiayeamayanvboernest</b></sub></a></td>
     <td align="center"><a href="https://github.com/Asimi1234"><img src="https://github.com/Asimi1234.png" width="100px;" alt=""/><br /><sub><b>Asimi1234</b></sub></a></td>
+    <td align="center"><a href="https://github.com/Basseychrist"><img src="https://github.com/Basseychrist.png" width="100px;" alt=""/><br /><sub><b>Basseychrist</b></sub></a></td>
     <td align="center"><a href="https://github.com/chrisedeson"><img src="https://github.com/chrisedeson.png" width="100px;" alt=""/><br /><sub><b>chrisedeson</b></sub></a></td>
     <td align="center"><a href="https://github.com/clack391"><img src="https://github.com/clack391.png" width="100px;" alt=""/><br /><sub><b>clack391</b></sub></a></td>
     <td align="center"><a href="https://github.com/Daveralphy"><img src="https://github.com/Daveralphy.png" width="100px;" alt=""/><br /><sub><b>Daveralphy</b></sub></a></td>
-    <td align="center"><a href="https://github.com/devemmanuel1"><img src="https://github.com/devemmanuel1.png" width="100px;" alt=""/><br /><sub><b>devemmanuel1</b></sub></a></td>
   </tr>
   <tr>
+    <td align="center"><a href="https://github.com/devemmanuel1"><img src="https://github.com/devemmanuel1.png" width="100px;" alt=""/><br /><sub><b>devemmanuel1</b></sub></a></td>
     <td align="center"><a href="https://github.com/Ebenezerbanky"><img src="https://github.com/Ebenezerbanky.png" width="100px;" alt=""/><br /><sub><b>Ebenezerbanky</b></sub></a></td>
     <td align="center"><a href="https://github.com/Elliot-Nzei"><img src="https://github.com/Elliot-Nzei.png" width="100px;" alt=""/><br /><sub><b>Elliot-Nzei</b></sub></a></td>
     <td align="center"><a href="https://github.com/erubamif"><img src="https://github.com/erubamif.png" width="100px;" alt=""/><br /><sub><b>erubamif</b></sub></a></td>
     <td align="center"><a href="https://github.com/Evena07"><img src="https://github.com/Evena07.png" width="100px;" alt=""/><br /><sub><b>Evena07</b></sub></a></td>
     <td align="center"><a href="https://github.com/francis-2008-happy"><img src="https://github.com/francis-2008-happy.png" width="100px;" alt=""/><br /><sub><b>francis-2008-happy</b></sub></a></td>
-    <td align="center"><a href="https://github.com/G-KnowsMoney"><img src="https://github.com/G-KnowsMoney.png" width="100px;" alt=""/><br /><sub><b>G-KnowsMoney</b></sub></a></td>
   </tr>
   <tr>
+    <td align="center"><a href="https://github.com/G-KnowsMoney"><img src="https://github.com/G-KnowsMoney.png" width="100px;" alt=""/><br /><sub><b>G-KnowsMoney</b></sub></a></td>
     <td align="center"><a href="https://github.com/gbemi001"><img src="https://github.com/gbemi001.png" width="100px;" alt=""/><br /><sub><b>gbemi001</b></sub></a></td>
     <td align="center"><a href="https://github.com/laurells"><img src="https://github.com/laurells.png" width="100px;" alt=""/><br /><sub><b>laurells</b></sub></a></td>
     <td align="center"><a href="https://github.com/narvas12"><img src="https://github.com/narvas12.png" width="100px;" alt=""/><br /><sub><b>narvas12</b></sub></a></td>
     <td align="center"><a href="https://github.com/ndukanice"><img src="https://github.com/ndukanice.png" width="100px;" alt=""/><br /><sub><b>ndukanice</b></sub></a></td>
     <td align="center"><a href="https://github.com/Nehiz"><img src="https://github.com/Nehiz.png" width="100px;" alt=""/><br /><sub><b>Nehiz</b></sub></a></td>
-    <td align="center"><a href="https://github.com/NnatuanyaFrankOguguo"><img src="https://github.com/NnatuanyaFrankOguguo.png" width="100px;" alt=""/><br /><sub><b>NnatuanyaFrankOguguo</b></sub></a></td>
   </tr>
   <tr>
+    <td align="center"><a href="https://github.com/NnatuanyaFrankOguguo"><img src="https://github.com/NnatuanyaFrankOguguo.png" width="100px;" alt=""/><br /><sub><b>NnatuanyaFrankOguguo</b></sub></a></td>
     <td align="center"><a href="https://github.com/Nwasir"><img src="https://github.com/Nwasir.png" width="100px;" alt=""/><br /><sub><b>Nwasir</b></sub></a></td>
     <td align="center"><a href="https://github.com/Praise-Enato"><img src="https://github.com/Praise-Enato.png" width="100px;" alt=""/><br /><sub><b>Praise-Enato</b></sub></a></td>
     <td align="center"><a href="https://github.com/Samuel-Innocent"><img src="https://github.com/Samuel-Innocent.png" width="100px;" alt=""/><br /><sub><b>Samuel-Innocent</b></sub></a></td>
     <td align="center"><a href="https://github.com/SegunOladeinde"><img src="https://github.com/SegunOladeinde.png" width="100px;" alt=""/><br /><sub><b>SegunOladeinde</b></sub></a></td>
     <td align="center"><a href="https://github.com/seregheik"><img src="https://github.com/seregheik.png" width="100px;" alt=""/><br /><sub><b>seregheik</b></sub></a></td>
-    <td align="center"><a href="https://github.com/T-FEH"><img src="https://github.com/T-FEH.png" width="100px;" alt=""/><br /><sub><b>T-FEH</b></sub></a></td>
   </tr>
   <tr>
+    <td align="center"><a href="https://github.com/T-FEH"><img src="https://github.com/T-FEH.png" width="100px;" alt=""/><br /><sub><b>T-FEH</b></sub></a></td>
     <td align="center"><a href="https://github.com/taiwo-stack"><img src="https://github.com/taiwo-stack.png" width="100px;" alt=""/><br /><sub><b>taiwo-stack</b></sub></a></td>
     <td align="center"><a href="https://github.com/Victorprovost"><img src="https://github.com/Victorprovost.png" width="100px;" alt=""/><br /><sub><b>Victorprovost</b></sub></a></td>
     <td align="center"><a href="https://github.com/WilsonGbedemah"><img src="https://github.com/WilsonGbedemah.png" width="100px;" alt=""/><br /><sub><b>WilsonGbedemah</b></sub></a></td>
