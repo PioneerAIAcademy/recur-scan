@@ -15,6 +15,7 @@ import os
 import joblib
 import matplotlib.pyplot as plt
 import shap
+import xgboost as xgb
 from loguru import logger
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_extraction import DictVectorizer
@@ -29,14 +30,15 @@ from recur_scan.transactions import group_transactions, read_labeled_transaction
 # %%
 # configure the script
 
+model_type = "rf"  # "rf" or "xgb"
 n_cv_folds = 5  # number of cross-validation folds, could be 5
 do_hyperparameter_optimization = False  # set to False to use the default hyperparameters
-search_type = "grid"  # "grid" or "random"
-n_hpo_iters = 200  # number of hyperparameter optimization iterations
+search_type = "random"  # "grid" or "random"
+n_hpo_iters = 100  # number of hyperparameter optimization iterations
 n_jobs = -1  # number of jobs to run in parallel (set to 1 if your laptop gets too hot)
 
-in_path = "training data goes here"
-out_dir = "output directory goes here"
+in_path = "../data/train.csv"
+out_dir = "../data/training_xgb"
 
 # %%
 # parse script arguments from command line
@@ -104,17 +106,29 @@ print(X_hpo.shape)
 
 if do_hyperparameter_optimization:
     # Define parameter grid
-    param_dist = {
-        "n_estimators": [200, 300, 400, 500],  # [10, 20, 50, 100, 200, 500, 1000],
-        "max_depth": [20, 30, 40, 50],  # [10, 20, 30, 40, 50, None],
-        "min_samples_split": [5],  # [2, 5, 10],
-        "min_samples_leaf": [8],  # [1, 2, 4, 8, 16],
-        "max_features": ["sqrt"],
-        "bootstrap": [False],
-    }
-
+    if model_type == "rf":
+        param_dist = {
+            "n_estimators": [200, 300, 400, 500],  # [10, 20, 50, 100, 200, 500, 1000],
+            "max_depth": [20, 30, 40, 50],  # [10, 20, 30, 40, 50, None],
+            "min_samples_split": [5],  # [2, 5, 10],
+            "min_samples_leaf": [8],  # [1, 2, 4, 8, 16],
+            "max_features": ["sqrt"],
+            "bootstrap": [False],
+        }
+    elif model_type == "xgb":
+        param_dist = {
+            "scale_pos_weight": [22, 24, 26],  # Adjust based on class imbalance
+            "max_depth": [2, 3, 4],
+            "learning_rate": [0.5, 0.6, 0.7, 0.8],
+            "n_estimators": [100, 200, 300, 400],
+            "min_child_weight": [5, 7, 9],
+        }
     # search for the best hyperparameters
-    model = RandomForestClassifier(random_state=42, n_jobs=n_jobs)
+    if model_type == "rf":
+        model = RandomForestClassifier(random_state=42, n_jobs=n_jobs)
+    elif model_type == "xgb":
+        model = xgb.XGBClassifier(random_state=42, n_jobs=n_jobs)
+
     if search_type == "grid":
         search = GridSearchCV(model, param_dist, cv=n_cv_folds, scoring="f1", n_jobs=n_jobs, verbose=3)
     else:
@@ -132,14 +146,23 @@ if do_hyperparameter_optimization:
     best_params = search.best_params_
 else:
     # default hyperparameters
-    best_params = {
-        "n_estimators": 500,
-        "min_samples_split": 5,
-        "min_samples_leaf": 8,
-        "max_features": "sqrt",
-        "max_depth": 40,
-        "bootstrap": False,
-    }
+    if model_type == "rf":
+        best_params = {
+            "n_estimators": 500,
+            "min_samples_split": 5,
+            "min_samples_leaf": 8,
+            "max_features": "sqrt",
+            "max_depth": 40,
+            "bootstrap": False,
+        }
+    elif model_type == "xgb":
+        best_params = {
+            "scale_pos_weight": 26,
+            "max_depth": 3,
+            "learning_rate": 0.6,
+            "n_estimators": 200,
+            "min_child_weight": 7,
+        }
 
 # %%
 #
@@ -149,7 +172,10 @@ else:
 # now that we have the best hyperparameters, train a model with them
 
 logger.info("Training the model")
-model = RandomForestClassifier(random_state=42, **best_params, n_jobs=n_jobs)
+if model_type == "rf":
+    model = RandomForestClassifier(random_state=42, **best_params, n_jobs=n_jobs)
+elif model_type == "xgb":
+    model = xgb.XGBClassifier(random_state=42, **best_params, n_jobs=n_jobs)
 model.fit(X, y)
 logger.info("Model trained")
 
@@ -242,7 +268,10 @@ for fold, (train_idx, val_idx) in enumerate(cv.split(X_cv, y)):
     transactions_val = [transactions[i] for i in val_idx]  # Keep the original transaction instances for this fold
 
     # Train the model
-    model = RandomForestClassifier(random_state=42, **best_params, n_jobs=n_jobs)
+    if model_type == "rf":
+        model = RandomForestClassifier(random_state=42, **best_params, n_jobs=n_jobs)
+    elif model_type == "xgb":
+        model = xgb.XGBClassifier(random_state=42, **best_params, n_jobs=n_jobs)
     model.fit(X_train, y_train)
 
     # Make predictions
@@ -263,6 +292,7 @@ for fold, (train_idx, val_idx) in enumerate(cv.split(X_cv, y)):
     print(f"Misclassified Instances in Fold {fold + 1}: {len(misclassified_fold)}")
 
 # print the average precision, recall, and f1 score for all folds
+print(f"Model type: {model_type}")
 print(f"\nAverage Metrics Across {n_cv_folds} Folds:")
 print(f"Precision: {sum(precisions) / len(precisions):.3f}")
 print(f"Recall: {sum(recalls) / len(recalls):.3f}")
@@ -284,7 +314,7 @@ write_transactions(os.path.join(out_dir, "variance_errors.csv"), misclassified, 
 # explainer = shap.TreeExplainer(model)
 # Faster approximation using PermutationExplainer
 X_sample = X[:10000]  # type: ignore
-explainer = shap.explainers.Permutation(model.predict, X_sample)
+explainer = shap.TreeExplainer(model)
 
 logger.info("Calculating SHAP values")
 shap_values = explainer.shap_values(X_sample)
@@ -298,7 +328,10 @@ shap.summary_plot(shap_values, X_sample, feature_names=feature_names)
 # this step also takes a LONG time and is optional
 
 print("Best params:", best_params)
-model = RandomForestClassifier(random_state=42, **best_params, n_jobs=n_jobs)
+if model_type == "rf":
+    model = RandomForestClassifier(random_state=42, **best_params, n_jobs=n_jobs)
+elif model_type == "xgb":
+    model = xgb.XGBClassifier(random_state=42, **best_params, n_jobs=n_jobs)
 
 
 # RFECV performs recursive feature elimination with cross-validation
@@ -352,11 +385,14 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_
 X_train_selected = X_train[:, selected_features]  # type: ignore
 X_test_selected = X_test[:, selected_features]  # type: ignore
 
-rf_selected = RandomForestClassifier(random_state=42, **best_params, n_jobs=n_jobs)
-rf_selected.fit(X_train_selected, y_train)
+if model_type == "rf":
+    model_selected = RandomForestClassifier(random_state=42, **best_params, n_jobs=n_jobs)
+elif model_type == "xgb":
+    model_selected = xgb.XGBClassifier(random_state=42, **best_params, n_jobs=n_jobs)
+model_selected.fit(X_train_selected, y_train)
 
 # Evaluate model with selected features
-y_pred_selected = rf_selected.predict(X_test_selected)
+y_pred_selected = model_selected.predict(X_test_selected)
 precision = precision_score(y_test, y_pred_selected)
 recall = recall_score(y_test, y_pred_selected)
 f1 = f1_score(y_test, y_pred_selected)
@@ -368,9 +404,12 @@ print(f"F1 Score: {f1}")
 # %%
 # Compare with model using all features
 
-rf_all = RandomForestClassifier(random_state=42, **best_params, n_jobs=n_jobs)
-rf_all.fit(X_train, y_train)
-y_pred_all = rf_all.predict(X_test)
+if model_type == "rf":
+    model_all = RandomForestClassifier(random_state=42, **best_params, n_jobs=n_jobs)
+elif model_type == "xgb":
+    model_all = xgb.XGBClassifier(random_state=42, **best_params, n_jobs=n_jobs)
+model_all.fit(X_train, y_train)
+y_pred_all = model_all.predict(X_test)
 precision = precision_score(y_test, y_pred_all)
 recall = recall_score(y_test, y_pred_all)
 f1 = f1_score(y_test, y_pred_all)
