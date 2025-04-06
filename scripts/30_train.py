@@ -21,7 +21,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_extraction import DictVectorizer
 from sklearn.feature_selection import RFECV
 from sklearn.metrics import confusion_matrix, f1_score, precision_score, recall_score
-from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, StratifiedKFold, train_test_split
+from sklearn.model_selection import GridSearchCV, GroupKFold, RandomizedSearchCV, train_test_split
 from tqdm import tqdm
 
 from recur_scan.features import get_features
@@ -30,11 +30,11 @@ from recur_scan.transactions import group_transactions, read_labeled_transaction
 # %%
 # configure the script
 
-model_type = "rf"  # "rf" or "xgb"
+model_type = "xgb"  # "rf" or "xgb"
 n_cv_folds = 5  # number of cross-validation folds, could be 5
-do_hyperparameter_optimization = False  # set to False to use the default hyperparameters
-search_type = "random"  # "grid" or "random"
-n_hpo_iters = 100  # number of hyperparameter optimization iterations
+do_hyperparameter_optimization = True  # set to False to use the default hyperparameters
+search_type = "grid"  # "grid" or "random"
+n_hpo_iters = 250  # number of hyperparameter optimization iterations
 n_jobs = -1  # number of jobs to run in parallel (set to 1 if your laptop gets too hot)
 
 in_path = "../data/train.csv"
@@ -68,6 +68,8 @@ logger.info(f"Read {len(transactions)} transactions with {len(y)} labels")
 
 grouped_transactions = group_transactions(transactions)
 logger.info(f"Grouped {len(transactions)} transactions into {len(grouped_transactions)} groups")
+
+user_ids = [transaction.user_id for transaction in transactions]
 
 # %%
 # get features
@@ -117,11 +119,11 @@ if do_hyperparameter_optimization:
         }
     elif model_type == "xgb":
         param_dist = {
-            "scale_pos_weight": [22, 24, 26],  # Adjust based on class imbalance
-            "max_depth": [2, 3, 4],
-            "learning_rate": [0.5, 0.6, 0.7, 0.8],
-            "n_estimators": [100, 200, 300, 400],
-            "min_child_weight": [5, 7, 9],
+            "scale_pos_weight": [20, 22, 24, 26],  # Adjust based on class imbalance
+            "max_depth": [3, 4, 5, 6, 7],
+            "learning_rate": [0.05, 0.1, 0.2, 0.3, 0.4],
+            "n_estimators": [300, 400, 500, 600, 700, 800, 900],
+            "min_child_weight": [1, 3, 5, 7],
         }
     # search for the best hyperparameters
     if model_type == "rf":
@@ -129,14 +131,15 @@ if do_hyperparameter_optimization:
     elif model_type == "xgb":
         model = xgb.XGBClassifier(random_state=42, n_jobs=n_jobs)
 
+    cv = GroupKFold(n_splits=n_cv_folds)
     if search_type == "grid":
-        search = GridSearchCV(model, param_dist, cv=n_cv_folds, scoring="f1", n_jobs=n_jobs, verbose=3)
+        search = GridSearchCV(model, param_dist, cv=cv, scoring="f1", n_jobs=n_jobs, verbose=3)
     else:
         search = RandomizedSearchCV(
-            model, param_dist, n_iter=n_hpo_iters, cv=n_cv_folds, scoring="f1", n_jobs=n_jobs, verbose=3
+            model, param_dist, n_iter=n_hpo_iters, cv=cv, scoring="f1", n_jobs=n_jobs, verbose=3
         )
-    print(f"Searching for best hyperparameters with {search_type} search")
-    search.fit(X_hpo, y)
+    print(f"Searching for best hyperparameters for {model_type} with {search_type} search")
+    search.fit(X_hpo, y, groups=user_ids)
     logger.info(f"Best F1 score: {search.best_score_}")
 
     print("Best Hyperparameters:")
@@ -158,10 +161,10 @@ else:
     elif model_type == "xgb":
         best_params = {
             "scale_pos_weight": 26,
-            "max_depth": 3,
-            "learning_rate": 0.6,
-            "n_estimators": 200,
-            "min_child_weight": 7,
+            "max_depth": 5,
+            "learning_rate": 0.2,
+            "n_estimators": 600,
+            "min_child_weight": 3,
         }
 
 # %%
@@ -252,13 +255,14 @@ print(X_cv.shape)
 
 # %%
 
-cv = StratifiedKFold(n_splits=n_cv_folds, shuffle=True, random_state=42)
+cv = GroupKFold(n_splits=n_cv_folds)
+
 misclassified = []
 precisions = []
 recalls = []
 f1s = []
 
-for fold, (train_idx, val_idx) in enumerate(cv.split(X_cv, y)):
+for fold, (train_idx, val_idx) in enumerate(cv.split(X_cv, y, groups=user_ids)):
     logger.info(f"Fold {fold + 1} of {n_cv_folds}")
     # Get training and validation data
     X_train = [X_cv[i] for i in train_idx]  # type: ignore
@@ -337,7 +341,7 @@ elif model_type == "xgb":
 # RFECV performs recursive feature elimination with cross-validation
 # to find the optimal number of features
 logger.info("Performing recursive feature elimination")
-cv = StratifiedKFold(n_splits=n_cv_folds, shuffle=True, random_state=42)
+cv = GroupKFold(n_splits=n_cv_folds)
 rfecv = RFECV(
     estimator=model,
     step=1,
@@ -348,7 +352,7 @@ rfecv = RFECV(
 )
 
 # Fit the RFECV
-rfecv.fit(X, y)
+rfecv.fit(X, y, groups=user_ids)
 logger.info(f"Optimal number of features: {rfecv.n_features_}")
 
 # Get the selected features
