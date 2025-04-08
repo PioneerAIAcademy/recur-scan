@@ -32,9 +32,9 @@ from recur_scan.transactions import group_transactions, read_labeled_transaction
 
 model_type = "xgb"  # "rf" or "xgb"
 n_cv_folds = 5  # number of cross-validation folds, could be 5
-do_hyperparameter_optimization = True  # set to False to use the default hyperparameters
-search_type = "grid"  # "grid" or "random"
-n_hpo_iters = 250  # number of hyperparameter optimization iterations
+do_hyperparameter_optimization = False  # set to False to use the default hyperparameters
+search_type = "random"  # "grid" or "random"
+n_hpo_iters = 200  # number of hyperparameter optimization iterations
 n_jobs = -1  # number of jobs to run in parallel (set to 1 if your laptop gets too hot)
 
 in_path = "../data/train.csv"
@@ -119,11 +119,11 @@ if do_hyperparameter_optimization:
         }
     elif model_type == "xgb":
         param_dist = {
-            "scale_pos_weight": [20, 22, 24, 26],  # Adjust based on class imbalance
-            "max_depth": [3, 4, 5, 6, 7],
-            "learning_rate": [0.05, 0.1, 0.2, 0.3, 0.4],
-            "n_estimators": [300, 400, 500, 600, 700, 800, 900],
-            "min_child_weight": [1, 3, 5, 7],
+            "scale_pos_weight": [24, 26, 28],  # Adjust based on class imbalance
+            "max_depth": [5, 6, 7, 8, 9, 10],
+            "learning_rate": [0.01, 0.025, 0.05, 0.1],
+            "n_estimators": [600, 700, 800, 900, 1000],
+            "min_child_weight": [1, 3, 5],
         }
     # search for the best hyperparameters
     if model_type == "rf":
@@ -160,11 +160,11 @@ else:
         }
     elif model_type == "xgb":
         best_params = {
-            "scale_pos_weight": 26,
-            "max_depth": 5,
-            "learning_rate": 0.2,
+            "scale_pos_weight": 24,
+            "max_depth": 8,
+            "learning_rate": 0.1,
             "n_estimators": 600,
-            "min_child_weight": 3,
+            "min_child_weight": 1,
         }
 
 # %%
@@ -262,6 +262,7 @@ precisions = []
 recalls = []
 f1s = []
 
+logger.info(f"Starting cross-validation with {n_cv_folds} folds and {best_params}")
 for fold, (train_idx, val_idx) in enumerate(cv.split(X_cv, y, groups=user_ids)):
     logger.info(f"Fold {fold + 1} of {n_cv_folds}")
     # Get training and validation data
