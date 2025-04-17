@@ -288,7 +288,8 @@ def recurrence_likelihood_feature(
     interval_std = interval_stats["std"]
     interval_score = 1 / (interval_std / 10.0 + 1)
     mean_amount = amount_stats["mean"]
-    amount_score = 1 / (amount_stats["std"] / (mean_amount + 0.01) + 1)
+    divisor = amount_stats["std"] / max(mean_amount, 0.01) + 1
+    amount_score = 1 / divisor if divisor != 0 else 0.0
     frequency_score = min(len(merchant_trans) / 5.0, 1.0)
     return interval_score * amount_score * frequency_score
 

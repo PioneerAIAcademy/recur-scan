@@ -14,38 +14,58 @@ import os
 
 import joblib
 import matplotlib.pyplot as plt
+import pandas as pd
 import shap
+import xgboost as xgb
 from loguru import logger
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_extraction import DictVectorizer
 from sklearn.feature_selection import RFECV
 from sklearn.metrics import confusion_matrix, f1_score, precision_score, recall_score
-from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, StratifiedKFold, train_test_split
+from sklearn.model_selection import GridSearchCV, GroupKFold, RandomizedSearchCV, train_test_split
 from tqdm import tqdm
 
 from recur_scan.features import get_features
+from recur_scan.features_original import get_new_features
 from recur_scan.transactions import group_transactions, read_labeled_transactions, write_transactions
 
 # %%
 # configure the script
 
+use_precomputed_features = True
+model_type = "xgb"  # "rf" or "xgb"
 n_cv_folds = 5  # number of cross-validation folds, could be 5
 do_hyperparameter_optimization = False  # set to False to use the default hyperparameters
-search_type = "grid"  # "grid" or "random"
+search_type = "random"  # "grid" or "random"
 n_hpo_iters = 200  # number of hyperparameter optimization iterations
 n_jobs = -1  # number of jobs to run in parallel (set to 1 if your laptop gets too hot)
 
-in_path = "training data goes here"
-out_dir = "output directory goes here"
+in_path = "training file"
+precomputed_features_path = "precomputed features file"
+out_dir = "output directory"
 
 # %%
 # parse script arguments from command line
 parser = argparse.ArgumentParser(description="Train a model to identify recurring transactions.")
 parser.add_argument("--f", help="ignore; used by ipykernel_launcher")
 parser.add_argument("--input", type=str, default=in_path, help="Path to the input CSV file containing transactions.")
+parser.add_argument(
+    "--use_precomputed_features",
+    type=bool,
+    default=use_precomputed_features,
+    help="Use precomputed features instead of generating them from the input file.",
+)
+parser.add_argument(
+    "--precomputed_features",
+    type=str,
+    default=precomputed_features_path,
+    help="Path to the precomputed features CSV file.",
+)
 parser.add_argument("--output", type=str, default=out_dir, help="Path to the output directory.")
 args = parser.parse_args()
 in_path = args.input
+use_precomputed_features = args.use_precomputed_features
+precomputed_features_path = args.precomputed_features
 out_dir = args.output
 
 # Create output directory if it doesn't exist
@@ -67,21 +87,42 @@ logger.info(f"Read {len(transactions)} transactions with {len(y)} labels")
 grouped_transactions = group_transactions(transactions)
 logger.info(f"Grouped {len(transactions)} transactions into {len(grouped_transactions)} groups")
 
+user_ids = [transaction.user_id for transaction in transactions]
+
 # %%
 # get features
 
 logger.info("Getting features")
 
-# feature generation is parallelized using joblib
-# Use backend that works better with shared memory
-with joblib.parallel_backend("loky", n_jobs=n_jobs):
-    features = joblib.Parallel(verbose=1)(
-        joblib.delayed(get_features)(transaction, grouped_transactions[(transaction.user_id, transaction.name)])
-        for transaction in tqdm(transactions, desc="Processing transactions")
-    )
-logger.info(f"Generated {len(features)} features")
+if use_precomputed_features:
+    # read the precomputed features
+    features = pd.read_csv(precomputed_features_path).to_dict(orient="records")
+    logger.info(f"Read {len(features)} precomputed features")
+else:
+    # feature generation is parallelized using joblib
+    # Use backend that works better with shared memory
+    with joblib.parallel_backend("loky", n_jobs=n_jobs):
+        features = joblib.Parallel(verbose=1)(
+            joblib.delayed(get_features)(transaction, grouped_transactions[(transaction.user_id, transaction.name)])
+            for transaction in tqdm(transactions, desc="Processing transactions")
+        )
+    # save the features to a csv file
+    pd.DataFrame(features).to_csv(precomputed_features_path, index=False)
+    logger.info(f"Generated {len(features)} features")
 
-# convert features to a matrix for machine learning
+# %%
+# add new features
+new_features = [
+    get_new_features(transaction, grouped_transactions[(transaction.user_id, transaction.name)])
+    for transaction in tqdm(transactions, desc="Processing transactions")
+]
+# add the new features to the existing features
+for i, new_transaction_features in enumerate(new_features):
+    features[i].update(new_transaction_features)  # type: ignore
+logger.info(f"Added {len(new_features[0])} new features")
+
+# %%
+# convert all features to a matrix for machine learning
 dict_vectorizer = DictVectorizer(sparse=False)
 X = dict_vectorizer.fit_transform(features)
 feature_names = dict_vectorizer.get_feature_names_out()  # Get feature names from the vectorizer
@@ -104,25 +145,38 @@ print(X_hpo.shape)
 
 if do_hyperparameter_optimization:
     # Define parameter grid
-    param_dist = {
-        "n_estimators": [200, 300, 400, 500],  # [10, 20, 50, 100, 200, 500, 1000],
-        "max_depth": [20, 30, 40, 50],  # [10, 20, 30, 40, 50, None],
-        "min_samples_split": [5],  # [2, 5, 10],
-        "min_samples_leaf": [8],  # [1, 2, 4, 8, 16],
-        "max_features": ["sqrt"],
-        "bootstrap": [False],
-    }
-
+    if model_type == "rf":
+        param_dist = {
+            "n_estimators": [200, 300, 400, 500],  # [10, 20, 50, 100, 200, 500, 1000],
+            "max_depth": [20, 30, 40, 50],  # [10, 20, 30, 40, 50, None],
+            "min_samples_split": [5],  # [2, 5, 10],
+            "min_samples_leaf": [8],  # [1, 2, 4, 8, 16],
+            "max_features": ["sqrt"],
+            "bootstrap": [False],
+        }
+    elif model_type == "xgb":
+        param_dist = {
+            "scale_pos_weight": [24, 26, 28],  # Adjust based on class imbalance
+            "max_depth": [5, 6, 7, 8, 9, 10],
+            "learning_rate": [0.01, 0.025, 0.05, 0.1],
+            "n_estimators": [600, 700, 800, 900, 1000],
+            "min_child_weight": [1, 3, 5],
+        }
     # search for the best hyperparameters
-    model = RandomForestClassifier(random_state=42, n_jobs=n_jobs)
+    if model_type == "rf":
+        model = RandomForestClassifier(random_state=42, n_jobs=n_jobs)
+    elif model_type == "xgb":
+        model = xgb.XGBClassifier(random_state=42, n_jobs=n_jobs)
+
+    cv = GroupKFold(n_splits=n_cv_folds)
     if search_type == "grid":
-        search = GridSearchCV(model, param_dist, cv=n_cv_folds, scoring="f1", n_jobs=n_jobs, verbose=3)
+        search = GridSearchCV(model, param_dist, cv=cv, scoring="f1", n_jobs=n_jobs, verbose=3)
     else:
         search = RandomizedSearchCV(
-            model, param_dist, n_iter=n_hpo_iters, cv=n_cv_folds, scoring="f1", n_jobs=n_jobs, verbose=3
+            model, param_dist, n_iter=n_hpo_iters, cv=cv, scoring="f1", n_jobs=n_jobs, verbose=3
         )
-    print(f"Searching for best hyperparameters with {search_type} search")
-    search.fit(X_hpo, y)
+    print(f"Searching for best hyperparameters for {model_type} with {search_type} search")
+    search.fit(X_hpo, y, groups=user_ids)
     logger.info(f"Best F1 score: {search.best_score_}")
 
     print("Best Hyperparameters:")
@@ -132,14 +186,23 @@ if do_hyperparameter_optimization:
     best_params = search.best_params_
 else:
     # default hyperparameters
-    best_params = {
-        "n_estimators": 500,
-        "min_samples_split": 5,
-        "min_samples_leaf": 8,
-        "max_features": "sqrt",
-        "max_depth": 40,
-        "bootstrap": False,
-    }
+    if model_type == "rf":
+        best_params = {
+            "n_estimators": 500,
+            "min_samples_split": 5,
+            "min_samples_leaf": 8,
+            "max_features": "sqrt",
+            "max_depth": 40,
+            "bootstrap": False,
+        }
+    elif model_type == "xgb":
+        best_params = {
+            "scale_pos_weight": 24,
+            "max_depth": 8,
+            "learning_rate": 0.1,
+            "n_estimators": 600,
+            "min_child_weight": 1,
+        }
 
 # %%
 #
@@ -148,8 +211,11 @@ else:
 
 # now that we have the best hyperparameters, train a model with them
 
-logger.info("Training the model")
-model = RandomForestClassifier(random_state=42, **best_params, n_jobs=n_jobs)
+logger.info(f"Training the {model_type} model with {best_params}")
+if model_type == "rf":
+    model = RandomForestClassifier(random_state=42, **best_params, n_jobs=n_jobs)
+elif model_type == "xgb":
+    model = xgb.XGBClassifier(random_state=42, **best_params, n_jobs=n_jobs)
 model.fit(X, y)
 logger.info("Model trained")
 
@@ -167,10 +233,15 @@ for importance, feature in sorted_importances:
 
 # %%
 # save the model using joblib
+
+logger.info(f"Saving the {model_type} model to {out_dir}")
 joblib.dump(model, os.path.join(out_dir, "model.joblib"))
+# save the dict vectorizer as well
+joblib.dump(dict_vectorizer, os.path.join(out_dir, "dict_vectorizer.joblib"))
 # save the best params to a json file
 with open(os.path.join(out_dir, "best_params.json"), "w") as f:
     json.dump(best_params, f)
+logger.info(f"Model saved to {out_dir}")
 
 # %%
 #
@@ -226,13 +297,15 @@ print(X_cv.shape)
 
 # %%
 
-cv = StratifiedKFold(n_splits=n_cv_folds, shuffle=True, random_state=42)
+cv = GroupKFold(n_splits=n_cv_folds)
+
 misclassified = []
 precisions = []
 recalls = []
 f1s = []
 
-for fold, (train_idx, val_idx) in enumerate(cv.split(X_cv, y)):
+logger.info(f"Starting cross-validation with {n_cv_folds} folds and {best_params}")
+for fold, (train_idx, val_idx) in enumerate(cv.split(X_cv, y, groups=user_ids)):
     logger.info(f"Fold {fold + 1} of {n_cv_folds}")
     # Get training and validation data
     X_train = [X_cv[i] for i in train_idx]  # type: ignore
@@ -242,7 +315,10 @@ for fold, (train_idx, val_idx) in enumerate(cv.split(X_cv, y)):
     transactions_val = [transactions[i] for i in val_idx]  # Keep the original transaction instances for this fold
 
     # Train the model
-    model = RandomForestClassifier(random_state=42, **best_params, n_jobs=n_jobs)
+    if model_type == "rf":
+        model = RandomForestClassifier(random_state=42, **best_params, n_jobs=n_jobs)
+    elif model_type == "xgb":
+        model = xgb.XGBClassifier(random_state=42, **best_params, n_jobs=n_jobs)
     model.fit(X_train, y_train)
 
     # Make predictions
@@ -263,10 +339,11 @@ for fold, (train_idx, val_idx) in enumerate(cv.split(X_cv, y)):
     print(f"Misclassified Instances in Fold {fold + 1}: {len(misclassified_fold)}")
 
 # print the average precision, recall, and f1 score for all folds
+print(f"Model type: {model_type}")
 print(f"\nAverage Metrics Across {n_cv_folds} Folds:")
-print(f"Precision: {sum(precisions) / len(precisions):.2f}")
-print(f"Recall: {sum(recalls) / len(recalls):.2f}")
-print(f"F1 Score: {sum(f1s) / len(f1s):.2f}")
+print(f"Precision: {sum(precisions) / len(precisions):.3f}")
+print(f"Recall: {sum(recalls) / len(recalls):.3f}")
+print(f"F1 Score: {sum(f1s) / len(f1s):.3f}")
 
 # %%
 # save the misclassified transactions to a csv file in the output directory
@@ -284,7 +361,7 @@ write_transactions(os.path.join(out_dir, "variance_errors.csv"), misclassified, 
 # explainer = shap.TreeExplainer(model)
 # Faster approximation using PermutationExplainer
 X_sample = X[:10000]  # type: ignore
-explainer = shap.explainers.Permutation(model.predict, X_sample)
+explainer = shap.TreeExplainer(model)
 
 logger.info("Calculating SHAP values")
 shap_values = explainer.shap_values(X_sample)
@@ -298,13 +375,16 @@ shap.summary_plot(shap_values, X_sample, feature_names=feature_names)
 # this step also takes a LONG time and is optional
 
 print("Best params:", best_params)
-model = RandomForestClassifier(random_state=42, **best_params, n_jobs=n_jobs)
+if model_type == "rf":
+    model = RandomForestClassifier(random_state=42, **best_params, n_jobs=n_jobs)
+elif model_type == "xgb":
+    model = xgb.XGBClassifier(random_state=42, **best_params, n_jobs=n_jobs)
 
 
 # RFECV performs recursive feature elimination with cross-validation
 # to find the optimal number of features
 logger.info("Performing recursive feature elimination")
-cv = StratifiedKFold(n_splits=n_cv_folds, shuffle=True, random_state=42)
+cv = GroupKFold(n_splits=n_cv_folds)
 rfecv = RFECV(
     estimator=model,
     step=1,
@@ -315,7 +395,7 @@ rfecv = RFECV(
 )
 
 # Fit the RFECV
-rfecv.fit(X, y)
+rfecv.fit(X, y, groups=user_ids)
 logger.info(f"Optimal number of features: {rfecv.n_features_}")
 
 # Get the selected features
@@ -352,11 +432,14 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_
 X_train_selected = X_train[:, selected_features]  # type: ignore
 X_test_selected = X_test[:, selected_features]  # type: ignore
 
-rf_selected = RandomForestClassifier(random_state=42, **best_params, n_jobs=n_jobs)
-rf_selected.fit(X_train_selected, y_train)
+if model_type == "rf":
+    model_selected = RandomForestClassifier(random_state=42, **best_params, n_jobs=n_jobs)
+elif model_type == "xgb":
+    model_selected = xgb.XGBClassifier(random_state=42, **best_params, n_jobs=n_jobs)
+model_selected.fit(X_train_selected, y_train)
 
 # Evaluate model with selected features
-y_pred_selected = rf_selected.predict(X_test_selected)
+y_pred_selected = model_selected.predict(X_test_selected)
 precision = precision_score(y_test, y_pred_selected)
 recall = recall_score(y_test, y_pred_selected)
 f1 = f1_score(y_test, y_pred_selected)
@@ -368,9 +451,12 @@ print(f"F1 Score: {f1}")
 # %%
 # Compare with model using all features
 
-rf_all = RandomForestClassifier(random_state=42, **best_params, n_jobs=n_jobs)
-rf_all.fit(X_train, y_train)
-y_pred_all = rf_all.predict(X_test)
+if model_type == "rf":
+    model_all = RandomForestClassifier(random_state=42, **best_params, n_jobs=n_jobs)
+elif model_type == "xgb":
+    model_all = xgb.XGBClassifier(random_state=42, **best_params, n_jobs=n_jobs)
+model_all.fit(X_train, y_train)
+y_pred_all = model_all.predict(X_test)
 precision = precision_score(y_test, y_pred_all)
 recall = recall_score(y_test, y_pred_all)
 f1 = f1_score(y_test, y_pred_all)

@@ -5,7 +5,9 @@ from pathlib import Path
 
 untested_funcs = [
     "get_features",
+    "get_new_features",
     "read_labeled_transactions",
+    "read_test_transactions",
     "read_unlabeled_transactions",
     "group_transactions",
     "write_transactions",
