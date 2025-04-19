@@ -202,23 +202,16 @@ def get_is_weekend_transaction(transaction: Transaction) -> bool:
 
 def get_new_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict:
     """
-    Combine all features into a single dictionary.
-    Returns a feature dictionary with both original and new features.
+    Return a dictionary containing only the new features for the given transaction.
     """
     return {
-        # Original features
-        "n_same_day": get_n_transactions_same_day(transaction, all_transactions, 0),
-        "pct_same_day": get_pct_transactions_same_day(transaction, all_transactions, 0),
-        "is_common_subscription": get_is_common_subscription_amount(transaction),
-        "is_first_of_month": get_is_first_of_month(transaction),
-        "is_fixed_interval": get_is_fixed_interval(transaction, all_transactions),
-        "is_similar_name": get_is_similar_name(transaction, all_transactions),
-        "has_irregular_spike": get_has_irregular_spike(transaction, all_transactions),
-        "occurs_same_week": get_occurs_same_week(transaction, all_transactions),
-        # New features we added
+        # New features
+        "is_weekday_consistent": get_is_weekday_consistent(transaction, all_transactions),
+        "is_seasonal": get_is_seasonal(transaction, all_transactions),
+        "amount_variation_pct": get_amount_variation(transaction, all_transactions),
         "had_trial_period": get_has_trial_period(transaction, all_transactions),
         "description_pattern": get_description_pattern(transaction),
-        "amount_variation_pct": get_amount_variation(transaction, all_transactions),
+        "is_weekend_transaction": get_is_weekend_transaction(transaction),
         "n_days_apart_30": get_n_transactions_days_apart(transaction, all_transactions, 30, 2),
         "pct_days_apart_30": get_pct_transactions_days_apart(transaction, all_transactions, 30, 2),
     }
