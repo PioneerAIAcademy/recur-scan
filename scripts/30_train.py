@@ -1,10 +1,6 @@
 #!/usr/bin/env python
 """
 Train a model to identify recurring transactions.
-
-This script extracts features from transaction data and trains a machine learning
-model to predict which transactions are recurring. It uses the feature extraction
-module from recur_scan.features to prepare the input data.
 """
 
 # %%
@@ -26,24 +22,22 @@ from sklearn.model_selection import GridSearchCV, GroupKFold, RandomizedSearchCV
 from tqdm import tqdm
 
 from recur_scan.features import get_features
-from recur_scan.features_original import get_new_features
+from recur_scan.features_asimi import get_new_features
 from recur_scan.transactions import group_transactions, read_labeled_transactions, write_transactions
 
 # %%
 # configure the script
-
 use_precomputed_features = True
 model_type = "xgb"  # "rf" or "xgb"
-n_cv_folds = 5  # number of cross-validation folds, could be 5
-do_hyperparameter_optimization = False  # set to False to use the default hyperparameters
-search_type = "random"  # "grid" or "random"
-n_hpo_iters = 200  # number of hyperparameter optimization iterations
-n_jobs = -1  # number of jobs to run in parallel (set to 1 if your laptop gets too hot)
+n_cv_folds = 5
+do_hyperparameter_optimization = False
+search_type = "random"
+n_hpo_iters = 200
+n_jobs = -1
 
 in_path = "training file"
 precomputed_features_path = "precomputed features file"
 out_dir = "output directory"
-
 # %%
 # parse script arguments from command line
 parser = argparse.ArgumentParser(description="Train a model to identify recurring transactions.")
