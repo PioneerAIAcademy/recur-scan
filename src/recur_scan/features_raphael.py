@@ -1,6 +1,8 @@
 import difflib
 from datetime import datetime
 
+import numpy as np
+
 from recur_scan.transactions import Transaction
 from recur_scan.utils import parse_date
 
@@ -200,6 +202,28 @@ def get_is_weekend_transaction(transaction: Transaction) -> bool:
     return datetime.strptime(transaction.date, "%Y-%m-%d").weekday() >= 5
 
 
+def get_merchant_fingerprint(transaction: Transaction, transactions: list[Transaction]) -> float:
+    """Identifies unique merchant patterns using multiple characteristics."""
+    same_merchant = [t for t in transactions if t.name == transaction.name]
+
+    # Calculate stability scores (0-1)
+    if len(same_merchant) > 1:
+        amounts = [t.amount for t in same_merchant]
+        days = [datetime.strptime(t.date, "%Y-%m-%d").day for t in same_merchant]
+        # Penalize amount variation more strongly
+        amount_stability = 1 - min(1, (float(np.std(amounts)) / (float(np.mean(amounts)) + 1e-6)) ** 1.5)
+        day_stability = 1 - (float(np.std(days)) / 15)
+    else:
+        amount_stability = 0
+        day_stability = 0
+
+    # Payment method clues
+    method_score = 0.5 if any("ach" in t.name.lower() or "autopay" in t.name.lower() for t in same_merchant) else 0
+
+    # Adjusted weights: penalize amount variation more
+    return float(max(0.0, min(1.0, (amount_stability * 0.7) + (day_stability * 0.2) + (method_score * 0.1))))
+
+
 def get_new_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict:
     """
     Return a dictionary containing only the new features for the given transaction.
@@ -214,4 +238,5 @@ def get_new_features(transaction: Transaction, all_transactions: list[Transactio
         "is_weekend_transaction": get_is_weekend_transaction(transaction),
         "n_days_apart_30": get_n_transactions_days_apart(transaction, all_transactions, 30, 2),
         "pct_days_apart_30": get_pct_transactions_days_apart(transaction, all_transactions, 30, 2),
+        "merchant_fingerprint": get_merchant_fingerprint(transaction, all_transactions),
     }

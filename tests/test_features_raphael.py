@@ -13,6 +13,7 @@ from recur_scan.features_raphael import (
     # New feature imports
     get_is_weekday_consistent,
     get_is_weekend_transaction,
+    get_merchant_fingerprint,
     get_n_transactions_days_apart,
     get_n_transactions_same_day,
     get_new_features,
@@ -245,8 +246,36 @@ def test_get_is_weekend_transaction() -> None:
     )  # Monday
 
 
+def test_get_merchant_fingerprint() -> None:
+    """Test get_merchant_fingerprint with various transaction patterns."""
+    # Test perfect recurring pattern (should score close to 1.0)
+    recurring_txns = [
+        Transaction(id=1, user_id="user1", name="NETFLIX AUTOPAY", amount=15.99, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="NETFLIX AUTOPAY", amount=15.99, date="2024-02-01"),
+        Transaction(id=3, user_id="user1", name="NETFLIX AUTOPAY", amount=15.99, date="2024-03-01"),
+    ]
+    recurring_score = get_merchant_fingerprint(recurring_txns[0], recurring_txns)
+    assert 0.89 <= recurring_score <= 1.0, f"Expected score between 0.89 and 1.0, got {recurring_score}"
+
+    # Test variable amounts (should score lower, e.g., 0.6-0.8)
+    variable_txns = [
+        Transaction(id=4, user_id="user1", name="AMAZON PRIME", amount=14.99, date="2024-01-15"),
+        Transaction(id=5, user_id="user1", name="AMAZON PRIME", amount=12.99, date="2024-02-15"),
+        Transaction(id=6, user_id="user1", name="AMAZON PRIME", amount=16.99, date="2024-03-15"),
+    ]
+    variable_score = get_merchant_fingerprint(variable_txns[0], variable_txns)
+    assert 0.6 <= variable_score <= 0.89, f"Expected score between 0.6 and 0.89, got {variable_score}"
+
+    # Test single transaction (should score 0.0)
+    single_txn = [
+        Transaction(id=7, user_id="user1", name="SINGLE PAYMENT", amount=100.0, date="2024-01-01"),
+    ]
+    single_score = get_merchant_fingerprint(single_txn[0], single_txn)
+    assert single_score == 0.0, f"Expected score of 0.0, got {single_score}"
+
+
 def test_get_new_features() -> None:
-    """Test get_new_features with validation for only new features."""
+    """Test get_new_features with validation for all features, including the new merchant_fingerprint."""
     transactions = [
         Transaction(id=1, user_id="user1", name="Netflix", amount=9.99, date="2024-01-01"),
         Transaction(id=2, user_id="user1", name="Netflix", amount=9.99, date="2024-02-01"),
@@ -258,6 +287,8 @@ def test_get_new_features() -> None:
 
     # Test Netflix transaction (monthly subscription)
     netflix_features = get_new_features(transactions[1], transactions)
+
+    # Existing feature asserts
     assert "is_weekday_consistent" in netflix_features
     assert "is_seasonal" in netflix_features
     assert "amount_variation_pct" in netflix_features
@@ -266,3 +297,43 @@ def test_get_new_features() -> None:
     assert "is_weekend_transaction" in netflix_features
     assert "n_days_apart_30" in netflix_features
     assert "pct_days_apart_30" in netflix_features
+
+    # New merchant_fingerprint assert
+    assert "merchant_fingerprint" in netflix_features, "Missing merchant_fingerprint feature"
+    assert isinstance(netflix_features["merchant_fingerprint"], float), "Should return float score"
+    assert 0 <= netflix_features["merchant_fingerprint"] <= 1, "Score should be 0-1"
+
+    # Validate expected scores for different patterns
+    netflix_score = netflix_features["merchant_fingerprint"]
+    assert 0.89 <= netflix_score <= 1.0, f"Netflix should score 0.9-1.0 (got {netflix_score})"
+
+    # Test ACH Rent (should score high due to consistent amount + ACH in name)
+    rent_features = get_new_features(transactions[3], transactions)
+    assert 0.95 <= rent_features["merchant_fingerprint"] <= 1.0
+
+    # Test Trial Service (lower score due to amount change)
+    trial_features = get_new_features(transactions[5], transactions)
+    assert 0.15 <= trial_features["merchant_fingerprint"] <= 0.3
+
+
+def test_get_new_features_only_new() -> None:
+    transactions = [
+        Transaction(id=1, user_id="user1", name="Netflix", amount=9.99, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="Netflix", amount=9.99, date="2024-02-01"),
+        Transaction(id=3, user_id="user1", name="Trial Service", amount=0.0, date="2024-01-01"),
+        Transaction(id=4, user_id="user1", name="Trial Service", amount=14.99, date="2024-02-01"),
+    ]
+    features = get_new_features(transactions[0], transactions)
+    # Check all new features are present
+    assert "is_weekday_consistent" in features
+    assert "is_seasonal" in features
+    assert "amount_variation_pct" in features
+    assert "had_trial_period" in features
+    assert "description_pattern" in features
+    assert "is_weekend_transaction" in features
+    assert "n_days_apart_30" in features
+    assert "pct_days_apart_30" in features
+    assert "merchant_fingerprint" in features
+    # Check merchant_fingerprint is a float between 0 and 1
+    assert isinstance(features["merchant_fingerprint"], float)
+    assert 0 <= features["merchant_fingerprint"] <= 1
