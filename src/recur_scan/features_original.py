@@ -124,18 +124,3 @@ def get_transaction_z_score(transaction: Transaction, all_transactions: list[Tra
     if np.std(all_amounts) == 0:
         return 0
     return (transaction.amount - np.mean(all_amounts)) / np.std(all_amounts)  # type: ignore
-
-
-def get_is_amazon_prime(transaction: Transaction) -> bool:
-    """Check if the transaction is an Amazon Prime payment."""
-    return "amazon prime" in transaction.name.lower()
-
-
-def get_new_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, int | bool | float]:  # noqa: ARG001
-    """Get the new features for the transaction."""
-
-    # NOTE: Do NOT add features that are already in the original features.py file.
-    # NOTE: Each feature should be on a separate line. Do not use **dict shorthand.
-    return {
-        "is_amazon_prime": get_is_amazon_prime(transaction),
-    }

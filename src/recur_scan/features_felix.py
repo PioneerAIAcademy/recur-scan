@@ -1,8 +1,9 @@
 import math
 import re
 import statistics
+from collections import Counter
 from datetime import datetime
-from statistics import mean, stdev
+from statistics import mean
 
 from recur_scan.transactions import Transaction
 
@@ -187,60 +188,53 @@ def get_max_transaction_amount(all_transactions: list[Transaction]) -> float:
 def get_transaction_intervals(transactions: list[Transaction]) -> dict[str, float]:
     """
     Extracts time-based features for recurring transactions.
-    - Computes average days between transactions.
-    - Computes standard deviation of intervals.
-    - Checks for flexible monthly recurrence (±7 days).
-    - Identifies if transactions occur on the same weekday.
-    - Checks if payment amounts are within ±5% of each other.
+    - Computes average days between transactions
+    - Computes standard deviation of intervals
+    - Checks for monthly recurrence (28-31 days)
+    - Identifies if transactions occur on same weekday
+    - Checks if payment amounts are exactly the same
     """
     if len(transactions) < 2:
         return {
             "avg_days_between_transactions": 0.0,
-            "std_dev_days_between_transactions": 0.0,
+            # "std_dev_days_between_transactions": 0.0,  # Added missing key
             "monthly_recurrence": 0,
-            "same_weekday": 0,
+            # "same_weekday": 0,  # Added missing key
             "same_amount": 0,
         }
+
     # Sort transactions by date
     dates = sorted([
         datetime.strptime(trans.date, "%Y-%m-%d") if isinstance(trans.date, str) else trans.date
         for trans in transactions
     ])
 
-    # calculate days between each consecutive grouped transactions
+    # Calculate days between consecutive transactions
     intervals = [(dates[i] - dates[i - 1]).days for i in range(1, len(dates))]
 
-    # compute average and standard deviation of transaction intervals
+    # Compute statistics
     avg_days = mean(intervals) if intervals else 0.0
-    std_dev_days = stdev(intervals) if len(intervals) > 1 else 0.0
+    # std_dev_days = stdev(intervals) if len(intervals) > 1 else 0.0
 
-    # check for flexible monthly recurrence (±7 days)
-    monthly_count = sum(
-        1
-        for gap in intervals
-        if 23 <= gap <= 38  # 30 ± 7 days
-    )
-    monthly_recurrence = monthly_count / len(intervals) if intervals else 0.0
+    # Check for monthly recurrence (strict 28-31 days)
+    monthly_recurrence = 1 if all(28 <= days <= 31 for days in intervals) else 0
 
-    # check if transactions occur on the same weekday
-    weekdays = [date.weekday() for date in dates]  # Monday = 0, Sunday = 6
-    same_weekday = 1 if len(set(weekdays)) == 1 else 0  # 1 if all transactions happen on the same weekday
+    # Check if same weekday
+    # weekdays = [date.weekday() for date in dates]
+    # same_weekday = 1 if len(set(weekdays)) == 1 else 0
 
-    # check if payment amounts are within ±5% of each other
-    amounts = [trans.amount for trans in transactions]
-
-    base_amount = amounts[0]
-    if base_amount == 0:
-        consistent_amount = 0.0
-    else:
-        consistent_amount = sum(1 for amt in amounts if abs(amt - base_amount) / base_amount <= 0.05) / len(amounts)
+    # Check if amounts are exactly equal
+    amounts = [t.amount for t in transactions]
+    amount_counts = Counter(amounts)
+    most_frequent_amount_count = max(amount_counts.values())
+    same_amount = most_frequent_amount_count / len(amounts)
 
     return {
         "avg_days_between_transactions": avg_days,
-        "std_dev_days_between_transactions": std_dev_days,
+        # "std_dev_days_between_transactions": std_dev_days,
         "monthly_recurrence": monthly_recurrence,
-        "same_weekday": same_weekday,
-        "same_amount": consistent_amount,
+        # "same_weekday": same_weekday,
+        "same_amount": same_amount,
     }
 
 
