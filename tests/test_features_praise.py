@@ -14,9 +14,17 @@ from recur_scan.features_original import (
 from recur_scan.features_praise import (
     amount_ends_in_00,
     amount_ends_in_99,
+    # calculate_amount_to_income_ratio,
+    calculate_markovian_probability,
+    calculate_streaks,
+    # compare_recent_to_historical_average,
+    # detect_seasonality,
     get_average_transaction_amount,
     get_avg_days_between_same_merchant_amount,
     get_days_since_last_same_merchant_amount,
+    get_ewma_interval_deviation,
+    get_fourier_periodicity_score,
+    get_hurst_exponent,
     get_interval_variance_coefficient,
     get_max_transaction_amount,
     get_min_transaction_amount,
@@ -24,11 +32,13 @@ from recur_scan.features_praise import (
     get_n_transactions_same_merchant_amount,
     get_percent_transactions_same_merchant_amount,
     get_stddev_days_between_same_merchant_amount,
+    # get_transaction_amount_trend,
     has_consistent_reference_codes,
     has_incrementing_numbers,
     is_expected_transaction_date,
     is_recurring,
     is_recurring_merchant,
+    # is_recurring_through_past_transactions,
 )
 from recur_scan.transactions import Transaction
 
@@ -350,3 +360,308 @@ def test_has_consistent_reference_codes() -> None:
     ]
     transaction = transactions[0]
     assert has_consistent_reference_codes(transaction, transactions)
+
+
+# def test_is_recurring_through_past_transactions() -> None:
+#     """Test if is_recurring_through_past_transactions identifies recurring transactions."""
+#     transactions = [
+#         create_transaction(1, "user1", "Netflix", "2024-01-01", 15.99),  # Monday
+#         create_transaction(2, "user1", "Netflix", "2024-01-08", 15.99),  # Monday
+#         create_transaction(3, "user1", "Netflix", "2024-01-15", 15.99),  # Monday
+#         create_transaction(4, "user1", "Netflix", "2024-01-22", 15.99),  # Monday
+#     ]
+#     transaction = transactions[0]
+#     assert is_recurring_through_past_transactions(transaction, transactions), (
+#         "Should detect recurring transactions on the same day of the week"
+#     )
+
+#     # Test non-recurring case
+#     transactions = [
+#         create_transaction(1, "user1", "Netflix", "2024-01-01", 15.99),  # Monday
+#         create_transaction(2, "user1", "Netflix", "2024-01-09", 15.99),  # Tuesday
+#         create_transaction(3, "user1", "Netflix", "2024-01-15", 15.99),  # Monday
+#     ]
+#     transaction = transactions[0]
+#     assert not is_recurring_through_past_transactions(transaction, transactions), (
+#         "Should not detect recurring transactions with inconsistent days of the week"
+#     )
+
+
+# def test_get_transaction_amount_trend() -> None:
+#     """Test get_transaction_amount_trend calculates the correct trend (slope)."""
+#     transactions = [
+#         create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
+#         create_transaction(2, "user1", "VendorA", "2024-01-08", 200.0),
+#         create_transaction(3, "user1", "VendorA", "2024-01-15", 300.0),
+#     ]
+#     transaction = transactions[0]
+#     assert get_transaction_amount_trend(transaction, transactions) > 0, (
+#         "Trend should be positive for increasing amounts"
+#     )
+
+#     # Test flat trend
+#     transactions = [
+#         create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
+#         create_transaction(2, "user1", "VendorA", "2024-01-08", 100.0),
+#         create_transaction(3, "user1", "VendorA", "2024-01-15", 100.0),
+#     ]
+#     transaction = transactions[0]
+#     assert get_transaction_amount_trend(transaction, transactions) == 0.0, "Trend should be zero for flat amounts"
+
+#     # Test insufficient data
+#     transactions = [
+#         create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
+#     ]
+#     transaction = transactions[0]
+#     assert get_transaction_amount_trend(transaction, transactions) == 0.0, (
+#         "Trend should be zero for insufficient data"
+#     )
+
+
+# def test_compare_recent_to_historical_average() -> None:
+#     """Test compare_recent_to_historical_average calculates the correct ratio."""
+#     transactions = [
+#         create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
+#         create_transaction(2, "user1", "VendorA", "2024-01-08", 200.0),
+#         create_transaction(3, "user1", "VendorA", "2024-01-15", 300.0),
+#     ]
+#     transaction = create_transaction(4, "user1", "VendorA", "2024-01-22", 400.0)
+#     assert compare_recent_to_historical_average(transaction, transactions) == 2.0, (
+#         "Ratio should be 2.0 when the recent amount is double the historical average"
+#     )
+
+#     # Test when no historical data is available
+#     transactions = []
+#     transaction = create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0)
+#     assert compare_recent_to_historical_average(transaction, transactions) == 0.0, (
+#         "Ratio should be 0.0 when no historical data is available"
+#     )
+
+#     # Test when historical average is zero
+#     transactions = [
+#         create_transaction(1, "user1", "VendorA", "2024-01-01", 0.0),
+#         create_transaction(2, "user1", "VendorA", "2024-01-08", 0.0),
+#     ]
+#     transaction = create_transaction(3, "user1", "VendorA", "2024-01-15", 100.0)
+#     assert compare_recent_to_historical_average(transaction, transactions) == 0.0, (
+#         "Ratio should be 0.0 when historical average is zero"
+#     )
+
+
+# def test_calculate_amount_to_income_ratio() -> None:
+#     """Test calculate_amount_to_income_ratio calculates the correct ratio."""
+#     transaction = create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0)
+
+#     # Test with valid monthly income
+#     assert calculate_amount_to_income_ratio(transaction, 1000.0) == 0.1, (
+#         "Ratio should be 0.1 when transaction amount is 10% of monthly income"
+#     )
+
+#     # Test with zero monthly income
+#     assert calculate_amount_to_income_ratio(transaction, 0.0) == 0.0, (
+#         "Ratio should be 0.0 when monthly income is zero"
+#     )
+
+#     # Test with negative monthly income
+#     assert calculate_amount_to_income_ratio(transaction, -1000.0) == 0.0, (
+#         "Ratio should be 0.0 when monthly income is negative"
+#     )
+
+
+# def test_detect_seasonality() -> None:
+#     """Test detect_seasonality identifies annual or quarterly patterns."""
+#     # Test annual pattern
+#     transactions = [
+#         create_transaction(1, "user1", "VendorA", "2023-01-01", 100.0),
+#         create_transaction(2, "user1", "VendorA", "2024-01-01", 100.0),
+#     ]
+#     transaction = transactions[0]
+#     assert detect_seasonality(transaction, transactions), (
+#         "Should detect annual seasonality for transactions 365 days apart"
+#     )
+
+#     # Test quarterly pattern
+#     transactions = [
+#         create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
+#         create_transaction(2, "user1", "VendorA", "2024-04-01", 100.0),
+#     ]
+#     transaction = transactions[0]
+#     assert detect_seasonality(transaction, transactions), (
+#         "Should detect quarterly seasonality for transactions 90 days apart"
+#     )
+
+#     # Test no seasonality
+#     transactions = [
+#         create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
+#         create_transaction(2, "user1", "VendorA", "2024-02-01", 100.0),
+#     ]
+#     transaction = transactions[0]
+#     assert not detect_seasonality(transaction, transactions), (
+#         "Should not detect seasonality for transactions with irregular intervals"
+#     )
+
+#     # Test insufficient data
+#     transactions = [
+#         create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
+#     ]
+#     transaction = transactions[0]
+#     assert not detect_seasonality(transaction, transactions), (
+#         "Should not detect seasonality with less than two transactions"
+#     )
+
+
+def test_calculate_markovian_probability() -> None:
+    """Test calculate_markovian_probability calculates the correct probability."""
+    # Test with a matching pattern
+    transactions = [
+        create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
+        create_transaction(2, "user1", "VendorA", "2024-01-08", 100.0),
+        create_transaction(3, "user1", "VendorA", "2024-01-15", 100.0),
+        create_transaction(4, "user1", "VendorA", "2024-01-22", 100.0),
+    ]
+    transaction = transactions[0]
+    assert calculate_markovian_probability(transaction, transactions, n=3) == 1.0, (
+        "Should return 1.0 for matching patterns in the last n transactions"
+    )
+
+    # Test with a non-matching pattern
+    transactions = [
+        create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
+        create_transaction(2, "user1", "VendorA", "2024-01-08", 200.0),
+        create_transaction(3, "user1", "VendorA", "2024-01-15", 300.0),
+        create_transaction(4, "user1", "VendorA", "2024-01-22", 400.0),
+    ]
+    transaction = transactions[0]
+    assert calculate_markovian_probability(transaction, transactions, n=3) == 0.0, (
+        "Should return 0.0 for non-matching patterns in the last n transactions"
+    )
+
+    # Test with insufficient data
+    transactions = [
+        create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
+    ]
+    transaction = transactions[0]
+    assert calculate_markovian_probability(transaction, transactions, n=3) == 0.0, (
+        "Should return 0.0 when there is insufficient data"
+    )
+
+
+def test_calculate_streaks() -> None:
+    """Test calculate_streaks calculates the correct number of consecutive transactions."""
+    # Test with a streak of weekly transactions
+    transactions = [
+        create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
+        create_transaction(2, "user1", "VendorA", "2024-01-08", 100.0),
+        create_transaction(3, "user1", "VendorA", "2024-01-15", 100.0),
+        create_transaction(4, "user1", "VendorA", "2024-01-22", 100.0),
+    ]
+    transaction = transactions[0]
+    assert calculate_streaks(transaction, transactions) == 3, "Should return 3 for a streak of weekly transactions"
+
+    # Test with a streak of monthly transactions
+    transactions = [
+        create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
+        create_transaction(2, "user1", "VendorA", "2024-02-01", 100.0),
+        create_transaction(3, "user1", "VendorA", "2024-03-01", 100.0),
+    ]
+    transaction = transactions[0]
+    assert calculate_streaks(transaction, transactions) == 2, "Should return 2 for a streak of monthly transactions"
+
+    # Test with no streak
+    transactions = [
+        create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
+        create_transaction(2, "user1", "VendorA", "2024-01-10", 100.0),
+        create_transaction(3, "user1", "VendorA", "2024-01-25", 100.0),
+    ]
+    transaction = transactions[0]
+    assert calculate_streaks(transaction, transactions) == 0, "Should return 0 for no streak of transactions"
+
+    # Test with insufficient data
+    transactions = [
+        create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
+    ]
+    transaction = transactions[0]
+    assert calculate_streaks(transaction, transactions) == 0, "Should return 0 when there is insufficient data"
+
+
+def test_get_ewma_interval_deviation():
+    """Test get_ewma_interval_deviation calculates correct deviation."""
+    transactions = [
+        create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
+        create_transaction(2, "user1", "VendorA", "2024-01-08", 100.0),
+        create_transaction(3, "user1", "VendorA", "2024-01-15", 100.0),
+    ]
+    transaction = create_transaction(4, "user1", "VendorA", "2024-01-22", 100.0)
+    assert round(get_ewma_interval_deviation(transaction, transactions), 2) == 0.0, (
+        "Deviation should be 0.0 for perfectly consistent intervals"
+    )
+
+    # Test with inconsistent intervals
+    transactions = [
+        create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
+        create_transaction(2, "user1", "VendorA", "2024-01-10", 100.0),
+        create_transaction(3, "user1", "VendorA", "2024-01-20", 100.0),
+    ]
+    transaction = create_transaction(4, "user1", "VendorA", "2024-01-30", 100.0)
+    assert get_ewma_interval_deviation(transaction, transactions) > 0.0, (
+        "Deviation should be greater than 0.0 for inconsistent intervals"
+    )
+
+    # Test with insufficient data
+    transactions = [
+        create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
+    ]
+    transaction = create_transaction(2, "user1", "VendorA", "2024-01-08", 100.0)
+    assert get_ewma_interval_deviation(transaction, transactions) == 1.0, (
+        "Deviation should be 1.0 when there is insufficient data"
+    )
+
+
+def test_get_hurst_exponent():
+    """Test get_hurst_exponent calculates correct Hurst exponent."""
+    transactions = [
+        create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
+        create_transaction(2, "user1", "VendorA", "2024-01-08", 100.0),
+        create_transaction(3, "user1", "VendorA", "2024-01-15", 100.0),
+        create_transaction(4, "user1", "VendorA", "2024-01-22", 100.0),
+    ]
+    transaction = create_transaction(5, "user1", "VendorA", "2024-01-29", 100.0)
+    assert 0.5 <= get_hurst_exponent(transaction, transactions) <= 1.0, (
+        "Hurst exponent should be between 0.5 and 1.0 for consistent intervals"
+    )
+
+    # Test with insufficient data
+    transactions = [
+        create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
+        create_transaction(2, "user1", "VendorA", "2024-01-08", 100.0),
+    ]
+    transaction = create_transaction(3, "user1", "VendorA", "2024-01-15", 100.0)
+    assert get_hurst_exponent(transaction, transactions) == 0.5, (
+        "Hurst exponent should be 0.5 when there is insufficient data"
+    )
+
+
+def test_get_fourier_periodicity_score():
+    """Test get_fourier_periodicity_score calculates correct periodicity score."""
+    transactions = [
+        create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
+        create_transaction(2, "user1", "VendorA", "2024-01-08", 100.0),
+        create_transaction(3, "user1", "VendorA", "2024-01-15", 100.0),
+        create_transaction(4, "user1", "VendorA", "2024-01-22", 100.0),
+        create_transaction(5, "user1", "VendorA", "2024-01-29", 100.0),
+        create_transaction(6, "user1", "VendorA", "2024-02-05", 100.0),
+    ]
+    transaction = create_transaction(7, "user1", "VendorA", "2024-02-12", 100.0)
+    assert 0.0 <= get_fourier_periodicity_score(transaction, transactions) <= 1.0, (
+        "Periodicity score should be between 0.0 and 1.0"
+    )
+
+    # Test with insufficient data
+    transactions = [
+        create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
+        create_transaction(2, "user1", "VendorA", "2024-01-08", 100.0),
+    ]
+    transaction = create_transaction(3, "user1", "VendorA", "2024-01-15", 100.0)
+    assert get_fourier_periodicity_score(transaction, transactions) == 0.0, (
+        "Periodicity score should be 0.0 when there is insufficient data"
+    )
