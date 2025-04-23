@@ -581,6 +581,63 @@ def get_amount_change_pattern(transaction: Transaction, all_transactions: list[T
     
     return 0
 
+def get_series_duration(transaction: Transaction, all_transactions: list[Transaction]) -> float:
+    """
+    Returns a normalized score (0-1) based on how long the transaction series has been active.
+    Longer series are more likely to be true recurring transactions.
+    """
+    similar_transactions = [
+        t for t in all_transactions 
+        if t.name == transaction.name 
+        # and t.category == transaction.category  # Removed as "category" is not a valid attribute
+    ]
+    
+    if len(similar_transactions) < 2:
+        return 0.0
+    
+    sorted_trans = sorted(similar_transactions, key=lambda x: x.date)
+    duration_days = (datetime.datetime.strptime(sorted_trans[-1].date, "%Y-%m-%d") - 
+                     datetime.datetime.strptime(sorted_trans[0].date, "%Y-%m-%d")).days
+    
+    # Normalize score (0-1) where 1 = 1+ year of history
+    return round(min(1.0, duration_days / 365), 2)
+
+def get_amount_roundness(transaction: Transaction, all_transactions: list[Transaction]) -> float:
+    """
+    Returns a score (0-1) for how "round" the amount is, which is common in recurring payments.
+    Uses both the specific transaction and its context in the series.
+    """
+    def _roundness(amount):
+        """Helper function to calculate roundness of a single amount"""
+        cents = abs(amount - round(amount))
+        if cents == 0:
+            return 1.0
+        elif cents == 0.5:
+            return 0.8
+        elif cents == 0.25 or cents == 0.75:
+            return 0.6
+        elif amount % 1 == 0.99 or amount % 1 == 0.95:  # Common price endings
+            return 0.7
+        else:
+            return max(0, 1 - (cents * 10))  # Linear decay
+    
+    similar_transactions = [
+        t for t in all_transactions 
+        if t.name == transaction.name 
+        # and t.category == transaction.category  # Removed as "category" is not a valid attribute
+    ]
+    
+    if not similar_transactions:
+        return 0.0
+    
+    # Calculate individual and average roundness
+    individual = _roundness(transaction.amount)
+    series_avg = sum(_roundness(t.amount) for t in similar_transactions) / len(similar_transactions)
+    
+    # Weighted combination (give more weight to series consistency)
+    return round(0.3 * individual + 0.7 * series_avg, 2)
+
+
 
 def get_new_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, int | bool | float]: 
     return {
@@ -601,4 +658,7 @@ def get_new_features(transaction: Transaction, all_transactions: list[Transactio
         "amount_date_pattern": get_amount_date_pattern(transaction),
         "burst_score": get_burst_score(transaction, all_transactions),
         "amount_temporal_consistency": get_amount_temporal_consistency(transaction, all_transactions),
+        "series_duration": get_series_duration(transaction, all_transactions),
+        "amount_roundness": get_amount_roundness(transaction, all_transactions),
+        
     }

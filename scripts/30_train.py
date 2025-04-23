@@ -35,9 +35,9 @@ search_type = "random"
 n_hpo_iters = 200
 n_jobs = -1
 
-in_path = "training file"
-precomputed_features_path = "precomputed features file"
-out_dir = "output directory"
+in_path = "C:\\Users\\Israel Asimi\\Downloads\\recur_scan_train - train.csv"
+precomputed_features_path = "C:\\Users\\Israel Asimi\\Downloads\\train_features.csv"
+out_dir = "C:\\Users\\Israel Asimi\\Downloads\\train_output"
 # %%
 # parse script arguments from command line
 parser = argparse.ArgumentParser(description="Train a model to identify recurring transactions.")
