@@ -3,6 +3,7 @@
 
 from recur_scan.features_raphael import (
     get_amount_mad,  # <-- Added missing import
+    get_amount_roundness,  # <-- Add this import
     get_amount_variation,
     get_description_pattern,
     get_has_irregular_spike,
@@ -343,6 +344,17 @@ def test_get_amount_mad():
 
 
 test_get_amount_mad()
+
+
+def test_amount_roundness():
+    # Common subscription amounts
+    assert get_amount_roundness(Transaction(id=1, user_id="user1", name="Sub", amount=9.99, date="2023-01-01")) == 1.0
+    assert get_amount_roundness(Transaction(id=2, user_id="user1", name="Sub", amount=10.00, date="2023-01-01")) == 1.0
+    assert get_amount_roundness(Transaction(id=3, user_id="user1", name="Sub", amount=19.95, date="2023-01-01")) == 0.5
+
+    # Non-typical amounts
+    assert get_amount_roundness(Transaction(id=4, user_id="user1", name="Sub", amount=9.97, date="2023-01-01")) == 0.0
+    assert get_amount_roundness(Transaction(id=5, user_id="user1", name="Sub", amount=10.23, date="2023-01-01")) == 0.0
 
 
 def test_get_new_features() -> None:

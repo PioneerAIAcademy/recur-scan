@@ -369,6 +369,19 @@ def get_amount_mad(transaction: Transaction, transactions: list[Transaction]) ->
     return float((mad / median) * 100) if median != 0 else 0.0
 
 
+def get_amount_roundness(transaction: Transaction) -> float:
+    """
+    Returns 1 if amount ends in .00/.99, 0.5 for .95, 0 otherwise.
+    Common in subscriptions.
+    """
+    cents = round(transaction.amount % 1, 2)
+    if cents in {0.00, 0.99}:
+        return 1.0
+    elif cents == 0.95:
+        return 0.5
+    return 0.0
+
+
 def get_new_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict:
     """
     Return a dictionary containing only the new features for the given transaction.
@@ -388,4 +401,5 @@ def get_new_features(transaction: Transaction, all_transactions: list[Transactio
         "transaction_trust": get_transaction_trust_score(transaction, all_transactions),
         "recurring_confidence": get_recurring_confidence(transaction, all_transactions),
         "amount_mad_pct": get_amount_mad(transaction, all_transactions),
+        "amount_roundness": get_amount_roundness(transaction),
     }
