@@ -81,7 +81,9 @@ def parse_date(date_str: str) -> date:
     return datetime.strptime(date_str, "%Y-%m-%d").date()
 
 
-# Tests for all the features
+# Test function for is_albert_recurring_subscription
+
+
 def test_detect_pay_period_alignment():
     transactions = [
         Transaction(id=1, user_id="user1", name="Service A", date="2023-01-02", amount=20.00),

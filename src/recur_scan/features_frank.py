@@ -858,9 +858,9 @@ def detect_multi_tier_subscription(all_transactions: list[Transaction]) -> float
         return 0.0
 
     # Group amounts and count occurrences
-    amount_counts: dict[str, int] = defaultdict(int)
+    amount_counts: defaultdict = defaultdict(int)
     for t in all_transactions:
-        amount_counts[str(round(t.amount, 2))] += 1
+        amount_counts[round(t.amount, 2)] += 1
 
     # Look for multiple recurring amounts
     recurring_amounts = [amt for amt, count in amount_counts.items() if count >= 2]
@@ -868,15 +868,19 @@ def detect_multi_tier_subscription(all_transactions: list[Transaction]) -> float
     if len(recurring_amounts) < 2:
         return 0.0
 
-    # Check if amounts alternate in a pattern
+    # Extract and sort transaction amounts
     amounts = [round(t.amount, 2) for t in sorted(all_transactions, key=lambda x: parse_date(x.date))]
-    pattern_score = 0.0
 
+    # Initialize pattern score
+    pattern_score = 0
+
+    # Look for alternating patterns (e.g., 5.00, 10.00, 5.00)
     for i in range(len(amounts) - 2):
-        if amounts[i] in recurring_amounts and amounts[i + 2] == amounts[i]:
+        if amounts[i] == amounts[i + 2] and amounts[i] in recurring_amounts:
             pattern_score += 1
 
-    return float(min(1.0, pattern_score / (len(amounts) - 2)))
+    # Return normalized pattern score (between 0 and 1)
+    return min(1.0, pattern_score / (len(amounts) - 2))
 
 
 def detect_annual_price_adjustment(all_transactions: list[Transaction]) -> float:
@@ -934,110 +938,6 @@ def detect_pay_period_alignment(all_transactions: list[Transaction]) -> float:
     monthly_score = monthly_matches / len(intervals)
 
     return float(max(biweekly_score, monthly_score))
-
-
-def detect_holiday_shift_pattern(all_transactions: list[Transaction]) -> float:
-    """
-    Detect if transaction dates shift around holidays but maintain overall regularity.
-    Returns a confidence score between 0 and 1.
-    """
-    if len(all_transactions) < 4:
-        return 0.0
-
-    # Define major holidays (month, day)
-    holidays = [
-        (1, 1),  # New Year's
-        (12, 25),  # Christmas
-        (11, 25),  # Thanksgiving (approximate)
-        (7, 4),  # Independence Day
-        (5, 31),  # Memorial Day (approximate)
-        (9, 1),  # Labor Day (approximate)
-    ]
-
-    # Sort transactions by date
-    sorted_transactions = sorted(all_transactions, key=lambda x: parse_date(x.date))
-    dates = [parse_date(t.date) for t in sorted_transactions if parse_date(t.date)]
-
-    if not dates:
-        return 0.0
-
-    # Check for date shifts around holidays
-    shifts = []
-    for i in range(len(dates) - 1):
-        days_diff = (dates[i + 1] - dates[i]).days
-
-        # Check if either date is near a holiday
-        near_holiday = False
-        for holiday_month, holiday_day in holidays:
-            for current_date in [dates[i], dates[i + 1]]:
-                if current_date.month == holiday_month and abs(current_date.day - holiday_day) <= 3:
-                    near_holiday = True
-
-        if near_holiday:
-            shifts.append(days_diff)
-
-    if not shifts:
-        return 0.0
-
-    # Calculate shift consistency
-    avg_shift = np.mean(shifts)
-    std_shift = np.std(shifts)
-
-    # Higher score if shifts are consistent
-    consistency_score = 1.0 - min(float(std_shift / avg_shift) if avg_shift > 0 else 1.0, 1.0)
-    return float(consistency_score)
-
-
-def is_cleo_subscription_like(transactions: list[Transaction]) -> float:
-    """Detect recurring Cleo app-related charges (Cleo Plus, Cleo Builder)."""
-    if not transactions or not any("cleo" in t.name.lower() for t in transactions):
-        return 0.0
-
-    # Focus on subscription-based Cleo charges (not AI cash advances)
-    subscription_txns = [t for t in transactions if "cleo ai" not in t.name.lower()]
-    if len(subscription_txns) < 2:
-        return 0.0
-
-    amounts = [t.amount for t in subscription_txns]
-    dates = [parse_date(t.date) for t in subscription_txns]
-    median_amt = median(amounts)
-
-    # Filter out non-subscription size transactions
-    if median_amt < 2 or median_amt > 15:
-        return 0.0
-
-    intervals = [(dates[i] - dates[i - 1]).days for i in range(1, len(dates))]
-    if not intervals:
-        return 0.0
-
-    monthly_pattern = sum(1 for d in intervals if 27 <= d <= 33) / len(intervals)
-    amount_consistency = sum(1 for amt in amounts if abs(amt - median_amt) <= 1.5) / len(amounts)
-
-    return 0.6 * monthly_pattern + 0.4 * amount_consistency
-
-
-def is_albert_recurring_subscription(transactions: list[Transaction]) -> float:
-    """
-    Detect recurring subscriptions in Albert (fixed range).
-    """
-    if not transactions or not any("albert" in t.name.lower() for t in transactions):
-        return 0.0
-
-    # Extract transaction amounts and dates
-    amounts = [t.amount for t in transactions]
-    dates = [parse_date(t.date) for t in transactions]
-
-    # Calculate median amount for consistency
-    median_amt = median(amounts)
-
-    # Check if the amount is within the recurring range for Albert
-    if 4.0 <= median_amt <= 7.0:
-        # Check for recurring interval consistency (e.g., monthly)
-        intervals = [(dates[i] - dates[i - 1]).days for i in range(1, len(dates))]
-        if intervals and all(27 <= interval <= 33 for interval in intervals):
-            return 1.0  # Likely recurring subscription (within specified range and interval)
-
-    return 0.0
 
 
 def is_earnin_tip_subscription(transactions: list[Transaction]) -> float:
@@ -1533,15 +1433,12 @@ def get_new_features(transaction: Transaction, all_transactions: list[Transactio
         "detect_multi_tier_subscription": detect_multi_tier_subscription(all_transactions),
         "detect_annual_price_adjustment": detect_annual_price_adjustment(all_transactions),
         "detect_pay_period_alignment": detect_pay_period_alignment(all_transactions),
-        "detect_holiday_shift_pattern": detect_holiday_shift_pattern(all_transactions),
         # 2
         # "is_albert_irregular_purchase": is_albert_irregular_purchase(all_transactions),
         # "is_brigit_recurring_payment": is_brigit_recurring_payment(all_transactions),
         "is_earnin_tip_subscription": is_earnin_tip_subscription(all_transactions),
-        "is_albert_recurring_subscription": is_albert_recurring_subscription(all_transactions),
         "is_cleo_ai_cash_advance_like": is_cleo_ai_cash_advance_like(all_transactions),
         "is_apple_irregular_purchase": is_apple_irregular_purchase(all_transactions),
-        "is_cleo_subscription_like": is_cleo_subscription_like(all_transactions),
         "is_apple_subscription_like": is_apple_subscription_like(all_transactions),
         "is_amazon_prime_like_subscription": is_amazon_prime_like_subscription(all_transactions),
         "is_amazon_retail_irregular": is_amazon_retail_irregular(all_transactions),
@@ -1614,6 +1511,30 @@ def get_new_features(transaction: Transaction, all_transactions: list[Transactio
 
 #     # Return score if pattern is significantly dominant
 #     return round(confidence, 4) if confidence >= 0.6 else 0.0
+
+# def is_albert_recurring_subscription(transactions: list[Transaction]) -> float:
+#     """
+#     Detect recurring subscriptions in Albert (fixed range).
+#     """
+#     if not transactions or not any("albert" in t.name.lower() for t in transactions):
+#         return 0.0
+
+#     # Extract transaction amounts and dates
+#     amounts = [t.amount for t in transactions]
+#     dates = [parse_date(t.date) for t in transactions]
+
+#     # Calculate median amount for consistency
+#     median_amt = median(amounts)
+
+#     # Check if the amount is within the recurring range for Albert
+#     if 4.0 <= median_amt <= 7.0:
+#         # Check for recurring interval consistency (e.g., monthly)
+#         intervals = [(dates[i] - dates[i - 1]).days for i in range(1, len(dates))]
+#         if intervals and all(27 <= interval <= 33 for interval in intervals):
+#             return 1.0  # Likely recurring subscription (within specified range and interval)
+
+#     return 0.0
+
 
 # def detect_parallel_loans(transaction: Transaction, all_transactions: list[Transaction]) -> float:
 #     """
@@ -1749,6 +1670,57 @@ def get_new_features(transaction: Transaction, all_transactions: list[Transactio
 
 # CHANGES STARTS HERE OF THE ADDING OF NEW FEATURES
 
+# def detect_holiday_shift_pattern(all_transactions: list[Transaction]) -> float:
+#     """
+#     Detect if transaction dates shift around holidays but maintain overall regularity.
+#     Returns a confidence score between 0 and 1.
+#     """
+#     if len(all_transactions) < 4:
+#         return 0.0
+
+#     # Define major holidays (month, day)
+#     holidays = [
+#         (1, 1),  # New Year's
+#         (12, 25),  # Christmas
+#         (11, 25),  # Thanksgiving (approximate)
+#         (7, 4),  # Independence Day
+#         (5, 31),  # Memorial Day (approximate)
+#         (9, 1),  # Labor Day (approximate)
+#     ]
+
+#     # Sort transactions by date
+#     sorted_transactions = sorted(all_transactions, key=lambda x: parse_date(x.date))
+#     dates = [parse_date(t.date) for t in sorted_transactions if parse_date(t.date)]
+
+#     if not dates:
+#         return 0.0
+
+#     # Check for date shifts around holidays
+#     shifts = []
+#     for i in range(len(dates) - 1):
+#         days_diff = (dates[i + 1] - dates[i]).days
+
+#         # Check if either date is near a holiday
+#         near_holiday = False
+#         for holiday_month, holiday_day in holidays:
+#             for current_date in [dates[i], dates[i + 1]]:
+#                 if current_date.month == holiday_month and abs(current_date.day - holiday_day) <= 3:
+#                     near_holiday = True
+
+#         if near_holiday:
+#             shifts.append(days_diff)
+
+#     if not shifts:
+#         return 0.0
+
+#     # Calculate shift consistency
+#     avg_shift = np.mean(shifts)
+#     std_shift = np.std(shifts)
+
+#     # Higher score if shifts are consistent
+#     consistency_score = 1.0 - min(float(std_shift / avg_shift) if avg_shift > 0 else 1.0, 1.0)
+#     return float(consistency_score)
+
 
 # def get_new_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, int | bool | float]:
 #     """Get the new features for the transaction."""
@@ -1775,6 +1747,33 @@ def get_new_features(transaction: Transaction, all_transactions: list[Transactio
 #     # Add payment method consistency
 #     features["payment_method_consistency"] = get_payment_method_consistency(transaction, all_transactions)
 
+# def is_cleo_subscription_like(transactions: list[Transaction]) -> float:
+#     """Detect recurring Cleo app-related charges (Cleo Plus, Cleo Builder)."""
+#     if not transactions or not any("cleo" in t.name.lower() for t in transactions):
+#         return 0.0
+
+#     # Focus on subscription-based Cleo charges (not AI cash advances)
+#     subscription_txns = [t for t in transactions if "cleo ai" not in t.name.lower()]
+#     if len(subscription_txns) < 2:
+#         return 0.0
+
+#     amounts = [t.amount for t in subscription_txns]
+#     dates = [parse_date(t.date) for t in subscription_txns]
+#     median_amt = median(amounts)
+
+#     # Filter out non-subscription size transactions
+#     if median_amt < 2 or median_amt > 15:
+#         return 0.0
+
+#     intervals = [(dates[i] - dates[i - 1]).days for i in range(1, len(dates))]
+#     if not intervals:
+#         return 0.0
+
+#     monthly_pattern = sum(1 for d in intervals if 27 <= d <= 33) / len(intervals)
+#     amount_consistency = sum(1 for amt in amounts if abs(amt - median_amt) <= 1.5) / len(amounts)
+
+#     return 0.6 * monthly_pattern + 0.4 * amount_consistency
+
 
 #     # Add new advanced features
 #     features["multi_tier_subscription"] = detect_multi_tier_subscription(transaction, all_transactions)
@@ -1783,23 +1782,3 @@ def get_new_features(transaction: Transaction, all_transactions: list[Transactio
 #     features["pay_period_alignment"] = detect_pay_period_alignment(transaction, all_transactions)
 
 #     return features
-
-# def detect_seasonal_variation(amounts: list[float], window: int = 12) -> float:
-#     """
-#     Detect if there's a seasonal pattern in the amounts.
-#     Returns a score between 0 and 1 indicating strength of seasonality.
-#     """
-#     if len(amounts) < window * 2:
-#         return 0.0
-
-#     # Calculate correlation between same months across years
-#     correlations = []
-#     for i in range(len(amounts) - window):
-#         if i + window < len(amounts):
-#             period1 = amounts[i:i + window]
-#             period2 = amounts[i + window:i + 2*window]
-#             if len(period2) == window:
-#                 correlation = abs(np.corrcoef(period1, period2)[0, 1])
-#                 correlations.append(correlation)
-
-#     return float(np.mean(correlations)) if correlations else 0.0
