@@ -39,7 +39,7 @@ from recur_scan.transactions import group_transactions, read_labeled_transaction
 
 use_precomputed_features = True
 model_type = "xgb"  # "rf" or "xgb"
-n_cv_folds = 5 # number of cross-validation folds, could be 5
+n_cv_folds = 5  # number of cross-validation folds, could be 5
 do_hyperparameter_optimization = False  # set to False to use the default hyperparameters
 search_type = "random"  # "grid" or "random"
 n_hpo_iters = 200  # number of hyperparameter optimization iterations
