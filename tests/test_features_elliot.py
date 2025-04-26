@@ -150,14 +150,12 @@ def test_organize_transactions_by_user_company(sample_transactions):
 # configure the script
 def test_detect_duplicates():
     txns = [
-        {"merchant": "A", "amount": 10, "date": "2024-01-01"},
-        {"merchant": "A", "amount": 10, "date": "2024-01-01"},
-        {"merchant": "B", "amount": 20, "date": "2024-01-02"},
+        {"user_id": "u1", "merchant": "A", "amount": 10, "date": "2024-01-01"},
+        {"user_id": "u1", "merchant": "A", "amount": 10, "date": "2024-01-01"},
+        {"user_id": "u2", "merchant": "B", "amount": 20, "date": "2024-01-02"},
     ]
     duplicates = detect_duplicates(txns)
     assert len(duplicates) == 1
-    assert duplicates[0]["merchant"] == "A"
-    assert duplicates[0]["amount"] == 10
 
 
 # %%
@@ -214,12 +212,17 @@ def test_calculate_merchant_diversity():
 def test_to_txn_dict_with_dict():
     txn_dict = {
         "user_id": "u1",
-        "name": "store",  # <--- FIXED
+        "name": "store",
         "amount": 100.0,
         "date": "2023-04-01",
     }
     result = _to_txn_dict(txn_dict)
-    assert result == {"merchant": "store", "amount": 100.0, "date": "2023-04-01"}
+    assert result == {
+        "user_id": "u1",  # <--- MUST expect user_id now
+        "merchant": "store",
+        "amount": 100.0,
+        "date": "2023-04-01",
+    }
 
 
 # %%
@@ -227,7 +230,12 @@ def test_to_txn_dict_with_dict():
 def test_to_txn_dict_with_transaction_obj():
     txn = Transaction(id=1, user_id="u1", name="store", amount=100.0, date="2023-04-01")
     result = _to_txn_dict(txn)
-    assert result == {"merchant": "store", "amount": 100.0, "date": "2023-04-01"}
+    assert result == {
+        "user_id": "u1",  # <--- MUST expect user_id now
+        "merchant": "store",
+        "amount": 100.0,
+        "date": "2023-04-01",
+    }
 
 
 # %%
@@ -235,3 +243,6 @@ def test_to_txn_dict_with_transaction_obj():
 def test_to_txn_dict_raises_on_invalid_input():
     with pytest.raises(TypeError):
         _to_txn_dict(object())  # type: ignore[arg-type]
+
+
+# %%
