@@ -11,6 +11,11 @@ module from recur_scan.features to prepare the input data.
 import argparse
 import json
 import os
+import sys
+
+# Add the src directory to the Python path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
+
 
 import joblib
 import matplotlib.pyplot as plt
@@ -26,7 +31,7 @@ from sklearn.model_selection import GridSearchCV, GroupKFold, RandomizedSearchCV
 from tqdm import tqdm
 
 from recur_scan.features import get_features
-from recur_scan.features_original import get_new_features
+from recur_scan.features_ebenezer import get_new_features
 from recur_scan.transactions import group_transactions, read_labeled_transactions, write_transactions
 
 # %%
@@ -34,14 +39,14 @@ from recur_scan.transactions import group_transactions, read_labeled_transaction
 
 use_precomputed_features = True
 model_type = "xgb"  # "rf" or "xgb"
-n_cv_folds = 5  # number of cross-validation folds, could be 5
+n_cv_folds = 3  # number of cross-validation folds, could be 5
 do_hyperparameter_optimization = False  # set to False to use the default hyperparameters
 search_type = "random"  # "grid" or "random"
 n_hpo_iters = 200  # number of hyperparameter optimization iterations
 n_jobs = -1  # number of jobs to run in parallel (set to 1 if your laptop gets too hot)
 
-in_path = "training file"
-precomputed_features_path = "precomputed features file"
+in_path = "scripts/recur_scan_data.csv"  # path to the input CSV file containing transactions
+precomputed_features_path = "scripts/train_features.csv"
 out_dir = "output directory"
 
 # %%
@@ -92,6 +97,9 @@ user_ids = [transaction.user_id for transaction in transactions]
 # %%
 # get features
 
+# %%
+# get features
+
 logger.info("Getting features")
 
 if use_precomputed_features:
@@ -100,8 +108,7 @@ if use_precomputed_features:
     logger.info(f"Read {len(features)} precomputed features")
 else:
     # feature generation is parallelized using joblib
-    # Use backend that works better with shared memory
-    with joblib.parallel_backend("loky", n_jobs=n_jobs):
+    with joblib.parallel_backend("loky", n_jobs=-1):  # Use all available cores
         features = joblib.Parallel(verbose=1)(
             joblib.delayed(get_features)(transaction, grouped_transactions[(transaction.user_id, transaction.name)])
             for transaction in tqdm(transactions, desc="Processing transactions")
@@ -109,6 +116,24 @@ else:
     # save the features to a csv file
     pd.DataFrame(features).to_csv(precomputed_features_path, index=False)
     logger.info(f"Generated {len(features)} features")
+
+# logger.info("Getting features")
+
+# if use_precomputed_features:
+#     # read the precomputed features
+#     features = pd.read_csv(precomputed_features_path).to_dict(orient="records")
+#     logger.info(f"Read {len(features)} precomputed features")
+# else:
+#     # feature generation is parallelized using joblib
+#     # Use backend that works better with shared memory
+#     with joblib.parallel_backend("loky", n_jobs=n_jobs):
+#         features = joblib.Parallel(verbose=1)(
+#             joblib.delayed(get_features)(transaction, grouped_transactions[(transaction.user_id, transaction.name)])
+#             for transaction in tqdm(transactions, desc="Processing transactions")
+#         )
+#     # save the features to a csv file
+#     pd.DataFrame(features).to_csv(precomputed_features_path, index=False)
+#     logger.info(f"Generated {len(features)} features")
 
 # %%
 # add new features
