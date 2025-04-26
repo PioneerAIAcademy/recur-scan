@@ -220,8 +220,153 @@ def get_merchant_fingerprint(transaction: Transaction, transactions: list[Transa
     # Payment method clues
     method_score = 0.5 if any("ach" in t.name.lower() or "autopay" in t.name.lower() for t in same_merchant) else 0
 
-    # Adjusted weights: penalize amount variation more
+    # Adjusted weights: make perfect patterns score high
     return float(max(0.0, min(1.0, (amount_stability * 0.7) + (day_stability * 0.2) + (method_score * 0.1))))
+
+
+def get_recurrence_confidence_score(transaction: Transaction, transactions: list[Transaction]) -> float:
+    """
+    Calculates a 0-1 confidence score combining:
+    - Temporal consistency
+    - Amount patterns
+    - Merchant trust signals
+    - Behavioral history
+    """
+    same_merchant = [t for t in transactions if t.name == transaction.name]
+
+    if len(same_merchant) < 2:
+        return 0.0
+
+    amounts = [t.amount for t in same_merchant]
+    days = [datetime.strptime(t.date, "%Y-%m-%d").day for t in same_merchant]
+
+    # Stronger penalty for amount variation
+    amount_stability = 1 - min(1, (float(np.std(amounts)) / (float(np.mean(amounts)) + 1e-6)) ** 3.0)
+    day_stability = 1 - (float(np.std(days)) / 15)
+
+    # Payment method clues
+    method_score = 0.5 if any("ach" in t.name.lower() or "autopay" in t.name.lower() for t in same_merchant) else 0
+
+    # Special case: only two transactions and large differences
+    if len(same_merchant) == 2 and (abs(amounts[0] - amounts[1]) > 0.5 * max(amounts) or abs(days[0] - days[1]) > 10):
+        return 0.0
+
+    # Adjusted weights: penalize amount variation much more
+    return float(max(0.0, min(1.0, (amount_stability * 0.85) + (day_stability * 0.05) + (method_score * 0.1))))
+
+
+def get_transaction_trust_score(transaction: Transaction, transactions: list[Transaction]) -> float:
+    """
+    Calculates a 0-1 score focusing on precision by verifying:
+    1. Merchant reputation
+    2. Amount validity
+    3. Temporal plausibility
+    4. Behavioral patterns
+    """
+    same_merchant = [t for t in transactions if t.name == transaction.name]
+
+    # Base score components
+    trust_signals = {
+        "merchant_reputation": 0.0,
+        "amount_validation": 0.0,
+        "temporal_plausibility": 0.0,
+        "behavioral_consistency": 0.0,
+    }
+
+    # 1. Merchant Reputation (30% weight)
+    trusted_merchants = {"netflix", "spotify", "amazon prime", "mortgage", "rent"}
+    if any(m in transaction.name.lower() for m in trusted_merchants):
+        trust_signals["merchant_reputation"] = 1.0
+    elif "ach" in transaction.name.lower():
+        trust_signals["merchant_reputation"] = 0.8
+
+    # 2. Amount Validation (25% weight)
+    if transaction.amount > 0:  # Negative amounts often indicate refunds
+        if 4.99 <= transaction.amount <= 299.99:  # Common subscription range
+            trust_signals["amount_validation"] = 1.0 if transaction.amount % 1 in {0, 0.99, 0.95} else 0.7
+        elif 0 < transaction.amount < 1000:  # Plausible subscription range
+            trust_signals["amount_validation"] = 0.7
+
+    # 3. Temporal Plausibility (25% weight)
+    if len(same_merchant) >= 2:
+        dates = sorted([datetime.strptime(t.date, "%Y-%m-%d") for t in same_merchant])
+        intervals = [(dates[i] - dates[i - 1]).days for i in range(1, len(dates))]
+        if all(15 <= i <= 45 for i in intervals):  # Valid recurring range
+            trust_signals["temporal_plausibility"] = 1.0
+
+    # 4. Behavioral Consistency (20% weight)
+    desc = transaction.name.lower()
+    if any(kw in desc for kw in {"subscription", "membership", "renewal"}):
+        trust_signals["behavioral_consistency"] = 1.0
+    elif "payment" in desc:
+        trust_signals["behavioral_consistency"] = 0.8
+
+    # Calculate weighted score
+    weights = {
+        "merchant_reputation": 0.3,
+        "amount_validation": 0.25,
+        "temporal_plausibility": 0.25,
+        "behavioral_consistency": 0.2,
+    }
+    return sum(trust_signals[s] * weights[s] for s in trust_signals)
+
+
+def get_recurring_confidence(transaction: Transaction, transactions: list[Transaction]) -> float:
+    """
+    Calculates a 0-1 confidence score for recurring transactions by:
+    1. Analyzing payment intervals with natural variance allowance
+    2. Checking amount consistency with seasonal fluctuations
+    3. Validating merchant patterns
+    """
+    same_merchant = [t for t in transactions if t.name == transaction.name]
+    if len(same_merchant) < 2:
+        return 0.0
+
+    # 1. Interval Analysis (Allows ±7 day variance)
+    dates = sorted(datetime.strptime(t.date, "%Y-%m-%d") for t in same_merchant)
+    intervals = [(dates[i] - dates[i - 1]).days for i in range(1, len(dates))]
+    if not intervals:
+        return 0.0
+    avg_interval = sum(intervals) / len(intervals)
+    interval_var = max(abs(i - avg_interval) for i in intervals)
+    interval_score = max(0.0, 1 - (interval_var / 30) ** 2)
+
+    # 2. Amount consistency (relative difference)
+    amounts = [t.amount for t in same_merchant]
+    amount_var = max(amounts) - min(amounts)
+    amount_score = max(0.0, 1 - (amount_var / (min(amounts) + 1e-6)) ** 2)
+
+    # 3. Merchant pattern (bonus for keywords)
+    name = transaction.name.lower()
+    merchant_bonus = (
+        0.05 if any(kw in name for kw in ["autopay", "subscription", "prime", "netflix", "spotify"]) else 0.0
+    )
+
+    # Special case: only two transactions and large differences
+    if len(same_merchant) == 2 and (abs(amounts[0] - amounts[1]) > 0.5 * max(amounts) or abs(intervals[0] - 30) > 20):
+        return 0.0
+
+    # Weighted sum
+    return min(1.0, max(0.0, 0.5 * interval_score + 0.45 * amount_score + merchant_bonus))
+
+
+def get_amount_mad(transaction: Transaction, transactions: list[Transaction]) -> float:
+    """
+    Calculate the Median Absolute Deviation (MAD) relative to median amount.
+    This is more robust to outliers than standard deviation.
+    """
+    same_name_txns = [t for t in transactions if t.name == transaction.name]
+    if len(same_name_txns) < 2:
+        return 0.0
+
+    amounts = sorted([t.amount for t in same_name_txns])
+    median = amounts[len(amounts) // 2]
+
+    # Calculate absolute deviations from median
+    abs_deviations = [abs(amount - median) for amount in amounts]
+    mad = sorted(abs_deviations)[len(abs_deviations) // 2]  # Median of absolute deviations
+
+    return float((mad / median) * 100) if median != 0 else 0.0
 
 
 def get_new_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict:
@@ -239,4 +384,8 @@ def get_new_features(transaction: Transaction, all_transactions: list[Transactio
         "n_days_apart_30": get_n_transactions_days_apart(transaction, all_transactions, 30, 2),
         "pct_days_apart_30": get_pct_transactions_days_apart(transaction, all_transactions, 30, 2),
         "merchant_fingerprint": get_merchant_fingerprint(transaction, all_transactions),
+        "recurrence_confidence": get_recurrence_confidence_score(transaction, all_transactions),
+        "transaction_trust": get_transaction_trust_score(transaction, all_transactions),
+        "recurring_confidence": get_recurring_confidence(transaction, all_transactions),
+        "amount_mad_pct": get_amount_mad(transaction, all_transactions),
     }
