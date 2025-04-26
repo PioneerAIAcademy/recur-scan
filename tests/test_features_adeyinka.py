@@ -6,15 +6,20 @@ import pytest
 
 from recur_scan.features_adeyinka import (
     _get_days,
+    get_amount_consistency_score,
     get_average_days_between_transactions,
+    get_day_of_month_consistency,
     get_is_always_recurring,
     get_n_transactions_days_apart,
     get_outlier_score,
+    get_phone_bill_indicator,
+    get_recent_transaction_frequency,
     get_recurring_confidence_score,
     get_same_amount_vendor_transactions,
     get_subscription_keyword_score,
     get_time_regularity_score,
     get_transaction_amount_variance,
+    is_bnpl_service,
     parse_date,
 )
 from recur_scan.transactions import Transaction
@@ -392,3 +397,180 @@ def sample_transactions():
         Transaction(id=3, user_id="user1", name="Netflix", date="2024-01-06", amount=16.08),
         Transaction(id=4, user_id="user1", name="Spotify", date="2024-01-10", amount=9.99),
     ]
+
+
+def test_get_amount_consistency_score():
+    # Consistent amounts → score should be high
+    vendor = "Spotify Premium"
+    transactions_consistent = [
+        Transaction(id=1, user_id="u1", name=vendor, date="2024-01-01", amount=9.99),
+        Transaction(id=2, user_id="u1", name=vendor, date="2024-02-01", amount=9.99),
+        Transaction(id=3, user_id="u1", name=vendor, date="2024-03-01", amount=10.00),
+    ]
+    t_ref = transactions_consistent[0]
+    result = get_amount_consistency_score(t_ref, transactions_consistent)
+    assert result > 0.9, f"Expected > 0.9 for consistent amounts, got {result}"
+
+    # Inconsistent amounts → score should be low
+    vendor_inconsistent = "Utility Bill"
+    transactions_inconsistent = [
+        Transaction(id=4, user_id="u1", name=vendor_inconsistent, date="2024-01-01", amount=10.0),
+        Transaction(id=5, user_id="u1", name=vendor_inconsistent, date="2024-02-01", amount=100.0),
+        Transaction(id=6, user_id="u1", name=vendor_inconsistent, date="2024-03-01", amount=1000.0),
+    ]
+    t_ref2 = transactions_inconsistent[0]
+    result = get_amount_consistency_score(t_ref2, transactions_inconsistent)
+    assert result < 0.5, f"Expected < 0.5 for inconsistent amounts, got {result}"
+
+    # Only one transaction → score should be 0.0
+    single_transaction = [Transaction(id=7, user_id="u1", name="One Time Payment", date="2024-01-01", amount=99.99)]
+    result = get_amount_consistency_score(single_transaction[0], single_transaction)
+    assert result == 0.0, f"Expected 0.0 for single transaction, got {result}"
+
+    print("All amount consistency tests passed!")
+
+
+def test_feature_get_day_of_month_consistency():
+    # --- Setup test data ---
+    transactions = [
+        # Consistent vendor
+        Transaction(id=1, user_id="u1", name="Netflix", date="2024-01-15", amount=15.0),
+        Transaction(id=2, user_id="u1", name="Netflix", date="2024-02-15", amount=15.0),
+        Transaction(id=3, user_id="u1", name="Netflix", date="2024-03-15", amount=15.0),
+        Transaction(id=4, user_id="u1", name="Netflix", date="2024-04-15", amount=15.0),
+        Transaction(id=5, user_id="u1", name="Netflix", date="2024-05-15", amount=15.0),
+        # Slightly inconsistent vendor
+        Transaction(id=6, user_id="u1", name="Phone Bill", date="2024-01-05", amount=45.0),
+        Transaction(id=7, user_id="u1", name="Phone Bill", date="2024-02-06", amount=45.0),
+        Transaction(id=8, user_id="u1", name="Phone Bill", date="2024-03-05", amount=45.0),
+        Transaction(id=9, user_id="u1", name="Phone Bill", date="2024-04-05", amount=45.0),
+        # Inconsistent vendor
+        Transaction(id=10, user_id="u1", name="Groceries", date="2024-01-01", amount=100.0),
+        Transaction(id=11, user_id="u1", name="Groceries", date="2024-01-15", amount=80.0),
+        Transaction(id=12, user_id="u1", name="Groceries", date="2024-01-25", amount=120.0),
+        # Vendor with less than 3 transactions
+        Transaction(id=13, user_id="u1", name="Gym", date="2024-01-10", amount=30.0),
+        Transaction(id=14, user_id="u1", name="Gym", date="2024-02-10", amount=30.0),
+    ]
+
+    # --- Tests ---
+
+    # Netflix: always on 15th -> should return 1.0
+    result = get_day_of_month_consistency(transactions[0], transactions)
+    assert result == 1.0, f"Expected 1.0, got {result}"
+
+    # Phone Bill: 3 on 5th, 1 on 6th -> 3/4 = 0.75
+    result = get_day_of_month_consistency(transactions[5], transactions)
+    assert result == 0.75, f"Expected 0.75, got {result}"
+
+    # Groceries: scattered days -> highest day only appears once -> 1/3 ≈ 0.333...
+    result = get_day_of_month_consistency(transactions[9], transactions)
+    assert round(result, 2) == 0.33, f"Expected ~0.33, got {result}"
+
+    # Gym: only 2 transactions -> should return 0.0
+    result = get_day_of_month_consistency(transactions[12], transactions)
+    assert result == 0.0, f"Expected 0.0, got {result}"
+
+    print(" All feature tests for get_day_of_month_consistency passed!")
+
+
+if __name__ == "__main__":
+    test_feature_get_day_of_month_consistency()
+
+
+def test_feature_is_bnpl_service():
+    # --- Setup test data ---
+    transactions = [
+        Transaction(id=1, user_id="u1", name="Credit Ninja", date="2024-01-01", amount=100.0),
+        Transaction(id=2, user_id="u1", name="Credit Genie", date="2024-01-01", amount=200.0),
+        Transaction(id=3, user_id="u1", name="Rise Up Lending", date="2024-01-01", amount=300.0),
+        Transaction(id=4, user_id="u1", name="Netflix", date="2024-01-01", amount=15.0),
+        Transaction(id=5, user_id="u1", name="CREDIT NINJA", date="2024-01-01", amount=120.0),  # Uppercase check
+        Transaction(id=6, user_id="u1", name="Credit genie", date="2024-01-01", amount=220.0),  # Lowercase check
+    ]
+
+    # --- Tests ---
+
+    # Credit Ninja -> detected
+    assert is_bnpl_service(transactions[0]) == 1.0
+
+    # Credit Genie -> detected
+    assert is_bnpl_service(transactions[1]) == 1.0
+
+    # Rise Up Lending -> detected
+    assert is_bnpl_service(transactions[2]) == 1.0
+
+    # Netflix -> not a BNPL service
+    assert is_bnpl_service(transactions[3]) == 0.0
+
+    # CREDIT NINJA (uppercase) -> detected
+    assert is_bnpl_service(transactions[4]) == 1.0
+
+    # Credit genie (lowercase) -> detected
+    assert is_bnpl_service(transactions[5]) == 1.0
+
+
+def test_feature_get_recent_transaction_frequency():
+    # --- Setup test data ---
+    transactions = [
+        # Recent transactions (within 90 days)
+        Transaction(id=1, user_id="u1", name="Spotify", date="2024-04-10", amount=10.0),
+        Transaction(id=2, user_id="u1", name="Spotify", date="2024-04-20", amount=10.0),
+        Transaction(id=3, user_id="u1", name="Spotify", date="2024-05-01", amount=10.0),
+        Transaction(id=4, user_id="u1", name="Spotify", date="2024-05-15", amount=10.0),
+        Transaction(id=5, user_id="u1", name="Spotify", date="2024-06-01", amount=10.0),
+        Transaction(id=6, user_id="u1", name="Spotify", date="2024-06-20", amount=10.0),
+        Transaction(id=7, user_id="u1", name="Spotify", date="2024-07-01", amount=10.0),
+        # Older transactions (more than 90 days ago)
+        Transaction(id=8, user_id="u1", name="Spotify", date="2023-12-01", amount=10.0),
+        Transaction(id=9, user_id="u1", name="Spotify", date="2023-11-01", amount=10.0),
+        # Different vendor
+        Transaction(id=10, user_id="u1", name="Netflix", date="2024-06-01", amount=15.0),
+    ]
+
+    # --- Tests ---
+
+    # Case 1: 7 recent Spotify transactions → should cap at 1.0
+    result = get_recent_transaction_frequency(transactions[0], transactions)
+    assert result == 1.0
+
+    # Case 2: Netflix has only 1 recent transaction → 1/6
+    result = get_recent_transaction_frequency(transactions[9], transactions)
+    assert result == pytest.approx(1 / 6)
+
+    # Case 3: Vendor with NO transactions (simulate new vendor)
+    new_transaction = Transaction(id=11, user_id="u1", name="Unknown Vendor", date="2024-06-01", amount=50.0)
+    result = get_recent_transaction_frequency(new_transaction, transactions)
+    assert result == 0.0
+
+
+def test_feature_get_phone_bill_indicator():
+    # --- Setup test data ---
+    transactions = [
+        # Clear phone bill with telecom name and typical amount
+        Transaction(id=1, user_id="u1", name="T-Mobile Payment", date="2024-06-01", amount=70.0),
+        # Telecom name but outside typical amount
+        Transaction(id=2, user_id="u1", name="Verizon Wireless", date="2024-06-01", amount=250.0),
+        # No telecom keyword but within typical amount
+        Transaction(id=3, user_id="u1", name="Water Bill", date="2024-06-01", amount=50.0),
+        # No telecom keyword and outside typical amount
+        Transaction(id=4, user_id="u1", name="Grocery Store", date="2024-06-01", amount=300.0),
+    ]
+
+    # --- Tests ---
+
+    # Case 1: Telecom name + typical amount → 0.7 + 0.3 = 1.0
+    result = get_phone_bill_indicator(transactions[0])
+    assert result == 1.0
+
+    # Case 2: Telecom name but NOT typical amount → only 0.7
+    result = get_phone_bill_indicator(transactions[1])
+    assert result == pytest.approx(0.7)
+
+    # Case 3: No telecom name but typical amount → only 0.3
+    result = get_phone_bill_indicator(transactions[2])
+    assert result == pytest.approx(0.3)
+
+    # Case 4: No telecom name and NOT typical amount → 0.0
+    result = get_phone_bill_indicator(transactions[3])
+    assert result == 0.0
