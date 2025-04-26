@@ -1,5 +1,4 @@
 # test features
-import datetime
 from math import isclose
 
 import pytest
@@ -9,9 +8,12 @@ from recur_scan.features_felix import (
     get_day,
     get_dispersion_transaction_amount,
     get_is_always_recurring,
+    get_is_amazon_prime,
+    get_is_att_transaction,
     get_is_insurance,
     get_is_phone,
     get_is_utility,
+    get_likelihood_of_recurrence,
     get_max_transaction_amount,
     get_median_variation_transaction_amount,
     get_min_transaction_amount,
@@ -19,8 +21,11 @@ from recur_scan.features_felix import (
     get_n_transactions_same_vendor,
     get_transaction_intervals,
     get_transaction_rate,
+    get_transaction_recency,
     get_transactions_interval_stability,
     get_variation_ratio,
+    get_vendor_transaction_frequency,
+    get_vendor_transaction_recurring,
     get_year,
 )
 from recur_scan.transactions import Transaction
@@ -95,7 +100,6 @@ def test_get_min_transaction_amount() -> None:
 def test_get_transaction_intervals_single_transaction():
     """
     Test get_transaction_intervals with only one transaction.
-
     With a single transaction, there is no interval to compute so all features should be zero.
     """
     single_tx = [
@@ -104,7 +108,7 @@ def test_get_transaction_intervals_single_transaction():
             user_id="user1",
             name="vendor1",
             amount=100,
-            date=datetime.datetime.strptime("2024-01-02", "%Y-%m-%d").date(),
+            date="2024-01-02",  # Use string date directly
         )
     ]
     result = get_transaction_intervals(single_tx)
@@ -121,7 +125,6 @@ def test_get_transaction_intervals_single_transaction():
 def test_get_transaction_intervals_multiple_transactions() -> None:
     """
     Test get_transaction_intervals with multiple transactions.
-
     This test includes transactions with different dates, amounts, and weekdays.
     """
     transactions = [
@@ -130,21 +133,21 @@ def test_get_transaction_intervals_multiple_transactions() -> None:
             user_id="user1",
             name="vendor1",
             amount=100,
-            date=datetime.datetime.strptime("2024-01-02", "%Y-%m-%d").date(),
+            date="2024-01-02",  # Tuesday
         ),
         Transaction(
             id=2,
             user_id="user1",
             name="vendor1",
             amount=100,
-            date=datetime.datetime.strptime("2024-02-09", "%Y-%m-%d").date(),
+            date="2024-02-09",  # Friday
         ),
         Transaction(
             id=3,
             user_id="user1",
             name="vendor1",
             amount=200,
-            date=datetime.datetime.strptime("2024-03-03", "%Y-%m-%d").date(),
+            date="2024-03-03",  # Sunday
         ),
     ]
     result = get_transaction_intervals(transactions)
@@ -320,4 +323,143 @@ def test_get_average_transaction_amount() -> None:
             Transaction(id=7, user_id="user1", name="vendor3", amount=100, date="2024-01-07"), transactions
         )
         == 0.0
+    )
+
+
+# New tests for additional features
+
+
+def test_get_is_amazon_prime() -> None:
+    """Test get_is_amazon_prime with 4 transactions covering Amazon Prime and non-Prime cases."""
+    test_transactions = [
+        # True cases (Amazon Prime)
+        Transaction(id=1, user_id="user1", name="Amazon Prime Membership", amount=12.99, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="AMAZON PRIME VIDEO", amount=8.99, date="2024-01-15"),
+        # False cases
+        Transaction(id=3, user_id="user1", name="Amazon Fresh Delivery", amount=35.99, date="2024-01-02"),
+        Transaction(id=4, user_id="user1", name="Netflix Subscription", amount=14.99, date="2024-01-03"),
+    ]
+
+    assert get_is_amazon_prime(test_transactions[0]) is True
+    assert get_is_amazon_prime(test_transactions[1]) is True
+    assert get_is_amazon_prime(test_transactions[2]) is False
+    assert get_is_amazon_prime(test_transactions[3]) is False
+
+
+def test_get_vendor_transaction_frequency() -> None:
+    """Test get_vendor_transaction_frequency with different transaction frequencies."""
+    # Test case 1: Rare (1 transaction)
+    transactions_rare = [
+        Transaction(id=1, user_id="user1", name="vendor1", amount=100, date="2024-01-01"),
+    ]
+    assert get_vendor_transaction_frequency(transactions_rare[0], transactions_rare) == 0
+
+    # Test case 2: Occasional (2 transactions)
+    transactions_occasional = [
+        Transaction(id=1, user_id="user1", name="vendor1", amount=100, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="vendor1", amount=200, date="2024-01-02"),
+    ]
+    assert get_vendor_transaction_frequency(transactions_occasional[0], transactions_occasional) == 1
+
+    # Test case 3: Frequent (4 transactions)
+    transactions_frequent = [
+        Transaction(id=1, user_id="user1", name="vendor1", amount=100, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="vendor1", amount=200, date="2024-01-02"),
+        Transaction(id=3, user_id="user1", name="vendor1", amount=300, date="2024-01-03"),
+        Transaction(id=4, user_id="user1", name="vendor1", amount=400, date="2024-01-04"),
+    ]
+    assert get_vendor_transaction_frequency(transactions_frequent[0], transactions_frequent) == 2
+
+
+def test_get_vendor_transaction_recurring() -> None:
+    """Test get_vendor_transaction_recurring feature function."""
+
+    transactions = [
+        # Recurring transactions: Same user, name, amount, around the same day each month
+        Transaction(id=1, user_id="user1", name="Spotify", amount=9.99, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="Spotify", amount=9.99, date="2024-02-02"),
+        Transaction(id=3, user_id="user1", name="Spotify", amount=9.99, date="2024-03-03"),
+        Transaction(id=4, user_id="user1", name="Spotify", amount=9.99, date="2024-04-01"),
+        # Different vendor
+        Transaction(id=5, user_id="user1", name="Netflix", amount=15.99, date="2024-01-01"),
+        # Same vendor but varying amount
+        Transaction(id=6, user_id="user1", name="Spotify", amount=12.99, date="2024-02-01"),
+        # Same vendor and amount but one-off transaction outside pattern
+        Transaction(id=7, user_id="user1", name="Spotify", amount=9.99, date="2023-08-15"),
+    ]
+
+    # True for recurring pattern
+    assert get_vendor_transaction_recurring(transactions[0], transactions) == 1
+    assert get_vendor_transaction_recurring(transactions[1], transactions) == 1
+    assert get_vendor_transaction_recurring(transactions[3], transactions) == 1
+
+    # False for different vendor
+    assert get_vendor_transaction_recurring(transactions[4], transactions) == 0
+
+    # False for different amount
+    assert get_vendor_transaction_recurring(transactions[5], transactions) == 0
+
+    # False for outlier one-off date
+    assert get_vendor_transaction_recurring(transactions[6], transactions) == 0
+
+
+def test_get_likelihood_of_recurrence() -> None:
+    """Test get_likelihood_of_recurrence with different patterns of transactions."""
+    transactions = [
+        Transaction(id=1, user_id="user1", name="Spotify", amount=9.99, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="Spotify", amount=9.99, date="2024-02-01"),
+        Transaction(id=3, user_id="user1", name="Spotify", amount=9.99, date="2024-03-01"),
+        Transaction(id=4, user_id="user1", name="Spotify", amount=9.99, date="2024-04-01"),
+        Transaction(id=5, user_id="user1", name="Spotify", amount=9.99, date="2024-05-01"),
+    ]
+    # High likelihood of recurrence (consistent monthly pattern)
+    assert pytest.approx(get_likelihood_of_recurrence(transactions[0], transactions, n=5)) == 1.0
+
+    # Low likelihood of recurrence (inconsistent intervals)
+    inconsistent_transactions = [
+        Transaction(id=1, user_id="user1", name="Spotify", amount=9.99, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="Spotify", amount=9.99, date="2024-01-15"),
+        Transaction(id=3, user_id="user1", name="Spotify", amount=9.99, date="2024-02-01"),
+        Transaction(id=4, user_id="user1", name="Spotify", amount=9.99, date="2024-03-20"),
+        Transaction(id=5, user_id="user1", name="Spotify", amount=9.99, date="2024-04-01"),
+    ]
+    assert get_likelihood_of_recurrence(inconsistent_transactions[0], inconsistent_transactions, n=5) < 1.0
+
+    # Not enough transactions to calculate recurrence
+    assert get_likelihood_of_recurrence(transactions[0], transactions[:2], n=5) == 0.0
+
+
+def test_get_transaction_recency() -> None:
+    """Test get_transaction_recency with different transaction dates."""
+    # Setup test transactions
+    transactions = [
+        Transaction(id=1, user_id="user1", name="Spotify", amount=9.99, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="Spotify", amount=9.99, date="2024-02-01"),  # 31 days after Jan 1
+        Transaction(
+            id=3, user_id="user1", name="Spotify", amount=9.99, date="2024-03-01"
+        ),  # 29 days after Feb 1 (2024 is leap year)
+    ]
+
+    # Test 1: Days between Feb 1 and Mar 1 (29 days in 2024 due to leap year)
+    assert get_transaction_recency(transactions[2], transactions) == 29
+
+    # Test 2: Days between Jan 1 and Feb 1
+    assert get_transaction_recency(transactions[1], transactions) == 31
+
+    # Test 3: No previous transactions for the vendor
+    assert (
+        get_transaction_recency(
+            Transaction(id=4, user_id="user1", name="Netflix", amount=15.99, date="2024-04-01"), transactions
+        )
+        == -1
+    )
+
+
+def test_get_is_att_transaction() -> None:
+    """Test get_is_att_transaction with AT&T and non-AT&T transactions."""
+    assert get_is_att_transaction(
+        Transaction(id=1, user_id="user1", name="AT&T Wireless", amount=100, date="2024-01-01")
+    )
+    assert not get_is_att_transaction(
+        Transaction(id=2, user_id="user1", name="Verizon Wireless", amount=100, date="2024-01-01")
     )

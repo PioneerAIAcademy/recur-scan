@@ -4,17 +4,11 @@ import statistics
 from datetime import datetime
 from statistics import mean, stdev
 
+import numpy as np
+
 from recur_scan.transactions import Transaction
 
-# Helper Functions
-
-# def _compute_interval_stats(transactions: list[dict]) -> dict[str, float]:
-#    """Helper function to compute statistics related to transaction intervals."""
-#    return {"std_dev_days_between_transactions": 30}  # Example value
-
-# def _compute_amount_stats(transactions: list[dict]) -> dict[str, float]:
-#    """Helper function to compute statistics related to transaction amounts."""
-#    return {"mean": 100, "std": 1}  # Example values
+# Helper function to get the number of days since the epoch
 
 
 def _get_days(date: str) -> int:
@@ -269,3 +263,161 @@ def get_transactions_interval_stability(transaction: Transaction, transactions: 
 def get_n_transactions_same_vendor(transaction: Transaction, all_transactions: list[Transaction]) -> int:
     """Get the number of transactions in all_transactions with the same vendor as transaction."""
     return sum(1 for t in all_transactions if t.name == transaction.name)
+
+
+# New features to be added
+
+
+def get_is_amazon_prime(transaction: Transaction) -> bool:
+    """Check if the transaction is an Amazon Prime payment."""
+    return "amazon prime" in transaction.name.lower()
+
+
+def get_vendor_transaction_frequency(transaction: Transaction, all_transactions: list[Transaction]) -> int:
+    """Get the frequency band of transactions for this vendor (0=rare, 1=occasional, 2=frequent)."""
+    count = sum(1 for t in all_transactions if t.name == transaction.name)
+    if count > 3:  # 4+ transactions = frequent
+        return 2
+    elif count > 1:  # 2-3 transactions = occasional
+        return 1
+    return 0  # 1 transaction = rare
+
+
+def get_vendor_transaction_recurring(transaction: Transaction, all_transactions: list[Transaction]) -> int:
+    """
+    Checks if a transaction is recurring based on same name, amount, and approximately monthly timing (±2 days).
+
+    Args:
+        transaction (Transaction): The transaction to analyze.
+        all_transactions (list[Transaction]): List of all transactions.
+
+    Returns:
+        int: 1 if the transaction is recurring, 0 otherwise.
+    """
+    # Filter: same user, same vendor, same amount
+    relevant = [
+        t
+        for t in all_transactions
+        if t.user_id == transaction.user_id and t.name == transaction.name and t.amount == transaction.amount
+    ]
+
+    if len(relevant) < 3:
+        return 0  # Can't detect a pattern with fewer than 3 transactions
+
+    # Sort by date
+    relevant = sorted(relevant, key=lambda t: datetime.strptime(t.date, "%Y-%m-%d"))
+    dates = [datetime.strptime(t.date, "%Y-%m-%d") for t in relevant]
+
+    # Find if dates occur approximately monthly (30 days ± 2 days)
+    for i in range(len(dates) - 2):
+        d1, d2, d3 = dates[i], dates[i + 1], dates[i + 2]
+        interval1 = (d2 - d1).days
+        interval2 = (d3 - d2).days
+
+        if 28 <= interval1 <= 32 and 28 <= interval2 <= 32:
+            check_date = datetime.strptime(transaction.date, "%Y-%m-%d")
+            if check_date in [d1, d2, d3]:
+                return 1
+
+    return 0
+
+
+# Feature 1: Likelihood of Recurrence Based on Last N Transactions
+
+
+def get_likelihood_of_recurrence(transaction: Transaction, all_transactions: list[Transaction], n: int = 5) -> float:
+    """
+    Estimate the likelihood of recurrence based on the pattern of the last N transactions.
+
+    Args:
+        transaction (Transaction): The transaction to analyze.
+        all_transactions (list[Transaction]): List of all transactions.
+        n (int): Number of most recent transactions to consider.
+
+    Returns:
+        float: Likelihood score between 0.0 and 1.0.
+    """
+    vendor_transactions = [t for t in all_transactions if t.name == transaction.name]
+    if len(vendor_transactions) < n:
+        return 0.0
+
+    vendor_transactions.sort(key=lambda t: datetime.strptime(t.date, "%Y-%m-%d"))
+    intervals = [
+        (
+            datetime.strptime(vendor_transactions[i + 1].date, "%Y-%m-%d")
+            - datetime.strptime(vendor_transactions[i].date, "%Y-%m-%d")
+        ).days
+        for i in range(len(vendor_transactions) - 1)
+    ]
+
+    if len(intervals) < n - 1:
+        return 0.0
+
+    recent_intervals = intervals[-(n - 1) :]
+    mean_interval = float(np.mean(recent_intervals))
+    std_dev_interval = float(np.std(recent_intervals))
+
+    if mean_interval == 0.0:  # Prevent division by zero
+        return 0.0
+
+    score = 1.0 if std_dev_interval < 5 else max(0.0, 1.0 - (std_dev_interval / mean_interval))
+    return float(score)
+
+
+def get_transaction_recency(transaction: Transaction, all_transactions: list[Transaction]) -> int:
+    """
+    Calculate how many days have passed since the previous transaction from the same vendor.
+    Returns -1 if there are no previous transactions for this vendor.
+    """
+    # Filter transactions for the same vendor and sort by date
+    vendor_transactions = [
+        t for t in all_transactions if t.name == transaction.name and t.user_id == transaction.user_id
+    ]
+    vendor_transactions.sort(key=lambda t: datetime.strptime(t.date, "%Y-%m-%d"))
+
+    # Find the index of our transaction
+    try:
+        idx = next(i for i, t in enumerate(vendor_transactions) if t.id == transaction.id)
+    except StopIteration:
+        return -1
+
+    # If this is the first transaction for this vendor
+    if idx == 0:
+        return -1
+
+    # Calculate days between this transaction and the previous one
+    prev_date = datetime.strptime(vendor_transactions[idx - 1].date, "%Y-%m-%d")
+    current_date = datetime.strptime(transaction.date, "%Y-%m-%d")
+    delta = (current_date - prev_date).days
+
+    return delta
+
+    # Calculate days between this transaction and the previous one
+    prev_date = datetime.strptime(vendor_transactions[idx - 1].date, "%Y-%m-%d").date()
+    current_date = datetime.strptime(transaction.date, "%Y-%m-%d").date()
+    delta = (current_date - prev_date).days
+
+    return delta
+
+
+# Feature 4: Mark AT&T Transactions as Recurring
+def get_is_att_transaction(transaction: Transaction) -> bool:
+    """
+    Mark all AT&T or transactions containing 'AT&T' as recurring.
+    """
+    return "at&t" in transaction.name.lower()
+
+
+def get_new_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, int | bool | float]:
+    """Get the new features for the transaction."""
+
+    # NOTE: Do NOT add features that are already in the original features.py file.
+    # NOTE: Each feature should be on a separate line. Do not use **dict shorthand.
+    return {
+        "is_amazon_prime": get_is_amazon_prime(transaction),
+        "vendor_transaction_frequency": get_vendor_transaction_frequency(transaction, all_transactions),
+        "vendor_transaction_recurring": get_vendor_transaction_recurring(transaction, all_transactions),
+        "likelihood_of_recurrence": get_likelihood_of_recurrence(transaction, all_transactions),
+        "transaction_recency": get_transaction_recency(transaction, all_transactions),
+        "is_att_transaction": get_is_att_transaction(transaction),
+    }
