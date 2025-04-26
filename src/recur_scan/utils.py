@@ -4,7 +4,7 @@ from functools import lru_cache
 
 @lru_cache(maxsize=1024)
 def parse_date(date_str: str) -> date:
-    """Parse a date string into a datetime.date object."""
+    """Parse a date string strictly in 'YYYY-MM-DD' format."""
     return datetime.strptime(date_str, "%Y-%m-%d").date()
 
 

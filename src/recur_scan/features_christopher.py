@@ -159,22 +159,26 @@ def is_known_recurring_company(transaction_name: str) -> bool:
 def is_known_fixed_subscription(transaction: Transaction) -> bool:
     """
     Flags transactions as recurring if the company name contains specific keywords
-    and the amount matches a known subscription fee.
+    and the amount is less than 20.00 and the amount ends in 0.99 or 0.00
+    (checking specific amounts is not reliable as they may change over time)
     """
     known_subscriptions = {
-        "albert": [14.99],
-        "ava finance": [9.0],
-        "brigit": [8.99],
-        "cleo": [5.99, 6.99],  # Consolidated Cleo variations
-        "cleo ai": [5.99, 6.99],  # Cleo AI also has the same pricing
-        "credit genie": [3.99, 4.99],
-        "dave": [1.0],
-        "empower": [8.0],
-        "grid": [10.0],
+        "albert",
+        "ava financebrigit",
+        "cleo",
+        "cleo ai",
+        "credit genie",
+        "dave",
+        "empower",
+        "grid",
     }
 
     transaction_name_lower = transaction.name.lower()
-    return any(
-        company in transaction_name_lower and any(abs(transaction.amount - amt) < 0.01 for amt in sub_amounts)
-        for company, sub_amounts in known_subscriptions.items()
+    return (
+        any(company in transaction_name_lower for company in known_subscriptions)
+        and transaction.amount < 20.00
+        and (
+            abs(transaction.amount - round(transaction.amount) + 0.01) < 0.001
+            or transaction.amount == round(transaction.amount)
+        )
     )

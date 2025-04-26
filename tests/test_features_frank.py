@@ -7,7 +7,9 @@ from statistics import median, stdev
 import pytest
 
 from recur_scan.features_frank import (
+    _detect_seasonality,
     amount_coefficient_of_variation,
+    amount_progression_pattern,
     amount_similarity,
     amount_stability_score,
     amount_variability_ratio,
@@ -17,10 +19,16 @@ from recur_scan.features_frank import (
     clean_company_name,
     coefficient_of_variation_intervals,
     date_irregularity_score,
+    detect_annual_price_adjustment,
     detect_common_interval,
+    detect_multi_tier_subscription,
+    detect_pay_period_alignment,
+    detect_variable_subscription,
+    detect_vendor_name_variations,
     enhanced_amt_iqr,
     enhanced_days_since_last,
     enhanced_n_similar_last_n_days,
+    fixed_amount_fuzzy_interval_subscription,
     get_amount_consistency,
     get_days_since_last_transaction,
     get_same_amount_ratio,
@@ -28,12 +36,25 @@ from recur_scan.features_frank import (
     get_vendor_recurrence_score,
     inconsistent_amount_score,
     irregular_interval_score,
+    is_always_recurring_vendor,
+    is_amazon_prime_like_subscription,
+    is_amazon_retail_irregular,
+    is_apple_irregular_purchase,
+    is_apple_subscription_like,
+    is_brigit_repayment_like,
+    is_brigit_subscription_like,
+    is_business_day_aligned,
+    is_cleo_ai_cash_advance_like,
+    is_earnin_tip_subscription,
+    is_non_recurring,
     is_recurring_company,
+    is_utilities_or_insurance_like,
     is_utility_company,
     matches_common_cycle,
     most_common_interval,
     non_recurring_score,
     normalized_days_difference,
+    payment_schedule_change_detector,
     proportional_timing_deviation,
     recurrence_interval_variance,
     recurring_confidence,
@@ -42,14 +63,82 @@ from recur_scan.features_frank import (
     robust_interval_median,
     safe_interval_consistency,
     seasonal_spending_cycle,
+    temporal_pattern_stability_score,
     transaction_frequency,
     transactions_per_month,
     transactions_per_week,
     trimmed_mean,
     vendor_recurrence_trend,
+    vendor_reliability_score,
     weekly_spending_cycle,
 )
 from recur_scan.transactions import Transaction
+
+
+# Helper function for parsing date
+def parse_date(date_str: str) -> date:
+    """Parse a date string strictly in 'YYYY-MM-DD' format."""
+    return datetime.strptime(date_str, "%Y-%m-%d").date()
+
+
+# Tests for all the features
+def test_detect_pay_period_alignment():
+    transactions = [
+        Transaction(id=1, user_id="user1", name="Service A", date="2023-01-02", amount=20.00),
+        Transaction(id=2, user_id="user1", name="Service A", date="2023-01-16", amount=20.00),
+        Transaction(id=3, user_id="user1", name="Service A", date="2023-01-30", amount=20.00),
+    ]
+
+    score = detect_pay_period_alignment(transactions)
+    assert score == 1.0, f"Expected bi-weekly pay period alignment with score 1.0, got {score}"
+
+
+def test_is_business_day_aligned():
+    transactions = [
+        Transaction(id=1, user_id="user1", name="Service A", date="2023-01-02", amount=20.00),  # Monday
+        Transaction(id=2, user_id="user1", name="Service A", date="2023-01-03", amount=20.00),  # Tuesday
+        Transaction(id=3, user_id="user1", name="Service A", date="2023-01-04", amount=20.00),  # Wednesday
+    ]
+
+    score = is_business_day_aligned(transactions)
+    assert score == 1.0, f"Expected all transactions to be business day aligned, got {score}"
+
+
+def test_detect_variable_subscription():
+    transactions = [
+        Transaction(id=1, user_id="user1", name="Service A", date="2023-01-01", amount=10.00),
+        Transaction(id=2, user_id="user1", name="Service A", date="2023-02-01", amount=10.50),
+        Transaction(id=3, user_id="user1", name="Service A", date="2023-03-01", amount=11.00),
+        Transaction(id=4, user_id="user1", name="Service A", date="2023-04-01", amount=11.50),
+    ]
+
+    score = detect_variable_subscription(transactions)
+
+    assert score > 0.0, f"Expected variable subscription detection with positive score, got {score}"
+
+
+def test_detect_multi_tier_subscription():
+    transactions = [
+        Transaction(id=1, user_id="user1", name="Service A", date="2023-01-01", amount=5.00),
+        Transaction(id=2, user_id="user1", name="Service A", date="2023-02-01", amount=10.00),
+        Transaction(id=3, user_id="user1", name="Service A", date="2023-03-01", amount=5.00),
+        Transaction(id=4, user_id="user1", name="Service A", date="2023-04-01", amount=10.00),
+    ]
+
+    score = detect_multi_tier_subscription(transactions)
+
+    assert score > 0.0, f"Expected multi-tier subscription detection with positive score, got {score}"
+
+
+def test_detect_annual_price_adjustment():
+    transactions = [
+        Transaction(id=1, user_id="user1", name="Service A", date="2022-01-02", amount=10.00),
+        Transaction(id=2, user_id="user1", name="Service A", date="2023-01-02", amount=12.00),
+        Transaction(id=3, user_id="user1", name="Service A", date="2024-01-02", amount=13.00),
+    ]
+
+    score = detect_annual_price_adjustment(transactions)
+    assert score > 0.0, f"Expected annual price adjustment detection with positive score, got {score}"
 
 
 @pytest.fixture
@@ -80,6 +169,152 @@ def transactions():
     ]
 
 
+def test_fixed_amount_fuzzy_interval_subscription_common_case():
+    transactions = [
+        Transaction(id=1, user_id="u1", name="Cleo AI", date="2023-01-01", amount=25.00),
+        Transaction(id=2, user_id="u1", name="Cleo AI", date="2023-02-01", amount=24.90),
+        Transaction(id=3, user_id="u1", name="Cleo AI", date="2023-03-01", amount=25.10),
+    ]
+
+    score = fixed_amount_fuzzy_interval_subscription(transactions)
+
+    assert score == 1.0, f"Expected Cleo AI to be detected as fixed-amount subscription, got {score}"
+
+
+def test_is_earnin_tip_subscription():
+    transactions = [
+        Transaction(id=1, user_id="u1", name="Earnin", date="2023-01-01", amount=5.00),
+        Transaction(id=2, user_id="u1", name="Earnin", date="2023-01-15", amount=5.00),
+        Transaction(id=3, user_id="u1", name="Earnin", date="2023-01-29", amount=5.00),
+    ]
+
+    score = is_earnin_tip_subscription(transactions)
+
+    assert score == 1.0, f"Expected Earnin tip subscription with score 1.0, got {score}"
+
+
+def test_is_apple_irregular_purchase_common_case():
+    transactions = [
+        Transaction(id=1, user_id="u1", name="Apple.com", date="2023-01-01", amount=3.99),
+        Transaction(id=2, user_id="u1", name="Apple.com", date="2023-01-15", amount=40.00),
+        Transaction(id=3, user_id="u1", name="Apple.com", date="2023-02-01", amount=20.50),
+    ]
+
+    score = is_apple_irregular_purchase(transactions)
+
+    assert score == 1.0, f"Expected irregular Apple purchases to have score 1.0, got {score}"
+
+
+def test_is_apple_subscription_like_common_case():
+    transactions = [
+        Transaction(id=1, user_id="u1", name="Apple.com", date="2023-01-01", amount=5.99),
+        Transaction(id=2, user_id="u1", name="Apple Services", date="2023-02-01", amount=6.00),
+        Transaction(id=3, user_id="u1", name="Apple Subscriptions", date="2023-03-01", amount=6.01),
+    ]
+
+    score = is_apple_subscription_like(transactions)
+
+    assert 0.7 <= score <= 1.0, f"Expected high Apple subscription-like score, got {score}"
+
+
+def test_is_cleo_ai_cash_advance_like_common_case():
+    transactions = [
+        Transaction(id=1, user_id="u1", name="Cleo AI", date="2023-01-01", amount=20.00),
+        Transaction(id=2, user_id="u1", name="Cleo AI", date="2023-01-15", amount=30.00),
+        Transaction(id=3, user_id="u1", name="Cleo AI", date="2023-02-01", amount=10.00),
+    ]
+
+    score = is_cleo_ai_cash_advance_like(transactions)
+
+    assert score == 1.0, f"Expected Cleo AI cash advance pattern detected with score 1.0, got {score}"
+
+
+def test_is_brigit_subscription_like_common_case():
+    transactions = [
+        Transaction(id=1, user_id="u1", name="Brigit", date="2023-01-01", amount=9.99),
+        Transaction(id=2, user_id="u1", name="Brigit", date="2023-02-01", amount=9.99),
+        Transaction(id=3, user_id="u1", name="Brigit", date="2023-03-01", amount=9.99),
+    ]
+
+    score = is_brigit_subscription_like(transactions)
+
+    assert 0.7 <= score <= 1.0, f"Expected Brigit subscription pattern score to be high, got {score}"
+
+
+def test_is_always_recurring_vendor_common_case():
+    transactions = [
+        Transaction(id=1, user_id="u1", name="Sprint Wireless", date="2023-01-01", amount=90.00),
+        Transaction(id=2, user_id="u1", name="Sprint", date="2023-02-01", amount=92.00),
+        Transaction(id=3, user_id="u1", name="Sprint", date="2023-03-01", amount=91.00),
+    ]
+
+    score = is_always_recurring_vendor(transactions)
+
+    assert score == 1.0, f"Expected Sprint to be detected as always-recurring vendor with score 1.0, got {score}"
+
+
+def test_is_brigit_repayment_like_common_case():
+    transactions = [
+        Transaction(id=1, user_id="u1", name="Brigit", date="2023-01-01", amount=30.00),
+        Transaction(id=2, user_id="u1", name="Brigit", date="2023-01-12", amount=20.50),
+        Transaction(id=3, user_id="u1", name="Brigit", date="2023-02-03", amount=40.75),
+    ]
+
+    score = is_brigit_repayment_like(transactions)
+
+    assert 0.5 <= score <= 1.0, f"Expected Brigit repayment pattern to score moderate to high, got {score}"
+
+
+def test_detect_vendor_name_variations_common_case():
+    transactions = [
+        Transaction(id=1, user_id="u1", name="Credit Ninja", date="2023-01-01", amount=100),
+        Transaction(id=2, user_id="u1", name="CreditNinja", date="2023-02-01", amount=150),
+        Transaction(id=3, user_id="u1", name="Credt Ninja", date="2023-03-01", amount=200),
+    ]
+
+    score = detect_vendor_name_variations(transactions[0], transactions)
+
+    assert 0.5 <= score <= 1.0, f"Expected moderate to high similarity score, got {score}"
+
+
+def test_payment_schedule_change_detector_common_case():
+    transactions = [
+        Transaction(id=1, user_id="u1", name="VendorA", date="2023-01-01", amount=100),
+        Transaction(id=2, user_id="u1", name="VendorA", date="2023-01-15", amount=100),
+        Transaction(id=3, user_id="u1", name="VendorA", date="2023-01-29", amount=100),
+        Transaction(id=4, user_id="u1", name="VendorA", date="2023-02-05", amount=100),  # Shift towards weekly
+    ]
+
+    score = payment_schedule_change_detector(transactions[-1], transactions)
+
+    assert 0.0 <= score <= 1.0, f"Expected score between 0 and 1, got {score}"
+
+
+def test_amount_progression_pattern_common_case():
+    transactions = [
+        Transaction(id=1, user_id="u1", name="VendorB", date="2023-01-01", amount=100),
+        Transaction(id=2, user_id="u1", name="VendorB", date="2023-02-01", amount=105),
+        Transaction(id=3, user_id="u1", name="VendorB", date="2023-03-01", amount=110),
+    ]
+
+    score = amount_progression_pattern(transactions[-1], transactions)
+
+    assert 0.0 <= score <= 1.0, f"Expected score between 0 and 1, got {score}"
+
+
+def test_vendor_reliability_score_common_case():
+    transactions = [
+        Transaction(id=1, user_id="u1", name="VendorC", date="2023-01-01", amount=100),
+        Transaction(id=2, user_id="u1", name="VendorC", date="2023-02-01", amount=102),
+        Transaction(id=3, user_id="u1", name="VendorC", date="2023-03-01", amount=98),
+        Transaction(id=4, user_id="u1", name="VendorC", date="2023-04-01", amount=101),
+    ]
+
+    score = vendor_reliability_score(transactions)
+
+    assert 0.0 <= score <= 1.0, f"Expected score between 0 and 1, got {score}"
+
+
 def test_is_recurring_company():
     assert is_recurring_company("Netflix") == 1
     assert is_recurring_company("Amazon Prime") == 1
@@ -96,6 +331,129 @@ def test_recurring_score():
     assert recurring_score("Spotify") == 1.0
     assert recurring_score("Hulu Inc.") == 1.0  # Partial match
     assert recurring_score("Local Restaurant") == 0.0  # No recurring service
+
+
+def test_detect_seasonality_high_match():
+    intervals = [7, 6, 8, 7]  # Close to weekly pattern
+    score = _detect_seasonality(intervals)
+    assert 0.9 <= score <= 1.0, f"Expected score close to 1.0, got {score}"
+
+
+def test_detect_seasonality_low_match():
+    intervals = [1, 2, 5, 100]  # No common recurring patterns
+    score = _detect_seasonality(intervals)
+    assert score == 0.0, f"Expected score of 0.0, got {score}"
+
+
+def test_detect_seasonality_partial_match():
+    intervals = [7, 14, 30, 20]  # Some matches, some not
+    score = _detect_seasonality(intervals)
+    assert 0.5 <= score <= 1.0, f"Expected moderate score, got {score}"
+
+
+def test_temporal_pattern_stability_score_regular_transactions():
+    transactions = [
+        Transaction(id=1, user_id="u1", name="Spotify", date="2023-01-01", amount=10),
+        Transaction(id=2, user_id="u1", name="Spotify", date="2023-01-31", amount=10),
+        Transaction(id=3, user_id="u1", name="Spotify", date="2023-03-02", amount=10),
+        Transaction(id=4, user_id="u1", name="Spotify", date="2023-04-01", amount=10),
+    ]
+    score = temporal_pattern_stability_score(transactions)
+    assert score > 0.7, f"Expected high stability score, got {score}"
+
+
+def test_temporal_pattern_stability_score_irregular_transactions():
+    transactions = [
+        Transaction(id=1, user_id="u1", name="Misc", date="2023-01-01", amount=15),
+        Transaction(id=2, user_id="u1", name="Misc", date="2023-01-06", amount=20),
+        Transaction(id=3, user_id="u1", name="Misc", date="2023-02-20", amount=25),
+        Transaction(id=4, user_id="u1", name="Misc", date="2023-04-30", amount=30),
+    ]
+    score = temporal_pattern_stability_score(transactions)
+    assert score < 0.5, f"Expected low stability score, got {score}"
+
+
+def test_temporal_pattern_stability_score_few_transactions():
+    transactions = [
+        Transaction(id=1, user_id="u1", name="Single", date="2023-01-01", amount=50),
+    ]
+    score = temporal_pattern_stability_score(transactions)
+    assert score == 0.0, f"Expected score of 0.0 for few transactions, got {score}"
+
+
+def test_is_amazon_prime_like_subscription():
+    transactions = [
+        Transaction(id=1, user_id="u1", name="Amazon Prime", date="2023-01-01", amount=14.99),
+        Transaction(id=2, user_id="u1", name="Amazon Prime Video", date="2023-01-30", amount=14.99),
+        Transaction(id=3, user_id="u1", name="Amazon Music", date="2023-03-01", amount=15.00),
+    ]
+    score = is_amazon_prime_like_subscription(transactions)
+    assert score > 0.7, f"Expected high recurring score for Prime, got {score}"
+
+
+def test_is_amazon_prime_like_subscription_empty_or_wrong_name():
+    transactions = [
+        Transaction(id=1, user_id="u1", name="Netflix Subscription", date="2023-01-01", amount=10.00),
+    ]
+    score = is_amazon_prime_like_subscription(transactions)
+    assert score == 0.0, "Expected 0.0 when no Amazon-related transaction"
+
+
+def test_is_amazon_retail_irregular_high_variance():
+    transactions = [
+        Transaction(id=1, user_id="u1", name="Amazon Purchase", date="2023-01-01", amount=50.0),
+        Transaction(id=2, user_id="u1", name="Amazon Purchase", date="2023-01-15", amount=120.0),
+        Transaction(id=3, user_id="u1", name="Amazon Purchase", date="2023-01-30", amount=80.0),
+    ]
+    score = is_amazon_retail_irregular(transactions)
+    assert score == 1.0, f"Expected 1.0 for high variance, got {score}"
+
+
+def test_is_amazon_retail_irregular_low_variance():
+    transactions = [
+        Transaction(id=1, user_id="u1", name="Amazon Purchase", date="2023-01-01", amount=50.0),
+        Transaction(id=2, user_id="u1", name="Amazon Purchase", date="2023-01-15", amount=52.0),
+    ]
+    score = is_amazon_retail_irregular(transactions)
+    assert score == 0.0, "Expected 0.0 when amounts are consistent"
+
+
+def test_is_utilities_or_insurance_like_typical():
+    transactions = [
+        Transaction(id=1, user_id="u1", name="Verizon Wireless", date="2023-01-01", amount=100.0),
+        Transaction(id=2, user_id="u1", name="Verizon Wireless", date="2023-01-31", amount=102.0),
+        Transaction(id=3, user_id="u1", name="Verizon Wireless", date="2023-03-03", amount=98.0),
+    ]
+    score = is_utilities_or_insurance_like(transactions)
+    assert score > 0.5, f"Expected score > 0.5 for recurring utility, got {score}"
+
+
+def test_is_utilities_or_insurance_like_non_utility():
+    transactions = [
+        Transaction(id=1, user_id="u1", name="Starbucks", date="2023-01-01", amount=5.0),
+        Transaction(id=2, user_id="u1", name="Starbucks", date="2023-01-15", amount=6.0),
+        Transaction(id=3, user_id="u1", name="Starbucks", date="2023-02-01", amount=5.5),
+    ]
+    score = is_utilities_or_insurance_like(transactions)
+    assert score == 0.0, "Expected 0.0 for non-utility vendor"
+
+
+def test_is_non_recurring_irregular_intervals_and_amounts():
+    transactions = [
+        Transaction(id=1, user_id="u1", name="Random Vendor", date="2023-01-01", amount=100.0),
+        Transaction(id=2, user_id="u1", name="Random Vendor", date="2023-01-20", amount=200.0),
+        Transaction(id=3, user_id="u1", name="Random Vendor", date="2023-03-05", amount=300.0),
+    ]
+    score = is_non_recurring(transactions)
+    assert score > 0.5, f"Expected non-recurring behavior, got {score}"
+
+
+def test_is_non_recurring_small_number_of_transactions():
+    transactions = [
+        Transaction(id=1, user_id="u1", name="One-Time", date="2023-01-01", amount=50.0),
+    ]
+    score = is_non_recurring(transactions)
+    assert score == 1.0, "Expected 1.0 for very few transactions"
 
 
 def test_calculate_cycle_consistency():
@@ -409,9 +767,6 @@ def test_recurrence_interval_variance():
 
     result = recurrence_interval_variance(transactions)
 
-    # Expected intervals:
-    # 2024-02-15 - 2024-01-10 = 36 days
-    # 2024-03-20 - 2024-02-15 = 34 days
     expected_intervals = [36, 34]
 
     # Expected standard deviation:

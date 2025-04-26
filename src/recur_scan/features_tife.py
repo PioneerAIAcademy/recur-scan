@@ -133,7 +133,7 @@ def get_near_amount_consistency(
     if not all_transactions:
         return 0.0
     amounts = [t.amount for t in all_transactions]
-    similar = sum(1 for a in amounts if abs(a - transaction.amount) / transaction.amount <= threshold)
+    similar = sum(1 for a in amounts if abs(a - transaction.amount) / max(transaction.amount, 0.01) <= threshold)
     return similar / len(amounts)
 
 
@@ -144,7 +144,9 @@ def get_merchant_amount_signature(
     if not merchant_transactions:
         return 0.0
     similar = sum(
-        1 for t in merchant_transactions if abs(t.amount - transaction.amount) / transaction.amount <= threshold
+        1
+        for t in merchant_transactions
+        if abs(t.amount - transaction.amount) / max(transaction.amount, 0.01) <= threshold
     )
     return similar / len(merchant_transactions)
 
@@ -159,7 +161,7 @@ def get_amount_cluster_count(
     intervals = [(dates[i] - dates[i - 1]).days for i in range(1, len(dates))]
     cluster_count = 0
     for i, a in enumerate(amounts):
-        if abs(a - transaction.amount) / transaction.amount <= threshold and i > 0 and intervals[i - 1] > 5:
+        if abs(a - transaction.amount) / max(transaction.amount, 0.01) <= threshold and i > 0 and intervals[i - 1] > 5:
             cluster_count += 1
     return cluster_count
 

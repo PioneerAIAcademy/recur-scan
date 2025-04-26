@@ -1,174 +1,93 @@
-from datetime import datetime
-
-import numpy as np
+from statistics import mean, stdev
 
 from recur_scan.transactions import Transaction
+from recur_scan.utils import parse_date
 
 
-def _get_days(date: str) -> int:
-    """Get the number of days since the epoch of a transaction date."""
-    # Assuming date is in the format YYYY-MM-DD
-    # use the datetime module for an accurate determination
-    # of the number of days since the epoch
-    return (datetime.strptime(date, "%Y-%m-%d") - datetime(1970, 1, 1)).days
+def get_is_monthly_recurring(transaction: Transaction, transactions: list[Transaction]) -> bool:
+    """Check if the transaction recurs monthly."""
+    same_name_txns = [t for t in transactions if t.name == transaction.name and t.date != transaction.date]
+    if len(same_name_txns) < 2:  # Require at least 2 prior transactions
+        return False
+    ref_date = parse_date(transaction.date)
+    intervals = sorted([abs((parse_date(t.date) - ref_date).days) for t in same_name_txns])
+    # Check if at least two intervals are approximately monthly (28-31 days)
+    monthly_count = sum(1 for i in intervals if 28 <= i <= 31)
+    return monthly_count >= 2  # Require at least 2 monthly intervals
 
 
-def get_transaction_time_of_month(transaction: Transaction) -> int:
-    """Categorize the transaction as early, mid, or late in the month."""
-    day = int(transaction.date.split("-")[2])
-    if day <= 10:
-        return 0
-    elif day <= 20:
-        return 1
-    else:
-        return 2
+def get_is_similar_amount(transaction: Transaction, transactions: list[Transaction]) -> bool:
+    """Check if the amount is similar to others (within 5%)."""
+    same_name_txns = [t for t in transactions if t.name == transaction.name]
+    if not same_name_txns:
+        return False
+    avg_amount = mean([t.amount for t in same_name_txns])
+    return abs(transaction.amount - avg_amount) / (avg_amount or 1.0) <= 0.05  # Avoid division by zero
 
 
-def get_transaction_amount_stability(transaction: Transaction, all_transactions: list[Transaction]) -> float:
-    """Calculate the standard deviation of transaction amounts for the same name.
+def get_transaction_interval_consistency(transaction: Transaction, transactions: list[Transaction]) -> float:
+    """Measure consistency of transaction intervals."""
+    same_name_txns = sorted([t for t in transactions if t.name == transaction.name], key=lambda x: parse_date(x.date))
+    if len(same_name_txns) < 3:  # Need at least 2 intervals (3 transactions)
+        return 0.0 if len(same_name_txns) <= 1 else 0.5
+    intervals = [
+        (parse_date(same_name_txns[i].date) - parse_date(same_name_txns[i - 1].date)).days
+        for i in range(1, len(same_name_txns))
+    ]
+    return 1.0 - (stdev(intervals) / mean(intervals) if intervals and mean(intervals) > 0 else 0.0)
 
-    Note: This function uses numpy for calculating the standard deviation.
-    """
-    same_name_transactions = [t.amount for t in all_transactions if t.name == transaction.name]
-    if len(same_name_transactions) < 2:
+
+def get_cluster_label(transaction: Transaction, transactions: list[Transaction]) -> int:
+    """Simple clustering: 1 if similar to others, 0 if not."""
+    same_name_txns = [t for t in transactions if t.name == transaction.name]
+    return 1 if len(same_name_txns) > 1 and get_is_similar_amount(transaction, transactions) else 0
+
+
+def get_subscription_keyword_score(transaction: Transaction) -> float:
+    """Score based on subscription-related keywords."""
+    name_lower = transaction.name.lower()
+    always_recurring = {"netflix", "spotify", "disney+", "hulu", "amazon prime"}
+    keywords = {"premium", "monthly", "plan", "subscription"}
+    if name_lower in always_recurring:
+        return 1.0
+    if any(kw in name_lower for kw in keywords):
+        return 0.8
+    return 0.0
+
+
+def get_recurring_confidence_score(transaction: Transaction, transactions: list[Transaction]) -> float:
+    """Calculate a confidence score for recurrence."""
+    same_name_txns = [t for t in transactions if t.name == transaction.name]
+    if not same_name_txns:
         return 0.0
-    return float(np.std(same_name_transactions))
+    time_score = get_time_regularity_score(transaction, transactions)
+    amount_score = 1.0 if get_is_similar_amount(transaction, transactions) else 0.5
+    freq_score = min(1.0, len(same_name_txns) * 0.4)
+    return max(0.0, min(1.0, (time_score * 0.5 + amount_score * 0.3 + freq_score * 0.2)))
 
 
-def get_time_between_transactions(transaction: Transaction, all_transactions: list[Transaction]) -> float:
-    """Calculate the average time gap (in days) between transactions with the same name."""
-    same_name_transactions = [t for t in all_transactions if t.name == transaction.name]
-    if len(same_name_transactions) < 2:
+def get_time_regularity_score(transaction: Transaction, transactions: list[Transaction]) -> float:
+    """Score based on regularity of transaction timing."""
+    same_name_txns = sorted([t for t in transactions if t.name == transaction.name], key=lambda x: parse_date(x.date))
+    if len(same_name_txns) < 2:
         return 0.0
-    dates = sorted(_get_days(t.date) for t in same_name_transactions)
-    intervals = [dates[i + 1] - dates[i] for i in range(len(dates) - 1)]
-    return sum(intervals) / len(intervals) if intervals else 0.0
-
-
-def get_transaction_frequency(transaction: Transaction, all_transactions: list[Transaction]) -> float:
-    """Calculate the average frequency (in days) of transactions with the same name."""
-    same_name_transactions = [t for t in all_transactions if t.name == transaction.name]
-    if len(same_name_transactions) < 2:
-        return 0.0
-    dates = sorted(_get_days(t.date) for t in same_name_transactions)
-    intervals = [dates[i + 1] - dates[i] for i in range(len(dates) - 1)]
-    return sum(intervals) / len(intervals)
-
-
-def get_n_same_name_transactions(transaction: Transaction, all_transactions: list[Transaction]) -> int:
-    """Count transactions with the same name."""
-    return len([t for t in all_transactions if t.name == transaction.name])
-
-
-def get_irregular_periodicity(transaction: Transaction, all_transactions: list[Transaction]) -> float:
-    """
-    Calculate the standard deviation of time gaps (in days) between transactions with the same name.
-    A higher value indicates irregular periodicity.
-
-    Note: This function uses numpy for calculating the standard deviation.
-    """
-    same_name_transactions = [t for t in all_transactions if t.name == transaction.name]
-    if len(same_name_transactions) < 2:
-        return 0.0
-    dates = sorted(_get_days(t.date) for t in same_name_transactions)
-    intervals = [dates[i + 1] - dates[i] for i in range(len(dates) - 1)]
-    return float(np.std(intervals)) if intervals else 0.0
-
-
-def get_irregular_periodicity_with_tolerance(
-    transaction: Transaction, all_transactions: list[Transaction], tolerance: int = 5
-) -> float:
-    """
-    Calculate the normalized standard deviation of time gaps (in days) between transactions with the same name,
-    allowing for a tolerance in interval consistency.
-
-    Note: This function uses numpy for calculating the standard deviation and median.
-    """
-    same_name_transactions = [t for t in all_transactions if t.name == transaction.name]
-    if len(same_name_transactions) < 2:
-        return 0.0
-
-    dates = sorted(_get_days(t.date) for t in same_name_transactions)
-    intervals = [dates[i + 1] - dates[i] for i in range(len(dates) - 1)]
+    intervals = [
+        (parse_date(same_name_txns[i].date) - parse_date(same_name_txns[i - 1].date)).days
+        for i in range(1, len(same_name_txns))
+    ]
     if not intervals:
         return 0.0
-
-    # Group intervals that are within the tolerance range
-    interval_groups: list[list[int]] = []  # Added type annotation
-    for interval in intervals:
-        added = False
-        for group in interval_groups:
-            if abs(interval - group[0]) <= tolerance:
-                group.append(interval)
-                added = True
-                break
-        if not added:
-            interval_groups.append([interval])
-
-    # Find the largest group of intervals
-    largest_group = max(interval_groups, key=len)
-    largest_group_std = float(np.std(largest_group)) if len(largest_group) > 1 else 0.0  # Cast to float
-
-    # Normalize by the median interval for scale invariance
-    median_interval = float(np.median(intervals))  # Cast to float
-    normalized_std = largest_group_std / median_interval if median_interval > 0 else 0.0
-
-    return normalized_std
+    avg_interval = mean(intervals)
+    variance = sum(abs(x - avg_interval) for x in intervals) / len(intervals)
+    return max(0.0, 1.0 - (3 * variance / max(avg_interval, 1)))
 
 
-def get_user_transaction_frequency(user_id: str, all_transactions: list[Transaction]) -> float:
-    """
-    Calculate the average frequency (in days) of all transactions for a specific user.
-    """
-    user_transactions = [t for t in all_transactions if t.user_id == user_id]
-    if len(user_transactions) < 2:
+def get_outlier_score(transaction: Transaction, transactions: list[Transaction]) -> float:
+    """Calculate z-score to detect outliers."""
+    same_name_txns = [t for t in transactions if t.name == transaction.name]
+    if len(same_name_txns) < 2:
         return 0.0
-
-    dates = sorted(_get_days(t.date) for t in user_transactions)
-    intervals = [dates[i + 1] - dates[i] for i in range(len(dates) - 1)]
-    return sum(intervals) / len(intervals) if intervals else 0.0
-
-
-def get_vendor_recurring_ratio(transaction: Transaction, all_transactions: list[Transaction]) -> float:
-    """
-    Calculate the ratio of recurring transactions to total transactions for the same vendor.
-    """
-    same_name_transactions = [t for t in all_transactions if t.name == transaction.name]
-    if not same_name_transactions:
-        return 0.0
-    recurring_count = len([t for t in same_name_transactions if t.amount == transaction.amount])
-    return recurring_count / len(same_name_transactions)
-
-
-def get_vendor_recurrence_consistency(transaction: Transaction, all_transactions: list[Transaction]) -> float:
-    """
-    Calculate the percentage of transactions from the same vendor that occur at regular intervals,
-    allowing for a tolerance in interval consistency.
-    """
-    same_name_transactions = [t for t in all_transactions if t.name == transaction.name]
-    if len(same_name_transactions) < 2:
-        return 0.0
-
-    # Sort dates in days
-    dates = sorted(_get_days(t.date) for t in same_name_transactions)
-    intervals = [dates[i + 1] - dates[i] for i in range(len(dates) - 1)]
-    if not intervals:
-        return 0.0
-
-    # Define a tolerance for "consistent" intervals (e.g., ±5 days)
-    tolerance = 5  # Renamed to lowercase to fix N806
-    # Group intervals that are within tolerance of each other
-    interval_groups: dict[int, list[int]] = {}  # Added type annotation
-    for interval in intervals:
-        assigned = False
-        for group_interval in interval_groups:
-            if abs(interval - group_interval) <= tolerance:
-                interval_groups[group_interval].append(interval)
-                assigned = True
-                break
-        if not assigned:
-            interval_groups[interval] = [interval]
-
-    # Find the largest group of "consistent" intervals
-    most_common_group_size = max(len(group) for group in interval_groups.values())
-    return most_common_group_size / len(intervals)
+    amounts = [t.amount for t in same_name_txns]
+    avg = mean(amounts)
+    std = stdev(amounts) if len(amounts) > 1 else 0.0  # Avoid stdev on single value
+    return abs(transaction.amount - avg) / std if std > 0 else 0.0

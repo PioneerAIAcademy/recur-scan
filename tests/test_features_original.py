@@ -5,6 +5,7 @@ import pytest
 from recur_scan.features_original import (
     get_ends_in_99,
     get_is_always_recurring,
+    get_is_amazon_prime,
     get_is_insurance,
     get_is_phone,
     get_is_utility,
@@ -158,3 +159,9 @@ def test_get_transaction_z_score():
     # Use approximate comparison with pytest
     z_score = get_transaction_z_score(transactions[0], transactions)
     assert -1.3 < z_score < -1.1  # Allow a small tolerance for floating-point precision
+
+
+def test_get_is_amazon_prime():
+    """Test get_is_amazon_prime."""
+    assert get_is_amazon_prime(Transaction(id=1, user_id="user1", name="amazon prime", amount=100, date="2024-01-01"))
+    assert not get_is_amazon_prime(Transaction(id=2, user_id="user1", name="netflix", amount=100, date="2024-01-01"))

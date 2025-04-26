@@ -1,4 +1,5 @@
 import csv
+import os
 from collections import defaultdict
 from dataclasses import asdict, dataclass, fields
 
@@ -102,3 +103,86 @@ def write_transactions(output_path: str, transactions: list[Transaction], y: lis
                 row = asdict(transaction)
                 row["recurring"] = y[transaction.id]
                 writer.writerow(row)
+
+
+def write_labeled_transactions(
+    output_path: str,
+    transactions: list[Transaction],
+    y: list[int | str],
+    labels: list[str],
+) -> None:
+    """
+    Save transactions to a CSV file.
+
+    Args:
+        output_path: Path to save the CSV file
+        misclassified_transactions: List of Transaction objects
+        y: List of true labels
+    """
+    with open(output_path, "w", newline="") as f:
+        if transactions:
+            # Get all fields from the Transaction dataclass plus the label
+            fieldnames = [field.name for field in fields(Transaction)]
+            fieldnames.extend(["recurring"])
+            fieldnames.extend(["label"])
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            for transaction, label in zip(transactions, labels, strict=True):
+                # convert transaction to dictionary using asdict()
+                row = asdict(transaction)
+                row["recurring"] = y[transaction.id]
+                row["label"] = label
+                writer.writerow(row)
+
+
+def read_test_transactions(path: str) -> list[Transaction]:
+    """
+    Read test transactions from a CSV file with different column headers.
+
+    Maps the following columns:
+    - user_id: derived from the filename
+    - name: DESTINATION
+    - date: TRANSACTED_AT
+    - amount: AMOUNT_CENTS / 100
+
+    Args:
+        path: Path to the CSV file
+
+    Returns:
+        List of Transaction objects sorted by name, then date
+    """
+    transactions = []
+    # Extract filename without extension to use as user_id
+    user_id = os.path.splitext(os.path.basename(path))[0]
+
+    with open(path, newline="") as f:
+        reader = csv.DictReader(f)
+        for ix, row in enumerate(reader):
+            try:
+                # Convert amount from cents to dollars
+                amount_cents = float(row["AMOUNT_CENTS"])
+                amount_dollars = amount_cents / 100.0
+
+                transactions.append(
+                    Transaction(
+                        id=ix,
+                        user_id=user_id,
+                        name=row["DESTINATION"],
+                        date=row["TRANSACTED_AT"],
+                        amount=amount_dollars,
+                    )
+                )
+            except ValueError as e:
+                logger.warning(f"Error parsing transaction amount {row['AMOUNT_CENTS']} in {path} at row {ix}: {e}")
+                continue
+
+    # Sort transactions by name, then date
+    transactions.sort(key=lambda x: (x.name, x.date))
+
+    # Reassign IDs to maintain sequential ordering after sorting
+    for ix, transaction in enumerate(transactions):
+        transactions[ix] = Transaction(
+            id=ix, user_id=transaction.user_id, name=transaction.name, date=transaction.date, amount=transaction.amount
+        )
+
+    return transactions

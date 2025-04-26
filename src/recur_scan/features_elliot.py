@@ -9,7 +9,9 @@ from recur_scan.transactions import Transaction
 
 def get_is_near_same_amount(transaction: Transaction, all_transactions: list[Transaction]) -> bool:
     """Check if a transaction has a recurring amount within 5% of another transaction."""
-    return any(t != transaction and abs(transaction.amount - t.amount) / t.amount <= 0.05 for t in all_transactions)
+    return any(
+        t != transaction and abs(transaction.amount - t.amount) / max(t.amount, 0.01) <= 0.05 for t in all_transactions
+    )
 
 
 def is_utility_bill(transaction: Transaction) -> bool:

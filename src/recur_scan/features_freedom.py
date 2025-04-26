@@ -19,11 +19,11 @@ def get_days_until_next_transaction(
         t
         for t in all_transactions
         if t != transaction
-        and abs(t.amount - transaction.amount) / transaction.amount < 0.01
+        and abs(t.amount - transaction.amount) / max(transaction.amount, 0.01) < 0.01
         and (parse_date(t.date) - parse_date(transaction.date)).days <= lookahead_days
     ]
     if not similar_trans:
-        return float("inf")
+        return -1.0  # cannot return inf because it will break the model
     next_date = min(t.date for t in similar_trans)
     return (parse_date(next_date) - parse_date(transaction.date)).days
 

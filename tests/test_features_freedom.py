@@ -58,7 +58,7 @@ def test_get_days_until_next_transaction(sample_transactions_with_dates):
     # Test with same amount
     assert get_days_until_next_transaction(transactions[0], transactions) == 14
     # Test with no future similar transactions
-    assert get_days_until_next_transaction(transactions[-1], transactions) == float("inf")
+    assert get_days_until_next_transaction(transactions[-1], transactions) == -1.0
 
 
 def test_get_periodicity_confidence():

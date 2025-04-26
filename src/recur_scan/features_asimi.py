@@ -29,8 +29,8 @@ def is_valid_recurring_transaction(transaction: Transaction) -> bool:
     Check if a transaction is valid for being marked as recurring based on vendor-specific rules.
 
     Rules:
-    - For 'Apple': Amount must end with '.99' (within floating point tolerance)
-    - For 'Brigit': Amount must be either 9.99 or 14.99.
+    - For 'Apple', 'Brigit', 'Cleo AI', 'Credit Genie': Amount must end with '.99' (within floating point tolerance)
+    and be less than 20. (Checking specific amounts is not reliable as they may change over time)
     """
     vendor_name = transaction.name.lower()
     amount = transaction.amount
@@ -47,15 +47,10 @@ def is_valid_recurring_transaction(transaction: Transaction) -> bool:
         "hugo insurance",
     }
 
-    if vendor_name == "apple":
+    # instead of checking for specific amounts, which may change over time, check for small amount ending in 0.99
+    if vendor_name in {"apple", "brigit", "cleo ai", "credit genie"}:
         # Better way to check for .99 ending
-        return abs(amount - round(amount) + 0.01) < 0.001  # Check if decimal part is ~0.99
-    elif vendor_name == "brigit":
-        return amount in {9.99, 14.99}
-    elif vendor_name == "cleo ai":
-        return amount in {3.99, 6.99}
-    elif vendor_name == "credit genie":
-        return amount in {3.49, 4.99}
+        return amount < 20.00 and abs(amount - round(amount) + 0.01) < 0.001  # Check if decimal part is ~0.99
     elif vendor_name in always_recurring_vendors:
         return True
     else:
