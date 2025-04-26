@@ -1,20 +1,29 @@
+# %%
+# configure the script
+from datetime import datetime
+
 import pytest
 
 from recur_scan.features_elliot import (
+    _to_txn_dict,
+    calculate_merchant_diversity,
+    calculate_weekday_consistency,
+    detect_duplicates,
+    detect_spending_anomalies,
+    detect_split_payments,
     get_is_always_recurring,
     get_is_near_same_amount,
-    get_transaction_similarity,
     is_auto_pay,
     is_membership,
-    is_price_trending,
     is_recurring_based_on_99,
-    is_split_transaction,
     is_utility_bill,
-    is_weekday_transaction,
+    organize_transactions_by_user_company,
 )
 from recur_scan.transactions import Transaction
 
 
+# %%
+# configure the script
 @pytest.fixture
 def transactions():
     """Fixture providing test transactions."""
@@ -26,39 +35,56 @@ def transactions():
         Transaction(id=5, user_id="user1", name="Netflix", amount=15.99, date="2024-01-04"),
         Transaction(id=6, user_id="user1", name="AutoPay Subscription", amount=50, date="2024-01-05"),
         Transaction(id=7, user_id="user1", name="Gym Membership", amount=30, date="2024-01-06"),
+        Transaction(id=8, user_id="user1", name="Amazon", amount=50, date="2024-01-01"),
+        Transaction(id=9, user_id="user1", name="Amazon", amount=75, date="2024-01-02"),
+        Transaction(id=10, user_id="user1", name="Netflix", amount=20, date="2024-01-03"),
+        Transaction(id=11, user_id="user2", name="Amazon", amount=30, date="2024-01-01"),
+        Transaction(id=12, user_id="user2", name="Spotify", amount=9.99, date="2024-01-05"),
     ]
 
 
+# %%
+# configure the script
 def test_is_utility_bill(transactions) -> None:
     """Test is_utility_bill."""
     assert is_utility_bill(transactions[2])  # Assuming transactions[2] is a utility bill
     assert not is_utility_bill(transactions[3])  # Assuming transactions[3] is NOT a utility bill
 
 
+# %%
+# configure the script
 def test_get_is_near_same_amount(transactions) -> None:
     """Test get_is_near_same_amount."""
     assert get_is_near_same_amount(transactions[0], transactions)
     assert not get_is_near_same_amount(transactions[3], transactions)
 
 
+# %%
+# configure the script
 def test_get_is_always_recurring(transactions) -> None:
     """Test get_is_always_recurring."""
     assert get_is_always_recurring(transactions[4])
     assert not get_is_always_recurring(transactions[3])
 
 
+# %%
+# configure the script
 def test_is_auto_pay(transactions) -> None:
     """Test is_auto_pay."""
     assert is_auto_pay(transactions[5])
     assert not is_auto_pay(transactions[0])
 
 
+# %%
+# configure the script
 def test_is_membership(transactions) -> None:
     """Test is_membership."""
     assert is_membership(transactions[6])
     assert not is_membership(transactions[0])
 
 
+# %%
+# configure the script
 def test_is_recurring_based_on_99(transactions):
     """Test the is_recurring_based_on_99 function."""
     transactions = [
@@ -93,58 +119,119 @@ def test_is_recurring_based_on_99(transactions):
 
 # New tests
 
+# %%
+# configure the script
+
 
 @pytest.fixture
-def new_transactions():
-    """Fixture providing new test transactions."""
+def sample_transactions():
+    """Fixture providing sample transaction dicts."""
     return [
-        Transaction(id=1, user_id="user1", name="Spotify", amount=9.99, date="2024-03-18"),  # Monday
-        Transaction(id=2, user_id="user1", name="Spotify Premium", amount=9.99, date="2024-03-19"),  # Tuesday
-        Transaction(id=3, user_id="user1", name="Spotify US", amount=9.99, date="2024-03-20"),  # Wednesday
-        Transaction(id=4, user_id="user1", name="Amazon Prime", amount=14.99, date="2024-03-21"),  # Thursday
-        Transaction(id=5, user_id="user1", name="Netflix", amount=15.99, date="2024-03-22"),  # Friday
-        Transaction(id=6, user_id="user1", name="Spotify", amount=10.99, date="2024-03-23"),  # Saturday
-        Transaction(id=7, user_id="user1", name="Spotify", amount=11.99, date="2024-03-24"),  # Sunday
+        {"user_id": "user1", "merchant": "Amazon", "amount": 50.0, "date": "2024-01-01"},
+        {"user_id": "user1", "merchant": "Netflix", "amount": 20.0, "date": "2024-01-03"},
+        {"user_id": "user2", "merchant": "Amazon", "amount": 30.0, "date": "2024-01-01"},
+        {"user_id": "user1", "merchant": "Amazon", "amount": 25.0, "date": "2024-01-01"},
     ]
 
 
-def test_get_transaction_similarity(new_transactions):
-    """Test get_transaction_similarity function."""
-    # Check similarity between slightly different names
-    score = get_transaction_similarity(new_transactions[0], new_transactions)
-    assert score > 50  # Adjusted similarity threshold
-
-    # Different vendor should have low similarity
-    score = get_transaction_similarity(new_transactions[4], new_transactions)
-    assert score < 50  # Netflix should not match Spotify
-
-
-def test_is_weekday_transaction(new_transactions):
-    """Test is_weekday_transaction function."""
-    assert is_weekday_transaction(new_transactions[0]) is True  # Monday
-    assert is_weekday_transaction(new_transactions[4]) is True  # Friday
-    assert is_weekday_transaction(new_transactions[5]) is False  # Saturday
-    assert is_weekday_transaction(new_transactions[6]) is False  # Sunday
+# %%
+# configure the script
+def test_organize_transactions_by_user_company(sample_transactions):
+    result = organize_transactions_by_user_company(sample_transactions)
+    # user1, amazon on 2024-01-01 should have both 50.0 and 25.0
+    assert result["user1"]["amazon"][datetime(2024, 1, 1)] == [50.0, 25.0]
+    # user1, netflix on 2024-01-03
+    assert result["user1"]["netflix"][datetime(2024, 1, 3)] == [20.0]
+    # user2, amazon on 2024-01-01
+    assert result["user2"]["amazon"][datetime(2024, 1, 1)] == [30.0]
 
 
-def test_is_price_trending(new_transactions):
-    """Test is_price_trending function."""
-    assert (
-        is_price_trending(new_transactions[0], new_transactions, threshold=15) is True
-    )  # Small increase within 15% threshold
-    assert (
-        is_price_trending(new_transactions[0], new_transactions, threshold=5) is False
-    )  # Larger increase, exceeds 5% threshold
-
-
-def test_is_split_transaction():
-    """Test is_split_transaction function."""
-    all_transactions = [
-        Transaction(id=1, user_id="user1", name="Laptop Payment", amount=1000, date="2024-01-01"),
-        Transaction(id=2, user_id="user1", name="Laptop Payment", amount=500, date="2024-01-10"),
-        Transaction(id=3, user_id="user1", name="Laptop Payment", amount=500, date="2024-01-20"),
-        Transaction(id=4, user_id="user1", name="Amazon", amount=100, date="2024-02-01"),
+# %%
+# configure the script
+def test_detect_duplicates():
+    txns = [
+        {"merchant": "A", "amount": 10, "date": "2024-01-01"},
+        {"merchant": "A", "amount": 10, "date": "2024-01-01"},
+        {"merchant": "B", "amount": 20, "date": "2024-01-02"},
     ]
+    duplicates = detect_duplicates(txns)
+    assert len(duplicates) == 1
+    assert duplicates[0]["merchant"] == "A"
+    assert duplicates[0]["amount"] == 10
 
-    assert is_split_transaction(all_transactions[0], all_transactions) is True  # Two smaller related transactions
-    assert is_split_transaction(all_transactions[3], all_transactions) is False  # No split transactions
+
+# %%
+# configure the script
+def test_detect_split_payments():
+    txns = [
+        {"merchant": "Amazon", "amount": 50.00, "date": "2024-01-01"},
+        {"merchant": "Amazon", "amount": 49.95, "date": "2024-01-02"},
+        {"merchant": "Netflix", "amount": 100.00, "date": "2024-01-01"},
+    ]
+    splits = detect_split_payments(txns, tolerance=0.1)
+    assert any(pair[0]["amount"] == 50.0 and pair[1]["amount"] == 49.95 for pair in splits)
+
+
+# %%
+# configure the script
+def test_detect_spending_anomalies():
+    txns = [
+        {"merchant": "A", "amount": 100},
+        {"merchant": "B", "amount": 500},
+        {"merchant": "C", "amount": 100},
+    ]
+    anomalies = detect_spending_anomalies(txns)
+    assert "B" in anomalies
+
+
+# %%
+# configure the script
+def test_calculate_weekday_consistency():
+    txns = [
+        {"date": "2024-04-01"},  # Monday
+        {"date": "2024-04-01"},  # Monday
+        {"date": "2024-04-02"},  # Tuesday
+    ]
+    result = calculate_weekday_consistency(txns)
+    assert result == pytest.approx(2 / 3)
+
+
+# %%
+# configure the script
+def test_calculate_merchant_diversity():
+    txns = [
+        {"merchant": "A"},
+        {"merchant": "B"},
+        {"merchant": "A"},
+        {"merchant": "C"},
+    ]
+    result = calculate_merchant_diversity(txns)
+    assert result == pytest.approx(0.75)
+
+
+# %%
+# configure the script
+def test_to_txn_dict_with_dict():
+    txn_dict = {
+        "user_id": "u1",
+        "name": "store",  # <--- FIXED
+        "amount": 100.0,
+        "date": "2023-04-01",
+    }
+    result = _to_txn_dict(txn_dict)
+    assert result == {"merchant": "store", "amount": 100.0, "date": "2023-04-01"}
+
+
+# %%
+# configure the script
+def test_to_txn_dict_with_transaction_obj():
+    txn = Transaction(id=1, user_id="u1", name="store", amount=100.0, date="2023-04-01")
+    result = _to_txn_dict(txn)
+    assert result == {"merchant": "store", "amount": 100.0, "date": "2023-04-01"}
+
+
+# %%
+# configure the script
+def test_to_txn_dict_raises_on_invalid_input():
+    with pytest.raises(TypeError):
+        _to_txn_dict(object())  # type: ignore[arg-type]

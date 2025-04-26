@@ -1,10 +1,15 @@
+# %%
+# configure the script
 import re
 from collections import defaultdict
+from collections.abc import Sequence
 from datetime import datetime
 
 from thefuzz import fuzz
 
 from recur_scan.transactions import Transaction
+
+#
 
 
 def get_is_near_same_amount(transaction: Transaction, all_transactions: list[Transaction]) -> bool:
@@ -174,3 +179,156 @@ def is_split_transaction(transaction: Transaction, all_transactions: list[Transa
     """Detects if a transaction is part of a split payment series."""
     related_txs = [t for t in all_transactions if t.amount < transaction.amount and t.name == transaction.name]
     return len(related_txs) >= 2  # Consider it a split payment if there are 2+ similar smaller transactions
+
+
+# %%
+# configure the script
+# NEW FEATURES
+
+
+def organize_transactions_by_user_company(
+    transactions: list[dict],
+) -> dict[str, dict[str, dict[datetime, list[float]]]]:
+    user_data: dict[str, dict[str, dict[datetime, list[float]]]] = defaultdict(
+        lambda: defaultdict(lambda: defaultdict(list))
+    )
+    for txn in transactions:
+        user_id = txn["user_id"]
+        merchant = txn["merchant"].lower()  # safer to lowercase merchants
+        date_str = txn["date"]
+        date = datetime.strptime(date_str, "%Y-%m-%d") if isinstance(date_str, str) else date_str
+        amount = txn["amount"]
+        user_data[user_id][merchant][date].append(amount)
+    return {
+        user: {merchant: dict(dates) for merchant, dates in merchants.items()} for user, merchants in user_data.items()
+    }
+
+
+# %%
+# configure the script
+def detect_duplicates(txns: list[dict]) -> list[dict]:
+    """
+    Detect exact duplicate transactions based on (amount, merchant, date).
+    Returns list of duplicate transaction dicts.
+    """
+    seen = set()
+    duplicates = []
+    for txn in txns:
+        key = (txn["amount"], txn["merchant"], txn["date"])
+        if key in seen:
+            duplicates.append(txn)
+        else:
+            seen.add(key)
+    return duplicates
+
+
+# %%
+# configure the script
+def detect_split_payments(txns: list[dict], tolerance: float = 0.1, window_days: int = 7) -> list[tuple[dict, dict]]:
+    """
+    Detect split payments for the same merchant within tolerance % and time window.
+    Returns list of tuples of transaction dicts considered splits.
+    """
+    split_payments = []
+    txns_sorted = sorted(txns, key=lambda x: datetime.strptime(x["date"], "%Y-%m-%d"))
+    for i, txn in enumerate(txns_sorted):
+        for txn2 in txns_sorted[i + 1 :]:
+            if txn["merchant"] == txn2["merchant"]:
+                amount_gap = abs(txn["amount"] - txn2["amount"])
+                if amount_gap <= max(txn["amount"], txn2["amount"]) * tolerance:
+                    time_diff = abs(
+                        datetime.strptime(txn["date"], "%Y-%m-%d") - datetime.strptime(txn2["date"], "%Y-%m-%d")
+                    ).days
+                    if time_diff <= window_days:
+                        split_payments.append((txn, txn2))
+    return split_payments
+
+
+# %%
+# configure the script
+def detect_spending_anomalies(txns: list[dict]) -> set[str]:
+    """
+    Detect merchants where total spending deviates by >50% from the per-company average.
+    Returns set of merchant names flagged as anomalies.
+    """
+    spending_by_merchant: defaultdict[str, float] = defaultdict(float)
+    for txn in txns:
+        spending_by_merchant[txn["merchant"]] += txn["amount"]
+    avg_spending = sum(spending_by_merchant.values()) / len(spending_by_merchant)
+    anomalies = {
+        merchant for merchant, total in spending_by_merchant.items() if abs(total - avg_spending) > 0.5 * avg_spending
+    }
+    return anomalies
+
+
+# %%
+# configure the script
+def calculate_weekday_consistency(txns: list[dict]) -> float:
+    """
+    Fraction of transactions occurring on the same weekday as the first transaction.
+    """
+    if not txns:
+        return 0.0
+    weekdays = [datetime.strptime(txn["date"], "%Y-%m-%d").weekday() for txn in txns]
+    baseline = weekdays[0]
+    return sum(1 for day in weekdays if day == baseline) / len(weekdays)
+
+
+# %%
+# configure the script
+def calculate_merchant_diversity(txns: list[dict]) -> float:
+    """
+    Fraction of unique merchants over total transactions.
+    """
+    unique_merchants = {txn["merchant"] for txn in txns}
+    return len(unique_merchants) / len(txns) if txns else 0.0
+
+
+# %%
+# configure the script
+def _to_txn_dict(txn: Transaction | dict) -> dict[str, float | str]:
+    if isinstance(txn, Transaction):
+        return {
+            "merchant": txn.name,
+            "amount": txn.amount,
+            "date": txn.date,
+        }
+    elif isinstance(txn, dict):
+        return {
+            "merchant": txn["name"],
+            "amount": txn["amount"],
+            "date": txn["date"],
+        }
+    else:
+        raise TypeError(f"Unsupported transaction type: {type(txn)}")
+
+
+# %%
+# configure the script
+
+
+def get_new_features(txn: Transaction, all_txns: Sequence[Transaction]) -> dict[str, float | bool]:
+    """
+    Extract six key features for a single transaction, whether txn/all_txns
+    are passed in as Transaction objects or dicts.
+    """
+    # 1) Normalize inputs
+    txn_dicts = [_to_txn_dict(t) for t in all_txns]
+    this_txn = _to_txn_dict(txn)
+
+    # 2) Compute each feature on the dict list
+    return {
+        "num_dates_for_user_merchant": len(
+            organize_transactions_by_user_company(txn_dicts)
+            .get(str(this_txn["user_id"]).lower(), {})
+            .get(str(this_txn["merchant"]).lower(), {})
+        ),
+        "is_duplicate": this_txn in detect_duplicates(txn_dicts),
+        "is_split_payment": any(this_txn in pair for pair in detect_split_payments(txn_dicts)),
+        "is_spending_anomaly": this_txn["merchant"] in detect_spending_anomalies(txn_dicts),
+        "weekday_consistency": calculate_weekday_consistency(txn_dicts),
+        "merchant_diversity": calculate_merchant_diversity(txn_dicts),
+    }
+
+
+# %%

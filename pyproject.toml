@@ -136,3 +136,6 @@ DEP002 = ["pandas-stubs", "python-levenshtein"]
 [tool.pyright]
 exclude = ["tests"]
 reportMissingTypeStubs = false
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
