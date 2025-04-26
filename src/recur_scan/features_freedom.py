@@ -1,3 +1,4 @@
+import datetime
 from datetime import timedelta
 
 import numpy as np
@@ -75,3 +76,40 @@ def get_recurrence_streak(
             break
 
     return streak
+
+
+# new features started here
+def amount_similarity(amounts: list[float], threshold: float = 0.1) -> float:
+    """Measure how similar transaction amounts are"""
+    if len(amounts) < 2:
+        return 0.0
+
+    mean_amount = np.mean(amounts)
+    deviations = [float(abs(amount - mean_amount) / mean_amount) for amount in amounts]
+    max_deviation = max(deviations)
+
+    # Normalize the score between 0 and 1
+    similarity = 1 - min(max_deviation / threshold, 1)
+    return similarity
+
+
+def day_of_month_consistency(dates: list[datetime.date]) -> float:
+    if len(dates) < 2:
+        return 0.0
+
+    days = [d.day for d in dates]
+    unique_days = len(set(days))
+
+    # More consistent if fewer unique days
+    return 1 - (unique_days - 1) / (len(days) - 1)
+
+
+def get_new_features(transaction: dict, grouped_transactions: dict[str, list[dict]]) -> dict:
+    # Extract amounts and dates from grouped transactions
+    amounts = [t["amount"] for t in grouped_transactions.get(transaction["group"], [])]
+    dates = [parse_date(t["date"]) for t in grouped_transactions.get(transaction["group"], [])]
+
+    return {
+        "amount_similarity": amount_similarity(amounts, threshold=0.1),
+        "day_of_month_consistency": day_of_month_consistency(dates),
+    }

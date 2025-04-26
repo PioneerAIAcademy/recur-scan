@@ -27,7 +27,7 @@ from sklearn.model_selection import GridSearchCV, GroupKFold, RandomizedSearchCV
 from tqdm import tqdm
 
 from recur_scan.features import get_features
-from recur_scan.features_original import get_new_features
+from recur_scan.features_freedom import get_new_features
 from recur_scan.transactions import (
     group_transactions,
     read_labeled_transactions,
@@ -40,15 +40,15 @@ from recur_scan.transactions import (
 
 use_precomputed_features = True
 model_type = "xgb"  # "rf" or "xgb"
-n_cv_folds = 5  # number of cross-validation folds, could be 5
+n_cv_folds = 3  # number of cross-validation folds, could be 5
 do_hyperparameter_optimization = False  # set to False to use the default hyperparameters
 search_type = "random"  # "grid" or "random"
 n_hpo_iters = 200  # number of hyperparameter optimization iterations
 n_jobs = -1  # number of jobs to run in parallel (set to 1 if your laptop gets too hot)
 
-in_path = "../../data/train.csv"
-precomputed_features_path = "../../data/train_features.csv"
-out_dir = "../../data/training_out"
+in_path = cvs_path = os.path.join(os.path.dirname(__file__), "../recur_scan_train - train.csv")
+precomputed_features_path = cvs_path = os.path.join(os.path.dirname(__file__), "../train_features.csv")
+out_dir = "/mnt/c/Users/Toshiba/Downloads/recur_scan_train"
 
 # %%
 # parse script arguments from command line
@@ -119,7 +119,10 @@ else:
 # %%
 # add new features
 new_features = [
-    get_new_features(transaction, grouped_transactions[(transaction.user_id, transaction.name)])
+    get_new_features(
+        transaction.__dict__,
+        {"group_key": [t.__dict__ for t in grouped_transactions[(transaction.user_id, transaction.name)]]},
+    )
     for transaction in tqdm(transactions, desc="Processing transactions")
 ]
 # add the new features to the existing features

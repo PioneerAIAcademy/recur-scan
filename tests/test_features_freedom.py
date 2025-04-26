@@ -5,6 +5,7 @@ from datetime import datetime
 import pytest
 
 from recur_scan.features_freedom import (
+    amount_similarity,
     get_day_of_week,
     get_days_until_next_transaction,
     get_periodicity_confidence,
@@ -88,3 +89,33 @@ def test_get_recurrence_streak_function():
         ),  # Missing February
     ]
     assert get_recurrence_streak(broken_streak_trans[0], broken_streak_trans) == 0
+
+
+# New test features started here
+
+
+def test_amount_similarity():
+    amounts = [100.0, 99.5, 100.5, 101.0]
+    similarity = amount_similarity(amounts)
+    assert similarity > 0.9  # Very similar amounts
+
+    amounts = [100.0, 150.0, 50.0]
+    similarity = amount_similarity(amounts)
+    assert similarity < 0.5  # Less similar amounts
+
+    @pytest.fixture
+    def sample_dates_monthly():
+        return [
+            datetime(2023, 1, 1),
+            datetime(2023, 2, 1),
+            datetime(2023, 3, 1),
+        ]
+
+    def day_of_month_consistency(dates):
+        """Calculate consistency of day-of-month for a list of dates."""
+        days = [date.day for date in dates]
+        return 1.0 if len(set(days)) == 1 else 0.0
+
+    def test_day_of_month_consistency(sample_dates_monthly):
+        consistency = day_of_month_consistency(sample_dates_monthly)
+        assert consistency == 1.0  # Perfect day-of-month consistency
