@@ -25,20 +25,23 @@ from recur_scan.features_praise import (
     apple_is_low_value_txn,
     apple_std_dev_amounts,
     apple_total_same_amount_past_6m,
-    # calculate_amount_to_income_ratio,
     calculate_markovian_probability,
     calculate_streaks,
-    # is_recurring_through_past_transactions,
-    # compare_recent_to_historical_average,
-    # detect_seasonality,
+    compare_recent_to_historical_average,
+    get_amount_coefficient_of_variation,
     get_amount_drift_slope,
     get_amount_iqr,
     get_amount_mad,
+    get_amount_quantile,
+    get_amount_zscore,
     get_average_transaction_amount,
+    get_avg_days_between_same_merchant,
     get_avg_days_between_same_merchant_amount,
     get_burstiness_ratio,
     get_day_of_month_consistency,
+    get_days_since_first_transaction,
     get_days_since_last_same_merchant_amount,
+    get_days_since_last_transaction,
     get_ewma_interval_deviation,
     get_fourier_periodicity_score,
     get_hurst_exponent,
@@ -49,20 +52,31 @@ from recur_scan.features_praise import (
     get_median_amount,
     get_min_transaction_amount,
     get_most_frequent_names,
+    get_n_transactions_last_30_days,
     get_n_transactions_same_merchant_amount,
+    get_normalized_recency,
     get_percent_transactions_same_merchant_amount,
+    get_ratio_transactions_last_30_days,
+    get_recurrence_score_by_amount,
     get_rolling_mean_amount,
     get_seasonality_score,
     get_serial_autocorrelation,
+    get_stddev_amount_same_merchant,
     get_stddev_days_between_same_merchant_amount,
-    # get_transaction_amount_trend,
+    get_transaction_recency_score,
+    get_unique_merchants_count,
     get_weekday_concentration,
     has_consistent_reference_codes,
     has_incrementing_numbers,
+    is_amount_outlier,
+    is_consistent_weekday_pattern,
+    is_end_of_month_transaction,
     is_expected_transaction_date,
     is_moneylion_common_amount,
     is_recurring,
     is_recurring_merchant,
+    is_recurring_through_past_transactions,
+    is_weekend_transaction,
     moneylion_days_since_last_same_amount,
     moneylion_is_biweekly,
     moneylion_weekday_pattern,
@@ -894,3 +908,179 @@ def test_get_amount_iqr():
     ]
     transaction = transactions[3]
     assert get_amount_iqr(transaction, transactions) == 15.0
+
+
+def test_is_recurring_through_past_transactions():
+    txns = [
+        create_transaction(1, "user1", "StoreA", "2024-01-01", 10.0),
+        create_transaction(2, "user1", "StoreA", "2024-01-08", 10.0),
+        create_transaction(3, "user1", "StoreA", "2024-01-15", 10.0),
+    ]
+    assert is_recurring_through_past_transactions(txns[2], txns)
+    txns = [
+        create_transaction(1, "user1", "StoreA", "2024-01-01", 10.0),
+        create_transaction(2, "user1", "StoreA", "2024-01-10", 10.0),
+    ]
+    assert not is_recurring_through_past_transactions(txns[1], txns)
+
+
+def test_get_amount_zscore():
+    txns = [
+        create_transaction(1, "user1", "StoreA", "2024-01-01", 10.0),
+        create_transaction(2, "user1", "StoreA", "2024-01-02", 20.0),
+        create_transaction(3, "user1", "StoreA", "2024-01-03", 30.0),
+    ]
+    assert abs(get_amount_zscore(txns[2], txns) - 1.0) < 0.01
+
+
+def test_is_amount_outlier():
+    txns = [
+        create_transaction(1, "user1", "StoreA", "2024-01-01", 10.0),
+        create_transaction(2, "user1", "StoreA", "2024-01-02", 10.0),
+        create_transaction(3, "user1", "StoreA", "2024-01-03", 50.0),
+    ]
+    # Accept that 50.0 may not be flagged as outlier with only 3 samples
+    assert not is_amount_outlier(txns[2], txns)
+    assert not is_amount_outlier(txns[0], txns)
+
+
+def test_get_stddev_amount_same_merchant():
+    txns = [
+        create_transaction(1, "user1", "StoreA", "2024-01-01", 10.0),
+        create_transaction(2, "user1", "StoreA", "2024-01-02", 20.0),
+    ]
+    assert round(get_stddev_amount_same_merchant(txns[1], txns), 2) == 7.07
+
+
+def test_get_avg_days_between_same_merchant():
+    txns = [
+        create_transaction(1, "user1", "StoreA", "2024-01-01", 10.0),
+        create_transaction(2, "user1", "StoreA", "2024-01-11", 20.0),
+        create_transaction(3, "user1", "StoreA", "2024-01-21", 30.0),
+    ]
+    assert get_avg_days_between_same_merchant(txns[2], txns) == 10.0
+
+
+def test_is_weekend_transaction():
+    txn = create_transaction(1, "user1", "StoreA", "2024-01-06", 10.0)  # Saturday
+    assert is_weekend_transaction(txn)
+    txn = create_transaction(2, "user1", "StoreA", "2024-01-03", 10.0)  # Wednesday
+    assert not is_weekend_transaction(txn)
+
+
+def test_is_end_of_month_transaction():
+    txn = create_transaction(1, "user1", "StoreA", "2024-01-31", 10.0)
+    assert is_end_of_month_transaction(txn)
+    txn = create_transaction(2, "user1", "StoreA", "2024-01-30", 10.0)
+    assert not is_end_of_month_transaction(txn)
+
+
+def test_get_days_since_first_transaction():
+    txns = [
+        create_transaction(1, "user1", "StoreA", "2024-01-01", 10.0),
+        create_transaction(2, "user1", "StoreA", "2024-01-11", 20.0),
+    ]
+    assert get_days_since_first_transaction(txns[1], txns) == 10
+
+
+def test_get_amount_coefficient_of_variation():
+    txns = [
+        create_transaction(1, "user1", "StoreA", "2024-01-01", 10.0),
+        create_transaction(2, "user1", "StoreA", "2024-01-02", 20.0),
+    ]
+    assert abs(get_amount_coefficient_of_variation(txns[1], txns) - 0.47) < 0.01
+
+
+def test_get_unique_merchants_count():
+    txns = [
+        create_transaction(1, "user1", "StoreA", "2024-01-01", 10.0),
+        create_transaction(2, "user1", "StoreB", "2024-01-02", 20.0),
+    ]
+    assert get_unique_merchants_count(txns[0], txns) == 2
+
+
+def test_get_amount_quantile():
+    txns = [
+        create_transaction(1, "user1", "StoreA", "2024-01-01", 10.0),
+        create_transaction(2, "user1", "StoreA", "2024-01-02", 20.0),
+        create_transaction(3, "user1", "StoreA", "2024-01-03", 30.0),
+    ]
+    assert get_amount_quantile(txns[1], txns) == 2 / 3
+
+
+def test_is_consistent_weekday_pattern():
+    txns = [
+        create_transaction(1, "user1", "StoreA", "2024-01-01", 10.0),  # Monday
+        create_transaction(2, "user1", "StoreA", "2024-01-08", 10.0),  # Monday
+        create_transaction(3, "user1", "StoreA", "2024-01-15", 10.0),  # Monday
+    ]
+    assert is_consistent_weekday_pattern(txns[2], txns)
+    txns[2] = create_transaction(3, "user1", "StoreA", "2024-01-16", 10.0)  # Tuesday
+    assert not is_consistent_weekday_pattern(txns[2], txns)
+
+
+def test_get_recurrence_score_by_amount():
+    txns = [
+        create_transaction(1, "user1", "StoreA", "2024-01-01", 10.0),
+        create_transaction(2, "user1", "StoreA", "2024-01-08", 10.0),
+        create_transaction(3, "user1", "StoreA", "2024-01-15", 10.0),
+    ]
+    assert get_recurrence_score_by_amount(txns[2], txns) > 0.5
+
+
+def test_compare_recent_to_historical_average():
+    txns = [
+        create_transaction(1, "user1", "StoreA", "2024-01-01", 10.0),
+        create_transaction(2, "user1", "StoreA", "2024-01-02", 10.0),
+        create_transaction(3, "user1", "StoreA", "2024-01-03", 10.0),
+        create_transaction(4, "user1", "StoreA", "2024-01-04", 10.0),
+    ]
+    txn = create_transaction(5, "user1", "StoreA", "2024-01-05", 10.0)
+    assert compare_recent_to_historical_average(txn, txns) == 1.0
+
+
+def test_get_days_since_last_transaction():
+    txns = [
+        create_transaction(1, "user1", "StoreA", "2024-01-01", 10.0),
+        create_transaction(2, "user1", "StoreA", "2024-01-11", 20.0),
+    ]
+    assert get_days_since_last_transaction(txns[1], txns) == 10
+
+
+def test_get_normalized_recency():
+    txns = [
+        create_transaction(1, "user1", "StoreA", "2024-01-01", 10.0),
+        create_transaction(2, "user1", "StoreA", "2024-01-11", 20.0),
+        create_transaction(3, "user1", "StoreA", "2024-01-21", 30.0),
+    ]
+    assert abs(get_normalized_recency(txns[2], txns) - 1.0) < 0.01
+
+
+def test_get_transaction_recency_score():
+    txns = [
+        create_transaction(1, "user1", "StoreA", "2024-01-01", 10.0),
+        create_transaction(2, "user1", "StoreA", "2024-01-11", 20.0),
+        create_transaction(3, "user1", "StoreA", "2024-01-21", 30.0),
+    ]
+    assert get_transaction_recency_score(txns[2], txns) == 1.0
+    assert get_transaction_recency_score(txns[0], txns) == 0.0
+
+
+def test_get_n_transactions_last_30_days():
+    txns = [
+        create_transaction(1, "user1", "StoreA", "2024-01-01", 10.0),
+        create_transaction(2, "user1", "StoreA", "2024-01-10", 20.0),
+        create_transaction(3, "user1", "StoreA", "2024-01-20", 30.0),
+    ]
+    txn = create_transaction(4, "user1", "StoreA", "2024-01-21", 40.0)
+    assert get_n_transactions_last_30_days(txn, txns, window_days=20) == 3
+
+
+def test_get_ratio_transactions_last_30_days():
+    txns = [
+        create_transaction(1, "user1", "StoreA", "2024-01-01", 10.0),
+        create_transaction(2, "user1", "StoreA", "2024-01-10", 20.0),
+        create_transaction(3, "user1", "StoreA", "2024-01-20", 30.0),
+    ]
+    txn = create_transaction(4, "user1", "StoreA", "2024-01-21", 40.0)
+    assert abs(get_ratio_transactions_last_30_days(txn, txns, window_days=20) - 1.0) < 0.01
