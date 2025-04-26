@@ -65,8 +65,6 @@ from recur_scan.features_praise import (
     is_recurring_merchant,
     moneylion_days_since_last_same_amount,
     moneylion_is_biweekly,
-    moneylion_recurrence_score,
-    moneylion_same_amount_count_90d,
     moneylion_weekday_pattern,
 )
 from recur_scan.transactions import Transaction
@@ -692,18 +690,6 @@ def test_moneylion_is_biweekly() -> None:
     assert not moneylion_is_biweekly(transaction, transactions)
 
 
-def test_moneylion_same_amount_count_90d() -> None:
-    """Test counting same-amount MoneyLion payments in past 90 days."""
-    transactions = [
-        create_transaction(1, "user1", "MoneyLion", "2024-01-01", 50.0),
-        create_transaction(2, "user1", "MoneyLion", "2024-02-01", 50.0),
-        create_transaction(3, "user1", "MoneyLion", "2024-03-01", 50.0),
-        create_transaction(4, "user1", "MoneyLion", "2023-10-01", 50.0),  # Outside 90 days
-    ]
-    transaction = transactions[2]
-    assert moneylion_same_amount_count_90d(transaction, transactions) == 2
-
-
 def test_moneylion_weekday_pattern() -> None:
     """Test detection of consistent weekday pattern for MoneyLion."""
     transactions = [
@@ -722,27 +708,6 @@ def test_moneylion_weekday_pattern() -> None:
     ]
     transaction = transactions[2]
     assert not moneylion_weekday_pattern(transaction, transactions)
-
-
-def test_moneylion_recurrence_score() -> None:
-    """Test MoneyLion recurrence score calculation."""
-    transactions = [
-        create_transaction(1, "user1", "MoneyLion", "2024-01-02", 50.0),  # Tuesday
-        create_transaction(2, "user1", "MoneyLion", "2024-01-09", 50.0),  # Tuesday
-        create_transaction(3, "user1", "MoneyLion", "2024-01-16", 50.0),  # Tuesday
-        create_transaction(4, "user1", "MoneyLion", "2024-01-23", 50.0),  # Tuesday
-        create_transaction(5, "user1", "MoneyLion", "2024-01-30", 50.0),  # Tuesday
-    ]
-    transaction = transactions[4]
-    score = moneylion_recurrence_score(transaction, transactions)
-    assert 0.5 <= score <= 1.0
-    # Negative case: not enough transactions
-    transactions = [
-        create_transaction(1, "user1", "MoneyLion", "2024-01-02", 50.0),
-        create_transaction(2, "user1", "MoneyLion", "2024-01-09", 50.0),
-    ]
-    transaction = transactions[1]
-    assert moneylion_recurrence_score(transaction, transactions) == 0.0
 
 
 def test_apple_amount_close_to_median():

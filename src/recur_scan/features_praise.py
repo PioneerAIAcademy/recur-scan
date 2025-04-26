@@ -833,28 +833,6 @@ def moneylion_is_biweekly(transaction: Transaction, all_transactions: list[Trans
         return False
 
 
-def moneylion_same_amount_count_90d(transaction: Transaction, all_transactions: list[Transaction]) -> int:
-    """
-    Returns the number of times the user paid the same amount to MoneyLion in the past 90 days.
-    """
-    try:
-        txn_date = datetime.strptime(transaction.date, "%Y-%m-%d")
-        prior = [
-            t
-            for t in all_transactions
-            if (
-                t.user_id == transaction.user_id
-                and "moneylion" in t.name.lower()
-                and t.amount == transaction.amount
-                and t.date < transaction.date
-                and (txn_date - datetime.strptime(t.date, "%Y-%m-%d")).days <= 90
-            )
-        ]
-        return len(prior)
-    except Exception:
-        return 0
-
-
 def moneylion_weekday_pattern(transaction: Transaction, all_transactions: list[Transaction]) -> bool:
     """
     Returns True if the transaction consistently happens on the same weekday across at least 3 past MoneyLion payments.
@@ -872,30 +850,6 @@ def moneylion_weekday_pattern(transaction: Transaction, all_transactions: list[T
         return count >= 3
     except Exception:
         return False
-
-
-def moneylion_recurrence_score(transaction: Transaction, all_transactions: list[Transaction]) -> float:
-    """
-    Returns a recurrence score between 0 and 1 based on frequency, weekday match, and amount pattern.
-    """
-    try:
-        user_txns = [t for t in all_transactions if t.user_id == transaction.user_id and "moneylion" in t.name.lower()]
-        if len(user_txns) < 3:
-            return 0.0
-
-        # frequency score (number of same-amount txns in 90 days)
-        count = moneylion_same_amount_count_90d(transaction, all_transactions)
-        freq_score = min(count / 5.0, 1.0)
-
-        # weekday consistency
-        weekday_score = 1.0 if moneylion_weekday_pattern(transaction, all_transactions) else 0.0
-
-        # amount popularity
-        amount_score = 1.0 if is_moneylion_common_amount(transaction, all_transactions) else 0.0
-
-        return round((freq_score + weekday_score + amount_score) / 3.0, 3)
-    except Exception:
-        return 0.0
 
 
 def apple_amount_close_to_median(transaction: Transaction, all_transactions: list[Transaction]) -> bool:
@@ -1200,9 +1154,7 @@ def get_new_features(transaction: Transaction, all_transactions: list[Transactio
             transaction, all_transactions
         ),
         "moneylion_is_biweekly_praise": moneylion_is_biweekly(transaction, all_transactions),
-        "moneylion_same_amount_count_90d_praise": moneylion_same_amount_count_90d(transaction, all_transactions),
         "moneylion_weekday_pattern_praise": moneylion_weekday_pattern(transaction, all_transactions),
-        "moneylion_recurrence_score_praise": moneylion_recurrence_score(transaction, all_transactions),
         "apple_amount_close_to_median_praise": apple_amount_close_to_median(transaction, all_transactions),
         "apple_total_same_amount_past_6m_praise": apple_total_same_amount_past_6m(transaction, all_transactions),
         "apple_std_dev_amounts_praise": apple_std_dev_amounts(transaction, all_transactions),
