@@ -1,5 +1,3 @@
-# test features
-
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -8,13 +6,21 @@ import pytest
 from recur_scan.features_happy import (
     contains_subscription_keywords,
     get_amount_consistency,
+    get_amount_variance,
+    get_avg_description_similarity,
+    get_biweekly_pattern_score,
     get_day_of_month_consistency,
     get_description_similarity,
+    get_merchant_consistency,
     get_monthly_pattern_score,
     get_n_transactions_same_description,
     get_percent_transactions_same_description,
+    get_quarterly_pattern_score,
     get_recurring_score,
+    get_same_category_ratio,
     get_transaction_frequency,
+    get_weekly_pattern_score,
+    get_yearly_pattern_score,
 )
 from recur_scan.transactions import Transaction
 
@@ -23,22 +29,22 @@ from recur_scan.transactions import Transaction
 @pytest.fixture
 def sample_transactions():
     return [
-        Transaction(id=1, user_id="user1", name="Supermarket", amount=50.0, date="2023-01-15"),
-        Transaction(id=2, user_id="user1", name="Supermarket", amount=75.0, date="2023-01-20"),
-        Transaction(id=3, user_id="user1", name="Supermarket", amount=60.0, date="2023-02-15"),
-        Transaction(id=4, user_id="user1", name="Employer", amount=2000.0, date="2023-01-01"),
-        Transaction(id=5, user_id="user1", name="Landlord", amount=1000.0, date="2023-01-01"),
-        Transaction(id=6, user_id="user1", name="Landlord", amount=1000.0, date="2023-02-01"),
+        Transaction(id=1, name="Supermarket", amount=50.0, date="2023-01-15"),
+        Transaction(id=2, name="Supermarket", amount=75.0, date="2023-01-20"),
+        Transaction(id=3, name="Supermarket", amount=60.0, date="2023-02-15"),
+        Transaction(id=4, name="Employer", amount=2000.0, date="2023-01-01"),
+        Transaction(id=5, name="Landlord", amount=1000.0, date="2023-01-01"),
+        Transaction(id=6, name="Landlord", amount=1000.0, date="2023-02-01"),
     ]
 
 
 @pytest.fixture
 def periodic_transactions():
     return [
-        Transaction(id=1, user_id="user1", name="Streaming", amount=10.0, date="2023-01-01"),
-        Transaction(id=2, user_id="user1", name="Streaming", amount=10.0, date="2023-01-08"),
-        Transaction(id=3, user_id="user1", name="Streaming", amount=10.0, date="2023-01-15"),
-        Transaction(id=4, user_id="user1", name="Streaming", amount=10.0, date="2023-01-22"),
+        Transaction(id=1, name="Streaming", amount=10.0, date="2023-01-01"),
+        Transaction(id=2, name="Streaming", amount=10.0, date="2023-01-08"),
+        Transaction(id=3, name="Streaming", amount=10.0, date="2023-01-15"),
+        Transaction(id=4, name="Streaming", amount=10.0, date="2023-01-22"),
     ]
 
 
@@ -205,6 +211,222 @@ def test_subscription_keywords():
     assert score4 == 1.0, f"Expected max score for multiple keywords, got {score4}"
 
     print("Subscription keyword tests passed!")
+
+
+# missing test features added
+
+
+@pytest.fixture
+def transactions():
+    # Helper function to create date string
+    def create_date(base_date, days_to_add):
+        new_date = datetime.strptime(base_date, "%Y-%m-%d") + timedelta(days=days_to_add)
+        return new_date.strftime("%Y-%m-%d")
+
+    return [
+        Transaction("tx1", "Test Transaction", 100.0, "2023-01-01", "shopping", "merch123"),
+        Transaction("tx2", "Test Transaction", 110.0, "2023-01-08", "shopping", "merch123"),
+        Transaction("tx3", "Test Transaction", 90.0, "2023-01-15", "shopping", "merch123"),
+        Transaction("tx4", "Test Transaction", 105.0, "2023-01-22", "shopping", "merch123"),
+        Transaction("tx5", "Weekly Subscription", 10.0, "2023-01-01", "subscriptions", "sub101"),
+        Transaction("tx6", "Weekly Subscription", 10.0, "2023-01-08", "subscriptions", "sub101"),
+        Transaction("tx7", "Weekly Subscription", 10.0, "2023-01-15", "subscriptions", "sub101"),
+        Transaction("tx8", "Biweekly Payment", 50.0, "2023-01-01", "bills", "bill202"),
+        Transaction("tx9", "Biweekly Payment", 50.0, "2023-01-15", "bills", "bill202"),
+        Transaction("tx10", "Biweekly Payment", 50.0, "2023-01-29", "bills", "bill202"),
+        Transaction("tx11", "Quarterly Bill", 200.0, "2023-01-01", "bills", "util303"),
+        Transaction("tx12", "Quarterly Bill", 200.0, create_date("2023-01-01", 90), "bills", "util303"),
+        Transaction("tx13", "Quarterly Bill", 200.0, create_date("2023-01-01", 180), "bills", "util303"),
+        Transaction("tx14", "Yearly Subscription", 300.0, "2022-01-01", "subscriptions", "annual404"),
+        Transaction("tx15", "Yearly Subscription", 300.0, "2023-01-01", "subscriptions", "annual404"),
+        Transaction("tx16", "Grocery Store", 75.0, "2023-01-05", "groceries", "groc505"),
+        Transaction("tx17", "Grocery Store", 82.0, "2023-01-12", "groceries", "groc505"),
+        Transaction("tx18", "Grocery Store", 68.0, "2023-01-19", "dining", "groc505"),
+        Transaction("tx19", "Coffee Shop A", 5.0, "2023-01-02", "dining", "coffee606"),
+        Transaction("tx20", "Coffee Shop B", 5.5, "2023-01-09", "dining", "coffee606"),
+        Transaction("tx21", "Online Store", 50.0, "2023-01-03", "shopping", "merch123"),
+        Transaction("tx22", "Online Store", 30.0, "2023-01-10", "shopping", "merch123"),
+        Transaction("tx23", "Online Store", 75.0, "2023-01-17", "shopping", "different456"),
+    ]
+
+
+# Mock the parse_date function
+@pytest.fixture(autouse=True)
+def mock_parse_date(monkeypatch):
+    def mock_function(date_str):
+        return datetime.strptime(date_str, "%Y-%m-%d")
+
+    monkeypatch.setattr("src.recur_scan.features_happy.parse_date", mock_function)
+
+
+# Mock the get_description_similarity function
+@pytest.fixture(autouse=True)
+def mock_description_similarity(monkeypatch):
+    def mock_function(tx1, tx2):
+        # Return high similarity for same names or similar names
+        if tx1.name.lower() == tx2.name.lower():
+            return 0.95
+        elif "Coffee Shop" in tx1.name and "Coffee Shop" in tx2.name:
+            return 0.85
+        elif "Online Store" in tx1.name and "Online Store" in tx2.name:
+            return 0.9
+        return 0.1
+
+    monkeypatch.setattr("src.recur_scan.features_happy.get_description_similarity", mock_function)
+
+
+def test_get_amount_variance(transactions):
+    # Test with transactions having same name but different amounts
+    tx = transactions[0]  # "Test Transaction"
+    variance = get_amount_variance(tx, transactions)
+
+    # Check if the variance is calculated correctly
+    assert 0 <= variance <= 1.0
+
+    # Test with single transaction (should return 1.0)
+    unique_tx = Transaction("unique", "Unique Transaction", 150.0, "2023-01-01")
+    assert get_amount_variance(unique_tx, transactions) == 1.0
+
+    # Test with zero mean amount
+    zero_tx = Transaction("zero1", "Zero Transaction", 0.0, "2023-01-01")
+    zero_txs = [zero_tx, Transaction("zero2", "Zero Transaction", 0.0, "2023-01-08")]
+    assert get_amount_variance(zero_tx, zero_txs) == 1.0
+
+
+def test_get_weekly_pattern_score(transactions):
+    # Test with transactions in a clear weekly pattern
+    weekly_tx = transactions[4]  # "Weekly Subscription"
+    score = get_weekly_pattern_score(weekly_tx, transactions)
+
+    # Should have a high score for weekly pattern
+    assert score > 0.7
+
+    # Test with insufficient data
+    unique_tx = Transaction("unique", "Unique Transaction", 10.0, "2023-01-01")
+    assert get_weekly_pattern_score(unique_tx, transactions) == 0.0
+
+    # Test with irregular intervals
+    irregular_tx = Transaction("irr1", "Irregular", 10.0, "2023-01-01")
+    irregular_txs = [
+        irregular_tx,
+        Transaction("irr2", "Irregular", 10.0, "2023-01-01"),
+        Transaction("irr3", "Irregular", 10.0, "2023-01-15"),
+        Transaction("irr4", "Irregular", 10.0, "2023-01-25"),
+    ]
+    lower_score = get_weekly_pattern_score(irregular_tx, irregular_txs)
+    assert lower_score < 0.5
+
+
+def test_get_biweekly_pattern_score(transactions):
+    # Test with transactions in a clear biweekly pattern
+    biweekly_tx = transactions[7]  # "Biweekly Payment"
+    score = get_biweekly_pattern_score(biweekly_tx, transactions)
+
+    # Should have a high score for biweekly pattern
+    assert score > 0.7
+
+    # Test with insufficient data
+    unique_tx = Transaction("unique", "Unique Transaction", 10.0, "2023-01-01")
+    assert get_biweekly_pattern_score(unique_tx, transactions) == 0.0
+
+    # Test with irregular intervals
+    irregular_tx = Transaction("irr1", "Irregular", 10.0, "2023-01-01")
+    irregular_txs = [
+        irregular_tx,
+        Transaction("irr2", "Irregular", 10.0, "2023-01-10"),
+        Transaction("irr3", "Irregular", 10.0, "2023-01-30"),
+    ]
+    lower_score = get_biweekly_pattern_score(irregular_tx, irregular_txs)
+    assert lower_score < 0.5
+
+
+def test_get_quarterly_pattern_score(transactions):
+    # Test with transactions in a clear quarterly pattern
+    quarterly_tx = transactions[10]  # "Quarterly Bill"
+    score = get_quarterly_pattern_score(quarterly_tx, transactions)
+
+    # Should have a high score for quarterly pattern
+    assert score > 0.7
+
+    # Test with insufficient data
+    unique_tx = Transaction("unique", "Unique Transaction", 10.0, "2023-01-01")
+    assert get_quarterly_pattern_score(unique_tx, transactions) == 0.0
+
+    # Test with irregular intervals
+    irregular_tx = Transaction("irr1", "Irregular", 10.0, "2023-01-01")
+    irregular_txs = [
+        irregular_tx,
+        Transaction("irr2", "Irregular", 10.0, "2023-02-15"),
+        Transaction("irr3", "Irregular", 10.0, "2023-04-01"),
+    ]
+    lower_score = get_quarterly_pattern_score(irregular_tx, irregular_txs)
+    assert lower_score == 0.0  # Intervals don't match quarterly pattern
+
+
+def test_get_yearly_pattern_score(transactions):
+    # Test with transactions in a clear yearly pattern
+    yearly_tx = transactions[14]  # "Yearly Subscription"
+    score = get_yearly_pattern_score(yearly_tx, transactions)
+
+    # Should have a high score for yearly pattern
+    assert score > 0.7
+
+    # Test with insufficient data
+    unique_tx = Transaction("unique", "Unique Transaction", 10.0, "2023-01-01")
+    assert get_yearly_pattern_score(unique_tx, transactions) == 0.0
+
+    # Test with irregular intervals
+    irregular_tx = Transaction("irr1", "Irregular", 10.0, "2023-01-01")
+    irregular_txs = [irregular_tx, Transaction("irr2", "Irregular", 10.0, "2023-10-15")]
+    lower_score = get_yearly_pattern_score(irregular_tx, irregular_txs)
+    assert lower_score == 0.0  # Interval doesn't match yearly pattern
+
+
+def test_get_avg_description_similarity(transactions):
+    # Test with similar transactions
+    coffee_tx = Transaction("coffee_new", "Coffee Shop A", 5.0, "2023-01-02")
+    score = get_avg_description_similarity(coffee_tx, transactions)
+
+    # Should find similar coffee shop transactions
+    assert score > 0.5
+
+    # Test with no similar transactions
+    unique_tx = Transaction("unique", "Very Unique Business", 10.0, "2023-01-01")
+    assert get_avg_description_similarity(unique_tx, transactions) == 0.0
+
+
+def test_get_same_category_ratio(transactions):
+    # Test with transactions that mostly have the same category
+    grocery_tx = Transaction("grocery_new", "Grocery Store", 80.0, "2023-01-25", category="groceries")
+    ratio = get_same_category_ratio(grocery_tx, transactions)
+
+    # 2 out of 3 have the same category
+    assert pytest.approx(ratio, 0.01) == 2 / 3
+
+    # Test with transaction that has no category
+    no_category_tx = Transaction("no_cat", "No Category", 10.0, "2023-01-01")
+    assert get_same_category_ratio(no_category_tx, transactions) == 0.0
+
+    # Test with unique transaction name
+    unique_tx = Transaction("unique", "Unique Store", 10.0, "2023-01-01", category="shopping")
+    assert get_same_category_ratio(unique_tx, transactions) == 0.0
+
+
+def test_get_merchant_consistency(transactions):
+    # Test with transactions that mostly have the same merchant
+    online_tx = Transaction("online_new", "Online Store", 45.0, "2023-01-24", merchant_id="merch123")
+    consistency = get_merchant_consistency(online_tx, transactions)
+
+    # 2 out of 3 have the same merchant
+    assert pytest.approx(consistency, 0.01) == 2 / 3
+
+    # Test with transaction that has no merchant_id
+    no_merchant_tx = Transaction("no_merch", "No Merchant", 10.0, "2023-01-01")
+    assert get_merchant_consistency(no_merchant_tx, transactions) == 0.0
+
+    # Test with unique transaction description
+    unique_tx = Transaction("unique", "Unique Store", 10.0, "2023-01-01", merchant_id="unique789")
+    assert get_merchant_consistency(unique_tx, transactions) == 0.0
 
 
 def test_recurring_score():
