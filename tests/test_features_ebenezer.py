@@ -12,9 +12,14 @@ from recur_scan.features_ebenezer import (
     get_avg_amount_same_day_of_week,
     get_avg_amount_same_month,
     get_avg_amount_same_name,
+    get_avg_time_between_transactions,
+    get_day_of_week,
     get_is_monthly,
+    get_is_recurring,
+    get_is_weekend,
     get_is_weekly,
     get_keyword_match,
+    get_median_amount_same_name,
     get_n_transactions_same_month,
     get_n_transactions_same_name,
     get_n_transactions_same_user_id,
@@ -174,6 +179,36 @@ def test_get_percent_transactions_within_amount_range(transactions) -> None:
     the correct percentage of transactions within a certain amount range."""
     assert pytest.approx(get_percent_transactions_within_amount_range(transactions[0], transactions, 0.1)) == 2 / 5
     assert pytest.approx(get_percent_transactions_within_amount_range(transactions[2], transactions, 0.1)) == 1 / 5
+
+
+def test_get_avg_time_between_transactions(transactions) -> None:
+    """Test that get_avg_time_between_transactions returns the correct average time between transactions."""
+    result = get_avg_time_between_transactions(transactions[0], transactions)
+    assert pytest.approx(result) == 1.0  # Assuming 1 day between transactions
+
+
+def test_get_is_recurring(transactions) -> None:
+    """Test that get_is_recurring correctly identifies recurring transactions."""
+    result = get_is_recurring(transactions[0], transactions)
+    assert result == 1  # Assuming the transaction is recurring
+
+
+def test_get_median_amount_same_name(transactions) -> None:
+    """Test that get_median_amount_same_name returns the correct median amount for transactions with the same name."""
+    result = get_median_amount_same_name(transactions[0], transactions)
+    assert pytest.approx(result) == 100  # Assuming the median is 100
+
+
+def test_get_day_of_week(transactions) -> None:
+    """Test that get_day_of_week returns the correct day of the week for a transaction."""
+    result = get_day_of_week(transactions[0])
+    assert result == 0  # Assuming the transaction occurred on a Monday
+
+
+def test_get_is_weekend(transactions) -> None:
+    """Test that get_is_weekend correctly identifies if a transaction occurred on a weekend."""
+    result = get_is_weekend(transactions[0])
+    assert result == 0  # Assuming the transaction did not occur on a weekend
 
 
 if __name__ == "__main__":

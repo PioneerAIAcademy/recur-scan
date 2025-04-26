@@ -216,7 +216,7 @@ def get_amount_range_same_name(transaction: Transaction, all_transactions: list[
 
 
 def get_day_of_week(transaction: Transaction) -> int:
-    """Get the day of the week for the transaction (0=Monday, 6=Sunday)."""
+    """Get the day of the week for a transaction (0=Monday, 6=Sunday)."""
     return datetime.strptime(transaction.date, "%Y-%m-%d").weekday()
 
 
