@@ -31,20 +31,32 @@ from recur_scan.features_praise import (
     # is_recurring_through_past_transactions,
     # compare_recent_to_historical_average,
     # detect_seasonality,
+    get_amount_drift_slope,
+    get_amount_iqr,
+    get_amount_mad,
     get_average_transaction_amount,
     get_avg_days_between_same_merchant_amount,
+    get_burstiness_ratio,
+    get_day_of_month_consistency,
     get_days_since_last_same_merchant_amount,
     get_ewma_interval_deviation,
     get_fourier_periodicity_score,
     get_hurst_exponent,
+    get_interval_consistency_ratio,
     get_interval_variance_coefficient,
+    get_interval_variance_ratio,
     get_max_transaction_amount,
+    get_median_amount,
     get_min_transaction_amount,
     get_most_frequent_names,
     get_n_transactions_same_merchant_amount,
     get_percent_transactions_same_merchant_amount,
+    get_rolling_mean_amount,
+    get_seasonality_score,
+    get_serial_autocorrelation,
     get_stddev_days_between_same_merchant_amount,
     # get_transaction_amount_trend,
+    get_weekday_concentration,
     has_consistent_reference_codes,
     has_incrementing_numbers,
     is_expected_transaction_date,
@@ -786,3 +798,134 @@ def test_apple_days_since_first_seen_amount():
     assert apple_days_since_first_seen_amount(txn, txns) == 19
     txn = create_transaction(5, "user1", "Apple", "2024-01-05", 20.0)
     assert apple_days_since_first_seen_amount(txn, txns) == -1
+
+
+def test_get_rolling_mean_amount():
+    transactions = [
+        create_transaction(1, "user1", "StoreA", "2024-01-01", 10.0),
+        create_transaction(2, "user1", "StoreA", "2024-01-02", 20.0),
+        create_transaction(3, "user1", "StoreA", "2024-01-03", 30.0),
+        create_transaction(4, "user1", "StoreA", "2024-01-04", 40.0),
+    ]
+    transaction = transactions[3]
+    assert get_rolling_mean_amount(transaction, transactions, window=3) == 30.0
+    transaction = transactions[1]
+    assert get_rolling_mean_amount(transaction, transactions, window=2) == 15.0
+
+
+def test_get_interval_variance_ratio():
+    transactions = [
+        create_transaction(1, "user1", "StoreA", "2024-01-01", 10.0),
+        create_transaction(2, "user1", "StoreA", "2024-01-08", 10.0),
+        create_transaction(3, "user1", "StoreA", "2024-01-15", 10.0),
+    ]
+    transaction = transactions[2]
+    assert get_interval_variance_ratio(transaction, transactions) == 0.0  # Intervals are all 7 days
+
+
+def test_get_day_of_month_consistency():
+    transactions = [
+        create_transaction(1, "user1", "StoreA", "2024-01-01", 10.0),
+        create_transaction(2, "user1", "StoreA", "2024-02-01", 10.0),
+        create_transaction(3, "user1", "StoreA", "2024-03-02", 10.0),
+    ]
+    transaction = transactions[2]
+    assert get_day_of_month_consistency(transaction, transactions)
+    # Inconsistent days
+    transactions[2] = create_transaction(3, "user1", "StoreA", "2024-03-10", 10.0)
+    assert not get_day_of_month_consistency(transaction, transactions)
+
+
+def test_get_seasonality_score():
+    transactions = [
+        create_transaction(1, "user1", "StoreA", "2024-01-01", 10.0),
+        create_transaction(2, "user1", "StoreA", "2024-01-08", 10.0),
+        create_transaction(3, "user1", "StoreA", "2024-01-15", 10.0),
+        create_transaction(4, "user1", "StoreA", "2024-01-22", 10.0),
+    ]
+    transaction = transactions[3]
+    assert get_seasonality_score(transaction, transactions) == 1.0  # All weekly intervals
+
+
+def test_get_amount_drift_slope():
+    transactions = [
+        create_transaction(1, "user1", "StoreA", "2024-01-01", 10.0),
+        create_transaction(2, "user1", "StoreA", "2024-01-02", 20.0),
+        create_transaction(3, "user1", "StoreA", "2024-01-03", 30.0),
+    ]
+    transaction = transactions[2]
+    slope = get_amount_drift_slope(transaction, transactions)
+    assert slope > 0.0
+
+
+def test_get_burstiness_ratio():
+    transactions = [
+        create_transaction(1, "user1", "StoreA", "2023-07-01", 10.0),
+        create_transaction(2, "user1", "StoreA", "2023-10-01", 10.0),
+        create_transaction(3, "user1", "StoreA", "2024-01-01", 10.0),
+        create_transaction(4, "user1", "StoreA", "2024-03-01", 10.0),
+    ]
+    transaction = transactions[3]
+    ratio = get_burstiness_ratio(transaction, transactions)
+    assert ratio >= 0
+
+
+def test_get_serial_autocorrelation():
+    transactions = [
+        create_transaction(1, "user1", "StoreA", "2024-01-01", 10.0),
+        create_transaction(2, "user1", "StoreA", "2024-01-08", 10.0),
+        create_transaction(3, "user1", "StoreA", "2024-01-15", 10.0),
+    ]
+    transaction = transactions[2]
+    assert get_serial_autocorrelation(transaction, transactions) == 0.0
+
+
+def test_get_weekday_concentration():
+    transactions = [
+        create_transaction(1, "user1", "StoreA", "2024-01-01", 10.0),  # Monday
+        create_transaction(2, "user1", "StoreA", "2024-01-08", 10.0),  # Monday
+        create_transaction(3, "user1", "StoreA", "2024-01-15", 10.0),  # Monday
+    ]
+    transaction = transactions[2]
+    assert get_weekday_concentration(transaction, transactions) == 1.0
+
+
+def test_get_interval_consistency_ratio():
+    transactions = [
+        create_transaction(1, "user1", "StoreA", "2024-01-01", 10.0),
+        create_transaction(2, "user1", "StoreA", "2024-01-08", 10.0),
+        create_transaction(3, "user1", "StoreA", "2024-01-15", 10.0),
+    ]
+    transaction = transactions[2]
+    assert get_interval_consistency_ratio(transaction, transactions) == 1.0
+
+
+def test_get_median_amount():
+    transactions = [
+        create_transaction(1, "user1", "StoreA", "2024-01-01", 10.0),
+        create_transaction(2, "user1", "StoreA", "2024-01-02", 20.0),
+        create_transaction(3, "user1", "StoreA", "2024-01-03", 30.0),
+    ]
+    transaction = transactions[2]
+    assert get_median_amount(transaction, transactions) == 20.0
+
+
+def test_get_amount_mad():
+    transactions = [
+        create_transaction(1, "user1", "StoreA", "2024-01-01", 10.0),
+        create_transaction(2, "user1", "StoreA", "2024-01-02", 20.0),
+        create_transaction(3, "user1", "StoreA", "2024-01-03", 30.0),
+    ]
+    transaction = transactions[2]
+    assert get_amount_mad(transaction, transactions) == 10.0
+
+
+def test_get_amount_iqr():
+    transactions = [
+        create_transaction(1, "user1", "StoreA", "2024-01-01", 10.0),
+        create_transaction(2, "user1", "StoreA", "2024-01-02", 20.0),
+        create_transaction(3, "user1", "StoreA", "2024-01-03", 30.0),
+        create_transaction(4, "user1", "StoreA", "2024-01-04", 40.0),
+    ]
+    transaction = transactions[3]
+    assert get_amount_iqr(transaction, transactions) == 15.0

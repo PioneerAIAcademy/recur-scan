@@ -978,22 +978,199 @@ def apple_days_since_first_seen_amount(transaction: Transaction, all_transaction
         return -1
 
 
+def get_rolling_mean_amount(transaction: Transaction, all_transactions: list[Transaction], window: int = 3) -> float:
+    """Calculate rolling mean of last n amounts for this user+merchant combination."""
+    same_user_merchant = sorted(
+        [t for t in all_transactions if t.user_id == transaction.user_id and t.name == transaction.name],
+        key=lambda t: datetime.strptime(t.date, "%Y-%m-%d"),
+    )
+    last_n = [t.amount for t in same_user_merchant if t.date <= transaction.date][-window:]
+    return float(np.mean(last_n)) if last_n else 0.0
+
+
+def get_interval_variance_ratio(transaction: Transaction, all_transactions: list[Transaction]) -> float:
+    """Calculate the ratio of standard deviation to mean of transaction intervals."""
+    merchant_transactions = [t for t in all_transactions if t.name == transaction.name]
+    same_amt = [t for t in merchant_transactions if t.amount == transaction.amount]
+    same_amt_sorted = sorted(same_amt, key=lambda t: t.date)
+
+    intervals = []
+    for t1, t2 in pairwise(same_amt_sorted):
+        d1 = datetime.strptime(t1.date, "%Y-%m-%d").date()
+        d2 = datetime.strptime(t2.date, "%Y-%m-%d").date()
+        intervals.append((d2 - d1).days)
+
+    if not intervals:
+        return 0.0
+
+    avg_interval = statistics.mean(intervals)
+    std_interval = statistics.stdev(intervals) if len(intervals) > 1 else 0.0
+    return std_interval / avg_interval if avg_interval else 0.0
+
+
+def get_day_of_month_consistency(transaction: Transaction, all_transactions: list[Transaction]) -> bool:
+    """Check if same-amount transactions consistently occur around the same day of month."""
+    merchant_transactions = [t for t in all_transactions if t.name == transaction.name]
+    same_amt = [t for t in merchant_transactions if t.amount == transaction.amount]
+    same_amt_sorted = sorted(same_amt, key=lambda t: t.date)
+    doms = [datetime.strptime(t.date, "%Y-%m-%d").day for t in same_amt_sorted]
+    if not doms:
+        return False
+
+    try:
+        mode_dom = statistics.mode(doms)
+    except statistics.StatisticsError:
+        mode_dom = doms[0]
+    return all(abs(d - mode_dom) <= 1 for d in doms)
+
+
+def get_seasonality_score(transaction: Transaction, all_transactions: list[Transaction]) -> float:
+    """Calculate seasonality score based on weekly/monthly interval patterns."""
+    merchant_transactions = [t for t in all_transactions if t.name == transaction.name]
+    same_amt = [t for t in merchant_transactions if t.amount == transaction.amount]
+    same_amt_sorted = sorted(same_amt, key=lambda t: t.date)
+
+    intervals = []
+    for t1, t2 in pairwise(same_amt_sorted):
+        d1 = datetime.strptime(t1.date, "%Y-%m-%d").date()
+        d2 = datetime.strptime(t2.date, "%Y-%m-%d").date()
+        intervals.append((d2 - d1).days)
+
+    if not intervals:
+        return 0.0
+
+    weekly_count = sum(6 <= iv <= 8 for iv in intervals)
+    monthly_count = sum(28 <= iv <= 32 for iv in intervals)
+    return max(weekly_count, monthly_count) / len(intervals)
+
+
+def get_amount_drift_slope(transaction: Transaction, all_transactions: list[Transaction]) -> float:
+    merchant_transactions = [t for t in all_transactions if t.name == transaction.name]
+    same_amt_sorted = sorted(merchant_transactions, key=lambda t: t.date)
+    if len(same_amt_sorted) <= 1:
+        return 0.0
+    dates_ord = [datetime.strptime(t.date, "%Y-%m-%d").toordinal() for t in same_amt_sorted]
+    amounts = [t.amount for t in same_amt_sorted]
+    return float(np.polyfit(dates_ord, amounts, 1)[0])
+
+
+def get_burstiness_ratio(transaction: Transaction, all_transactions: list[Transaction]) -> float:
+    """Calculate ratio of recent transactions (last 3 months) to previous 3 months."""
+    trans_date = datetime.strptime(transaction.date, "%Y-%m-%d").date()
+    three_m_ago = trans_date - timedelta(days=90)
+
+    merchant_transactions = [t for t in all_transactions if t.name == transaction.name]
+    same_amt = [t for t in merchant_transactions if t.amount == transaction.amount]
+    same_amt_sorted = sorted(same_amt, key=lambda t: t.date)
+
+    last_3m = sum(
+        1 for t in same_amt_sorted if three_m_ago <= datetime.strptime(t.date, "%Y-%m-%d").date() <= trans_date
+    )
+    prior_3m = sum(
+        1
+        for t in same_amt_sorted
+        if (three_m_ago - timedelta(days=90)) <= datetime.strptime(t.date, "%Y-%m-%d").date() < three_m_ago
+    )
+
+    return (last_3m / prior_3m) if prior_3m else float(last_3m)
+
+
+def get_serial_autocorrelation(transaction: Transaction, all_transactions: list[Transaction]) -> float:
+    """Calculate first-order autocorrelation of transaction intervals."""
+    merchant_transactions = [t for t in all_transactions if t.name == transaction.name]
+    same_amt = [t for t in merchant_transactions if t.amount == transaction.amount]
+    same_amt_sorted = sorted(same_amt, key=lambda t: t.date)
+
+    intervals = []
+    for t1, t2 in pairwise(same_amt_sorted):
+        d1 = datetime.strptime(t1.date, "%Y-%m-%d").date()
+        d2 = datetime.strptime(t2.date, "%Y-%m-%d").date()
+        intervals.append((d2 - d1).days)
+
+    if len(intervals) <= 1:
+        return 0.0
+
+    mean_iv = statistics.mean(intervals)
+    num = sum((intervals[i] - mean_iv) * (intervals[i - 1] - mean_iv) for i in range(1, len(intervals)))
+    den = sum((iv - mean_iv) ** 2 for iv in intervals)
+    return num / den if den else 0.0
+
+
+def get_weekday_concentration(transaction: Transaction, all_transactions: list[Transaction]) -> float:
+    """Calculate concentration of transactions on most common weekday."""
+    merchant_transactions = [t for t in all_transactions if t.name == transaction.name]
+    same_amt = [t for t in merchant_transactions if t.amount == transaction.amount]
+    same_amt_sorted = sorted(same_amt, key=lambda t: t.date)
+
+    weekdays = [datetime.strptime(t.date, "%Y-%m-%d").weekday() for t in same_amt_sorted]
+    if not weekdays:
+        return 0.0
+
+    top_count = max(Counter(weekdays).values())
+    return top_count / len(weekdays)
+
+
+def get_interval_consistency_ratio(transaction: Transaction, all_transactions: list[Transaction]) -> float:
+    """Calculate ratio of intervals within 10% of median interval."""
+    merchant_transactions = [t for t in all_transactions if t.name == transaction.name]
+    same_amt = [t for t in merchant_transactions if t.amount == transaction.amount]
+    same_amt_sorted = sorted(same_amt, key=lambda t: t.date)
+
+    intervals = []
+    for t1, t2 in pairwise(same_amt_sorted):
+        d1 = datetime.strptime(t1.date, "%Y-%m-%d").date()
+        d2 = datetime.strptime(t2.date, "%Y-%m-%d").date()
+        intervals.append((d2 - d1).days)
+
+    if not intervals:
+        return 0.0
+
+    median_interval = statistics.median(intervals)
+    within = sum(abs(iv - median_interval) <= 0.1 * median_interval for iv in intervals)
+    return within / len(intervals)
+
+
+def get_median_amount(transaction: Transaction, all_transactions: list[Transaction]) -> float:
+    """Return median amount for this merchant's transactions."""
+    merchant_transactions = [t for t in all_transactions if t.name == transaction.name]
+    amounts = [t.amount for t in merchant_transactions]
+    return float(statistics.median(amounts)) if amounts else 0.0
+
+
+def get_amount_mad(transaction: Transaction, all_transactions: list[Transaction]) -> float:
+    """Return Median Absolute Deviation (MAD) of amounts for this merchant."""
+    merchant_transactions = [t for t in all_transactions if t.name == transaction.name]
+    amounts = [t.amount for t in merchant_transactions]
+    if not amounts:
+        return 0.0
+    med_amt = statistics.median(amounts)
+    return float(statistics.median([abs(a - med_amt) for a in amounts]))
+
+
+def get_amount_iqr(transaction: Transaction, all_transactions: list[Transaction]) -> float:
+    """Return Interquartile Range (IQR) of amounts for this merchant."""
+    merchant_transactions = [t for t in all_transactions if t.name == transaction.name]
+    amounts = [t.amount for t in merchant_transactions]
+    if not amounts:
+        return 0.0
+    amt_q1, amt_q3 = np.percentile(amounts, [25, 75])
+    return float(amt_q3 - amt_q1)
+
+
 def get_new_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, int | bool | float]:
     """Get the new features for the transaction."""
     return {
         "markovian_probability_praise": calculate_markovian_probability(transaction, all_transactions),
         "streaks_praise": calculate_streaks(transaction, all_transactions),
-        #        "ewma_interval_deviation_praise": get_ewma_interval_deviation(transaction, all_transactions),
-        #        "hurst_exponent_praise": get_hurst_exponent(transaction, all_transactions),
+        "ewma_interval_deviation_praise": get_ewma_interval_deviation(transaction, all_transactions),
+        "hurst_exponent_praise": get_hurst_exponent(transaction, all_transactions),
         "fourier_periodicity_score_praise": get_fourier_periodicity_score(transaction, all_transactions),
         "is_recurring_through_past_transactions_praise": is_recurring_through_past_transactions(
             transaction, all_transactions
         ),
         "get_amount_zscore_praise": get_amount_zscore(transaction, all_transactions),
         "is_amount_outlier_praise": is_amount_outlier(transaction, all_transactions),
-        #       "get_stddev_amount_same_merchant_praise": get_stddev_amount_same_merchant(
-        #           transaction, all_transactions
-        #       ),
+        "get_stddev_amount_same_merchant_praise": get_stddev_amount_same_merchant(transaction, all_transactions),
         "get_avg_days_between_same_merchant_praise": get_avg_days_between_same_merchant(transaction, all_transactions),
         "is_weekend_transaction_praise": is_weekend_transaction(transaction),
         "is_end_of_month_transaction_praise": is_end_of_month_transaction(transaction),
@@ -1002,15 +1179,15 @@ def get_new_features(transaction: Transaction, all_transactions: list[Transactio
             transaction, all_transactions
         ),
         "get_unique_merchants_count_praise": get_unique_merchants_count(transaction, all_transactions),
-        #    "get_amount_quantile_praise": get_amount_quantile(transaction, all_transactions),
+        "get_amount_quantile_praise": get_amount_quantile(transaction, all_transactions),
         "is_consistent_weekday_pattern_praise": is_consistent_weekday_pattern(transaction, all_transactions),
         "get_recurrence_score_by_amount_praise": get_recurrence_score_by_amount(transaction, all_transactions),
-        #    "compare_recent_to_historical_average_praise": compare_recent_to_historical_average(
-        #        transaction, all_transactions
-        #    ),
-        #    "get_days_since_last_transaction_praise": get_days_since_last_transaction(transaction, all_transactions),
+        "compare_recent_to_historical_average_praise": compare_recent_to_historical_average(
+            transaction, all_transactions
+        ),
+        "get_days_since_last_transaction_praise": get_days_since_last_transaction(transaction, all_transactions),
         "get_normalized_recency_praise": get_normalized_recency(transaction, all_transactions),
-        #    "get_transaction_recency_score_praise": get_transaction_recency_score(transaction, all_transactions),
+        "get_transaction_recency_score_praise": get_transaction_recency_score(transaction, all_transactions),
         "get_n_transactions_last_30_days_praise": get_n_transactions_last_30_days(transaction, all_transactions),
         "afterpay_has_3_similar_in_6_weeks_praise": afterpay_has_3_similar_in_6_weeks(transaction, all_transactions),
         "afterpay_is_first_of_series_praise": afterpay_is_first_of_series(transaction, all_transactions),
@@ -1031,7 +1208,19 @@ def get_new_features(transaction: Transaction, all_transactions: list[Transactio
         "apple_std_dev_amounts_praise": apple_std_dev_amounts(transaction, all_transactions),
         "apple_is_low_value_txn_praise": apple_is_low_value_txn(transaction),
         "apple_days_since_first_seen_amount_praise": apple_days_since_first_seen_amount(transaction, all_transactions),
-        #    "get_ratio_transactions_last_30_days_praise": get_ratio_transactions_last_30_days(
-        # transaction, all_transactions
-        # ),
+        "get_rolling_mean_amount_praise": get_rolling_mean_amount(transaction, all_transactions),
+        "get_interval_variance_ratio_praise": get_interval_variance_ratio(transaction, all_transactions),
+        "get_day_of_month_consistency_praise": get_day_of_month_consistency(transaction, all_transactions),
+        "get_seasonality_score_praise": get_seasonality_score(transaction, all_transactions),
+        "get_amount_drift_slope_praise": get_amount_drift_slope(transaction, all_transactions),
+        "get_burstiness_ratio_praise": get_burstiness_ratio(transaction, all_transactions),
+        "get_serial_autocorrelation_praise": get_serial_autocorrelation(transaction, all_transactions),
+        "get_weekday_concentration_praise": get_weekday_concentration(transaction, all_transactions),
+        "get_interval_consistency_ratio_praise": get_interval_consistency_ratio(transaction, all_transactions),
+        "get_median_amount_praise": get_median_amount(transaction, all_transactions),
+        "get_amount_mad_praise": get_amount_mad(transaction, all_transactions),
+        "get_amount_iqr_praise": get_amount_iqr(transaction, all_transactions),
+        "get_ratio_transactions_last_30_days_praise": get_ratio_transactions_last_30_days(
+            transaction, all_transactions
+        ),
     }
