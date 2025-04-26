@@ -103,9 +103,8 @@ def get_recurrence_patterns(transaction: Transaction, transactions: list[Transac
     merchant_txns = [t for t in transactions if t.name == transaction.name]
 
     if len(merchant_txns) < 2:
-        return {
-            key: 0
-            for key in [
+        return dict.fromkeys(
+            [
                 "is_biweekly",
                 "is_semimonthly",
                 "is_monthly",
@@ -115,8 +114,9 @@ def get_recurrence_patterns(transaction: Transaction, transactions: list[Transac
                 "avg_days_between",
                 "std_days_between",
                 "recurrence_score",
-            ]
-        }
+            ],
+            0,
+        )
 
     dates = sorted(datetime.strptime(t.date, "%Y-%m-%d") for t in merchant_txns)
     date_diffs = [(dates[i + 1] - dates[i]).days for i in range(len(dates) - 1)]
