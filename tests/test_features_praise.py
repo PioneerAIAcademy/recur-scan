@@ -12,11 +12,23 @@ from recur_scan.features_original import (
     get_percent_transactions_same_amount,
 )
 from recur_scan.features_praise import (
+    afterpay_future_same_amount_exists,
+    afterpay_has_3_similar_in_6_weeks,
+    afterpay_is_first_of_series,
+    afterpay_likely_payment,
+    afterpay_prev_same_amount_count,
+    afterpay_recurrence_score,
     amount_ends_in_00,
     amount_ends_in_99,
+    apple_amount_close_to_median,
+    apple_days_since_first_seen_amount,
+    apple_is_low_value_txn,
+    apple_std_dev_amounts,
+    apple_total_same_amount_past_6m,
     # calculate_amount_to_income_ratio,
     calculate_markovian_probability,
     calculate_streaks,
+    # is_recurring_through_past_transactions,
     # compare_recent_to_historical_average,
     # detect_seasonality,
     get_average_transaction_amount,
@@ -36,9 +48,14 @@ from recur_scan.features_praise import (
     has_consistent_reference_codes,
     has_incrementing_numbers,
     is_expected_transaction_date,
+    is_moneylion_common_amount,
     is_recurring,
     is_recurring_merchant,
-    # is_recurring_through_past_transactions,
+    moneylion_days_since_last_same_amount,
+    moneylion_is_biweekly,
+    moneylion_recurrence_score,
+    moneylion_same_amount_count_90d,
+    moneylion_weekday_pattern,
 )
 from recur_scan.transactions import Transaction
 
@@ -362,154 +379,6 @@ def test_has_consistent_reference_codes() -> None:
     assert has_consistent_reference_codes(transaction, transactions)
 
 
-# def test_is_recurring_through_past_transactions() -> None:
-#     """Test if is_recurring_through_past_transactions identifies recurring transactions."""
-#     transactions = [
-#         create_transaction(1, "user1", "Netflix", "2024-01-01", 15.99),  # Monday
-#         create_transaction(2, "user1", "Netflix", "2024-01-08", 15.99),  # Monday
-#         create_transaction(3, "user1", "Netflix", "2024-01-15", 15.99),  # Monday
-#         create_transaction(4, "user1", "Netflix", "2024-01-22", 15.99),  # Monday
-#     ]
-#     transaction = transactions[0]
-#     assert is_recurring_through_past_transactions(transaction, transactions), (
-#         "Should detect recurring transactions on the same day of the week"
-#     )
-
-#     # Test non-recurring case
-#     transactions = [
-#         create_transaction(1, "user1", "Netflix", "2024-01-01", 15.99),  # Monday
-#         create_transaction(2, "user1", "Netflix", "2024-01-09", 15.99),  # Tuesday
-#         create_transaction(3, "user1", "Netflix", "2024-01-15", 15.99),  # Monday
-#     ]
-#     transaction = transactions[0]
-#     assert not is_recurring_through_past_transactions(transaction, transactions), (
-#         "Should not detect recurring transactions with inconsistent days of the week"
-#     )
-
-
-# def test_get_transaction_amount_trend() -> None:
-#     """Test get_transaction_amount_trend calculates the correct trend (slope)."""
-#     transactions = [
-#         create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
-#         create_transaction(2, "user1", "VendorA", "2024-01-08", 200.0),
-#         create_transaction(3, "user1", "VendorA", "2024-01-15", 300.0),
-#     ]
-#     transaction = transactions[0]
-#     assert get_transaction_amount_trend(transaction, transactions) > 0, (
-#         "Trend should be positive for increasing amounts"
-#     )
-
-#     # Test flat trend
-#     transactions = [
-#         create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
-#         create_transaction(2, "user1", "VendorA", "2024-01-08", 100.0),
-#         create_transaction(3, "user1", "VendorA", "2024-01-15", 100.0),
-#     ]
-#     transaction = transactions[0]
-#     assert get_transaction_amount_trend(transaction, transactions) == 0.0, "Trend should be zero for flat amounts"
-
-#     # Test insufficient data
-#     transactions = [
-#         create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
-#     ]
-#     transaction = transactions[0]
-#     assert get_transaction_amount_trend(transaction, transactions) == 0.0, (
-#         "Trend should be zero for insufficient data"
-#     )
-
-
-# def test_compare_recent_to_historical_average() -> None:
-#     """Test compare_recent_to_historical_average calculates the correct ratio."""
-#     transactions = [
-#         create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
-#         create_transaction(2, "user1", "VendorA", "2024-01-08", 200.0),
-#         create_transaction(3, "user1", "VendorA", "2024-01-15", 300.0),
-#     ]
-#     transaction = create_transaction(4, "user1", "VendorA", "2024-01-22", 400.0)
-#     assert compare_recent_to_historical_average(transaction, transactions) == 2.0, (
-#         "Ratio should be 2.0 when the recent amount is double the historical average"
-#     )
-
-#     # Test when no historical data is available
-#     transactions = []
-#     transaction = create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0)
-#     assert compare_recent_to_historical_average(transaction, transactions) == 0.0, (
-#         "Ratio should be 0.0 when no historical data is available"
-#     )
-
-#     # Test when historical average is zero
-#     transactions = [
-#         create_transaction(1, "user1", "VendorA", "2024-01-01", 0.0),
-#         create_transaction(2, "user1", "VendorA", "2024-01-08", 0.0),
-#     ]
-#     transaction = create_transaction(3, "user1", "VendorA", "2024-01-15", 100.0)
-#     assert compare_recent_to_historical_average(transaction, transactions) == 0.0, (
-#         "Ratio should be 0.0 when historical average is zero"
-#     )
-
-
-# def test_calculate_amount_to_income_ratio() -> None:
-#     """Test calculate_amount_to_income_ratio calculates the correct ratio."""
-#     transaction = create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0)
-
-#     # Test with valid monthly income
-#     assert calculate_amount_to_income_ratio(transaction, 1000.0) == 0.1, (
-#         "Ratio should be 0.1 when transaction amount is 10% of monthly income"
-#     )
-
-#     # Test with zero monthly income
-#     assert calculate_amount_to_income_ratio(transaction, 0.0) == 0.0, (
-#         "Ratio should be 0.0 when monthly income is zero"
-#     )
-
-#     # Test with negative monthly income
-#     assert calculate_amount_to_income_ratio(transaction, -1000.0) == 0.0, (
-#         "Ratio should be 0.0 when monthly income is negative"
-#     )
-
-
-# def test_detect_seasonality() -> None:
-#     """Test detect_seasonality identifies annual or quarterly patterns."""
-#     # Test annual pattern
-#     transactions = [
-#         create_transaction(1, "user1", "VendorA", "2023-01-01", 100.0),
-#         create_transaction(2, "user1", "VendorA", "2024-01-01", 100.0),
-#     ]
-#     transaction = transactions[0]
-#     assert detect_seasonality(transaction, transactions), (
-#         "Should detect annual seasonality for transactions 365 days apart"
-#     )
-
-#     # Test quarterly pattern
-#     transactions = [
-#         create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
-#         create_transaction(2, "user1", "VendorA", "2024-04-01", 100.0),
-#     ]
-#     transaction = transactions[0]
-#     assert detect_seasonality(transaction, transactions), (
-#         "Should detect quarterly seasonality for transactions 90 days apart"
-#     )
-
-#     # Test no seasonality
-#     transactions = [
-#         create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
-#         create_transaction(2, "user1", "VendorA", "2024-02-01", 100.0),
-#     ]
-#     transaction = transactions[0]
-#     assert not detect_seasonality(transaction, transactions), (
-#         "Should not detect seasonality for transactions with irregular intervals"
-#     )
-
-#     # Test insufficient data
-#     transactions = [
-#         create_transaction(1, "user1", "VendorA", "2024-01-01", 100.0),
-#     ]
-#     transaction = transactions[0]
-#     assert not detect_seasonality(transaction, transactions), (
-#         "Should not detect seasonality with less than two transactions"
-#     )
-
-
 def test_calculate_markovian_probability() -> None:
     """Test calculate_markovian_probability calculates the correct probability."""
     # Test with a matching pattern
@@ -665,3 +534,255 @@ def test_get_fourier_periodicity_score():
     assert get_fourier_periodicity_score(transaction, transactions) == 0.0, (
         "Periodicity score should be 0.0 when there is insufficient data"
     )
+
+
+def test_afterpay_has_3_similar_in_6_weeks() -> None:
+    """Test detection of 3 similar Afterpay transactions in 6 weeks."""
+    transactions = [
+        create_transaction(1, "user1", "Afterpay", "2024-01-01", 50.0),
+        create_transaction(2, "user1", "Afterpay", "2024-01-15", 50.0),
+        create_transaction(3, "user1", "Afterpay", "2024-02-10", 50.0),  # 40 days from first
+    ]
+    transaction = transactions[0]
+    assert afterpay_has_3_similar_in_6_weeks(transaction, transactions)
+    # Negative case: spread out more than 6 weeks
+    transactions = [
+        create_transaction(1, "user1", "Afterpay", "2024-01-01", 50.0),
+        create_transaction(2, "user1", "Afterpay", "2024-02-20", 50.0),
+        create_transaction(3, "user1", "Afterpay", "2024-04-01", 50.0),
+    ]
+    assert not afterpay_has_3_similar_in_6_weeks(transaction, transactions)
+
+
+def test_afterpay_is_first_of_series() -> None:
+    """Test detection of first Afterpay transaction in a biweekly series."""
+    transactions = [
+        create_transaction(1, "user1", "Afterpay", "2024-01-01", 20.0),
+        create_transaction(2, "user1", "Afterpay", "2024-01-14", 20.0),
+        create_transaction(3, "user1", "Afterpay", "2024-01-28", 20.0),
+    ]
+    transaction = transactions[0]
+    assert afterpay_is_first_of_series(transaction, transactions)
+    # Negative case: not the first or not enough regular gaps
+    transaction = transactions[1]
+    assert not afterpay_is_first_of_series(transaction, transactions)
+    transactions = [
+        create_transaction(1, "user1", "Afterpay", "2024-01-01", 20.0),
+        create_transaction(2, "user1", "Afterpay", "2024-01-10", 20.0),
+        create_transaction(3, "user1", "Afterpay", "2024-01-28", 20.0),
+    ]
+    assert not afterpay_is_first_of_series(transactions[0], transactions)
+
+
+def test_afterpay_likely_payment() -> None:
+    """Test detection of likely Afterpay payment pattern."""
+    transactions = [
+        create_transaction(1, "user1", "Afterpay", "2024-01-01", 25.0),
+        create_transaction(2, "user1", "Afterpay", "2024-01-15", 25.0),  # 14 days after
+        create_transaction(3, "user1", "Afterpay", "2024-01-29", 25.0),  # 28 days after
+    ]
+    transaction = transactions[2]
+    assert afterpay_likely_payment(transaction, transactions)
+    # Negative case: not enough matches
+    transactions = [
+        create_transaction(1, "user1", "Afterpay", "2024-01-01", 25.0),
+        create_transaction(2, "user1", "Afterpay", "2024-01-20", 25.0),
+    ]
+    assert not afterpay_likely_payment(transactions[1], transactions)
+
+
+def test_afterpay_prev_same_amount_count() -> None:
+    """Test counting previous Afterpay transactions with the same amount."""
+    transactions = [
+        create_transaction(1, "user1", "Afterpay", "2024-01-01", 10.0),
+        create_transaction(2, "user1", "Afterpay", "2024-01-05", 10.0),
+        create_transaction(3, "user1", "Afterpay", "2024-01-10", 10.0),
+    ]
+    transaction = transactions[2]
+    assert afterpay_prev_same_amount_count(transaction, transactions) == 2
+    transaction = transactions[0]
+    assert afterpay_prev_same_amount_count(transaction, transactions) == 0
+
+
+def test_afterpay_future_same_amount_exists() -> None:
+    """Test detection of future Afterpay transactions with the same amount."""
+    transactions = [
+        create_transaction(1, "user1", "Afterpay", "2024-01-01", 5.0),
+        create_transaction(2, "user1", "Afterpay", "2024-01-10", 5.0),
+    ]
+    transaction = transactions[0]
+    assert afterpay_future_same_amount_exists(transaction, transactions)
+    transaction = transactions[1]
+    assert not afterpay_future_same_amount_exists(transaction, transactions)
+
+
+def test_afterpay_recurrence_score() -> None:
+    """Test Afterpay recurrence score calculation."""
+    transactions = [
+        create_transaction(1, "user1", "Afterpay", "2024-01-01", 25.0),
+        create_transaction(2, "user1", "Afterpay", "2024-01-15", 25.0),
+        create_transaction(3, "user1", "Afterpay", "2024-01-29", 25.0),
+        create_transaction(4, "user1", "Afterpay", "2024-02-12", 25.0),
+    ]
+    transaction = transactions[0]
+    score = afterpay_recurrence_score(transaction, transactions)
+    assert 0.2 <= score <= 1.0
+    # Negative case: not an Afterpay transaction
+    transaction = create_transaction(5, "user1", "Other", "2024-02-19", 25.0)
+    assert afterpay_recurrence_score(transaction, transactions) == 0.0
+
+
+def test_is_moneylion_common_amount() -> None:
+    """Test if transaction amount is among user's top 3 MoneyLion amounts."""
+    transactions = [
+        create_transaction(1, "user1", "MoneyLion", "2024-01-01", 50.0),
+        create_transaction(2, "user1", "MoneyLion", "2024-01-02", 50.0),
+        create_transaction(3, "user1", "MoneyLion", "2024-01-03", 75.0),
+        create_transaction(4, "user1", "MoneyLion", "2024-01-04", 100.0),
+        create_transaction(5, "user1", "MoneyLion", "2024-01-05", 100.0),
+    ]
+    transaction = transactions[0]
+    assert is_moneylion_common_amount(transaction, transactions)
+    transaction = create_transaction(6, "user1", "MoneyLion", "2024-01-06", 200.0)
+    assert not is_moneylion_common_amount(transaction, transactions[:3])  # Less than 3 relevant
+
+
+def test_moneylion_days_since_last_same_amount() -> None:
+    """Test days since last MoneyLion transaction with same amount."""
+    transactions = [
+        create_transaction(1, "user1", "MoneyLion", "2024-01-01", 50.0),
+        create_transaction(2, "user1", "MoneyLion", "2024-01-10", 50.0),
+        create_transaction(3, "user1", "MoneyLion", "2024-01-20", 50.0),
+    ]
+    transaction = transactions[2]
+    assert moneylion_days_since_last_same_amount(transaction, transactions) == 10
+    transaction = create_transaction(4, "user1", "MoneyLion", "2024-01-05", 75.0)
+    assert moneylion_days_since_last_same_amount(transaction, transactions) == -1
+
+
+def test_moneylion_is_biweekly() -> None:
+    """Test detection of biweekly MoneyLion payment pattern."""
+    transactions = [
+        create_transaction(1, "user1", "MoneyLion", "2024-01-01", 50.0),
+        create_transaction(2, "user1", "MoneyLion", "2024-01-15", 50.0),
+        create_transaction(3, "user1", "MoneyLion", "2024-01-29", 50.0),
+        create_transaction(4, "user1", "MoneyLion", "2024-02-12", 50.0),
+    ]
+    transaction = transactions[3]
+    assert moneylion_is_biweekly(transaction, transactions)
+    # Negative case: not enough biweekly intervals
+    transactions = [
+        create_transaction(1, "user1", "MoneyLion", "2024-01-01", 50.0),
+        create_transaction(2, "user1", "MoneyLion", "2024-01-20", 50.0),
+        create_transaction(3, "user1", "MoneyLion", "2024-02-10", 50.0),
+    ]
+    transaction = transactions[2]
+    assert not moneylion_is_biweekly(transaction, transactions)
+
+
+def test_moneylion_same_amount_count_90d() -> None:
+    """Test counting same-amount MoneyLion payments in past 90 days."""
+    transactions = [
+        create_transaction(1, "user1", "MoneyLion", "2024-01-01", 50.0),
+        create_transaction(2, "user1", "MoneyLion", "2024-02-01", 50.0),
+        create_transaction(3, "user1", "MoneyLion", "2024-03-01", 50.0),
+        create_transaction(4, "user1", "MoneyLion", "2023-10-01", 50.0),  # Outside 90 days
+    ]
+    transaction = transactions[2]
+    assert moneylion_same_amount_count_90d(transaction, transactions) == 2
+
+
+def test_moneylion_weekday_pattern() -> None:
+    """Test detection of consistent weekday pattern for MoneyLion."""
+    transactions = [
+        create_transaction(1, "user1", "MoneyLion", "2024-01-01", 50.0),  # Tuesday
+        create_transaction(2, "user1", "MoneyLion", "2024-01-08", 50.0),  # Tuesday
+        create_transaction(3, "user1", "MoneyLion", "2024-01-15", 50.0),  # Tuesday
+        create_transaction(4, "user1", "MoneyLion", "2024-01-22", 50.0),  # Tuesday
+    ]
+    transaction = transactions[3]
+    assert moneylion_weekday_pattern(transaction, transactions)
+    # Negative case: not enough or inconsistent weekdays
+    transactions = [
+        create_transaction(1, "user1", "MoneyLion", "2024-01-01", 50.0),  # Tuesday
+        create_transaction(2, "user1", "MoneyLion", "2024-01-09", 50.0),  # Wednesday
+        create_transaction(3, "user1", "MoneyLion", "2024-01-15", 50.0),  # Tuesday
+    ]
+    transaction = transactions[2]
+    assert not moneylion_weekday_pattern(transaction, transactions)
+
+
+def test_moneylion_recurrence_score() -> None:
+    """Test MoneyLion recurrence score calculation."""
+    transactions = [
+        create_transaction(1, "user1", "MoneyLion", "2024-01-02", 50.0),  # Tuesday
+        create_transaction(2, "user1", "MoneyLion", "2024-01-09", 50.0),  # Tuesday
+        create_transaction(3, "user1", "MoneyLion", "2024-01-16", 50.0),  # Tuesday
+        create_transaction(4, "user1", "MoneyLion", "2024-01-23", 50.0),  # Tuesday
+        create_transaction(5, "user1", "MoneyLion", "2024-01-30", 50.0),  # Tuesday
+    ]
+    transaction = transactions[4]
+    score = moneylion_recurrence_score(transaction, transactions)
+    assert 0.5 <= score <= 1.0
+    # Negative case: not enough transactions
+    transactions = [
+        create_transaction(1, "user1", "MoneyLion", "2024-01-02", 50.0),
+        create_transaction(2, "user1", "MoneyLion", "2024-01-09", 50.0),
+    ]
+    transaction = transactions[1]
+    assert moneylion_recurrence_score(transaction, transactions) == 0.0
+
+
+def test_apple_amount_close_to_median():
+    txns = [
+        create_transaction(1, "user1", "Apple", "2024-01-01", 10.0),
+        create_transaction(2, "user1", "Apple", "2024-01-02", 12.0),
+        create_transaction(3, "user1", "Apple", "2024-01-03", 11.0),
+        create_transaction(4, "user1", "Apple", "2024-01-04", 20.0),
+    ]
+    txn = create_transaction(5, "user1", "Apple", "2024-01-05", 11.0)
+    assert apple_amount_close_to_median(txn, txns)
+    txn = create_transaction(6, "user1", "Apple", "2024-01-06", 25.0)
+    assert not apple_amount_close_to_median(txn, txns[:2])  # less than 3 relevant
+
+
+def test_apple_total_same_amount_past_6m():
+    txns = [
+        create_transaction(1, "user1", "Apple", "2023-07-01", 10.0),
+        create_transaction(2, "user1", "Apple", "2023-12-01", 10.0),
+        create_transaction(3, "user1", "Apple", "2024-01-01", 10.0),
+    ]
+    txn = create_transaction(4, "user1", "Apple", "2024-01-02", 10.0)
+    assert apple_total_same_amount_past_6m(txn, txns) == 2
+
+
+def test_apple_std_dev_amounts():
+    txns = [
+        create_transaction(1, "user1", "Apple", "2024-01-01", 10.0),
+        create_transaction(2, "user1", "Apple", "2024-01-02", 12.0),
+        create_transaction(3, "user1", "Apple", "2024-01-03", 11.0),
+        create_transaction(4, "user1", "Apple", "2024-01-04", 20.0),
+    ]
+    txn = create_transaction(5, "user1", "Apple", "2024-01-05", 11.0)
+    assert apple_std_dev_amounts(txn, txns) > 0
+    txn = create_transaction(6, "user1", "Apple", "2024-01-02", 12.0)
+    assert apple_std_dev_amounts(txn, txns[:2]) == -1.0
+
+
+def test_apple_is_low_value_txn():
+    txn = create_transaction(1, "user1", "Apple", "2024-01-01", 10.0)
+    assert apple_is_low_value_txn(txn)
+    txn = create_transaction(2, "user1", "Apple", "2024-01-02", 25.0)
+    assert not apple_is_low_value_txn(txn)
+
+
+def test_apple_days_since_first_seen_amount():
+    txns = [
+        create_transaction(1, "user1", "Apple", "2024-01-01", 10.0),
+        create_transaction(2, "user1", "Apple", "2024-01-10", 10.0),
+        create_transaction(3, "user1", "Apple", "2024-01-20", 10.0),
+    ]
+    txn = create_transaction(4, "user1", "Apple", "2024-01-20", 10.0)
+    assert apple_days_since_first_seen_amount(txn, txns) == 19
+    txn = create_transaction(5, "user1", "Apple", "2024-01-05", 20.0)
+    assert apple_days_since_first_seen_amount(txn, txns) == -1

@@ -635,13 +635,15 @@ def get_n_transactions_last_30_days(
 ) -> int:
     """Count how many transactions this user made in the `window_days` before this transaction (excluding it)."""
     user_id = transaction.user_id
-    cur_date = datetime.strptime(transaction.date, "%Y-%m-%d").date()
-    window_start = cur_date - timedelta(days=window_days)
+    window_start = datetime.strptime(transaction.date, "%Y-%m-%d").date() - timedelta(days=window_days)
 
     return sum(
         1
         for t in all_transactions
-        if t.user_id == user_id and window_start <= datetime.strptime(t.date, "%Y-%m-%d").date() < cur_date
+        if t.user_id == user_id
+        and window_start
+        <= datetime.strptime(t.date, "%Y-%m-%d").date()
+        < datetime.strptime(transaction.date, "%Y-%m-%d").date()
     )
 
 
@@ -658,6 +660,322 @@ def get_ratio_transactions_last_30_days(
 
     count_last_30 = get_n_transactions_last_30_days(transaction, user_transactions, window_days)
     return count_last_30 / total
+
+
+def afterpay_has_3_similar_in_6_weeks(transaction: Transaction, all_transactions: list[Transaction]) -> bool:
+    """
+    Returns True if there are at least 3 Afterpay transactions with the same amount within a 6-week span.
+    """
+    same_amount_txns = [
+        t
+        for t in all_transactions
+        if t.user_id == transaction.user_id
+        and "afterpay" in t.name.lower()
+        and abs(t.amount - transaction.amount) < 0.01
+    ]
+    dates = sorted(datetime.strptime(t.date, "%Y-%m-%d").date() for t in same_amount_txns)
+    return any((dates[i + 2] - dates[i]).days <= 42 for i in range(len(dates) - 2))
+
+
+def afterpay_is_first_of_series(transaction: Transaction, all_transactions: list[Transaction]) -> bool:
+    """
+    Returns True if the transaction is the first in a sequence of recurring Afterpay transactions every ~2 weeks.
+    """
+    same_amount_txns = [
+        t
+        for t in all_transactions
+        if t.user_id == transaction.user_id
+        and "afterpay" in t.name.lower()
+        and abs(t.amount - transaction.amount) < 0.01
+    ]
+    if len(same_amount_txns) < 3:
+        return False
+    dates = sorted(datetime.strptime(t.date, "%Y-%m-%d").date() for t in same_amount_txns)
+    if datetime.strptime(transaction.date, "%Y-%m-%d").date() != dates[0]:
+        return False
+    gaps = [(dates[i + 1] - dates[i]).days for i in range(len(dates) - 1)]
+    return any(12 <= g <= 16 for g in gaps)
+
+
+def afterpay_likely_payment(transaction: Transaction, all_transactions: list[Transaction]) -> bool:
+    """
+    Returns True if there are two or more Afterpay transactions 14 or 28 days apart with the same amount.
+    """
+    same_amount_txns = [
+        t
+        for t in all_transactions
+        if t.user_id == transaction.user_id
+        and "afterpay" in t.name.lower()
+        and abs(t.amount - transaction.amount) < 0.01
+    ]
+    dates = sorted(datetime.strptime(t.date, "%Y-%m-%d").date() for t in same_amount_txns)
+    recent_matches = [
+        d for d in dates if abs((datetime.strptime(transaction.date, "%Y-%m-%d").date() - d).days) in [14, 28]
+    ]
+    return len(recent_matches) >= 2
+
+
+def afterpay_prev_same_amount_count(transaction: Transaction, all_transactions: list[Transaction]) -> int:
+    """
+    Returns the count of previous Afterpay transactions with the same amount before this one.
+    """
+    return sum(
+        1
+        for t in all_transactions
+        if (
+            t.user_id == transaction.user_id
+            and "afterpay" in t.name.lower()
+            and abs(t.amount - transaction.amount) < 0.01
+            and t.date < transaction.date
+        )
+    )
+
+
+def afterpay_future_same_amount_exists(transaction: Transaction, all_transactions: list[Transaction]) -> bool:
+    """
+    Returns True if there is a future Afterpay transaction with the same amount.
+    """
+    return any(
+        t.user_id == transaction.user_id
+        and "afterpay" in t.name.lower()
+        and abs(t.amount - transaction.amount) < 0.01
+        and t.date > transaction.date
+        for t in all_transactions
+    )
+
+
+def afterpay_recurrence_score(transaction: Transaction, all_transactions: list[Transaction]) -> float:
+    """
+    Computes a recurrence score (0 to 1) for Afterpay transactions based on timing, amount patterns, and frequency.
+    """
+    if "afterpay" not in transaction.name.lower():
+        return 0.0
+
+    score = 0.0
+
+    if afterpay_has_3_similar_in_6_weeks(transaction, all_transactions):
+        score += 0.25
+
+    if afterpay_is_first_of_series(transaction, all_transactions):
+        score += 0.20
+
+    if afterpay_likely_payment(transaction, all_transactions):
+        score += 0.20
+
+    if afterpay_future_same_amount_exists(transaction, all_transactions):
+        score += 0.20
+
+    prev_count = afterpay_prev_same_amount_count(transaction, all_transactions)
+    if prev_count >= 2:
+        score += 0.15
+    elif prev_count == 1:
+        score += 0.05
+
+    return round(min(score, 1.0), 4)
+
+
+def is_moneylion_common_amount(transaction: Transaction, all_transactions: list[Transaction]) -> bool:
+    """
+    Returns True if the transaction amount is among the user's top 3 most frequent MoneyLion amounts.
+    """
+    relevant = [
+        t.amount for t in all_transactions if t.user_id == transaction.user_id and "moneylion" in t.name.lower()
+    ]
+    if len(relevant) < 3:
+        return False
+    freq = Counter(relevant).most_common(3)
+    return transaction.amount in [amt for amt, _ in freq]
+
+
+def moneylion_days_since_last_same_amount(transaction: Transaction, all_transactions: list[Transaction]) -> int:
+    """
+    Returns the number of days since the last MoneyLion transaction with the same amount.
+    """
+    prior = [
+        t
+        for t in all_transactions
+        if (
+            t.user_id == transaction.user_id
+            and "moneylion" in t.name.lower()
+            and t.amount == transaction.amount
+            and t.date < transaction.date
+        )
+    ]
+    if not prior:
+        return -1
+    last = max(t.date for t in prior)
+    try:
+        d1 = datetime.strptime(transaction.date, "%Y-%m-%d")
+        d2 = datetime.strptime(last, "%Y-%m-%d")
+        return (d1 - d2).days
+    except Exception:
+        return -1
+
+
+def moneylion_is_biweekly(transaction: Transaction, all_transactions: list[Transaction]) -> bool:
+    """
+    Returns True if the transaction is part of a pattern of MoneyLion payments that repeat every 14±2 days.
+    """
+    relevant = [
+        t
+        for t in all_transactions
+        if t.user_id == transaction.user_id and "moneylion" in t.name.lower() and t.date < transaction.date
+    ]
+    if len(relevant) < 2:
+        return False
+    relevant_sorted = sorted(relevant, key=lambda x: x.date)
+    try:
+        dates = [datetime.strptime(t.date, "%Y-%m-%d") for t in relevant_sorted]
+        diffs = [(dates[i] - dates[i - 1]).days for i in range(1, len(dates))]
+        count = sum(12 <= d <= 16 for d in diffs)
+        return count >= 2
+    except Exception:
+        return False
+
+
+def moneylion_same_amount_count_90d(transaction: Transaction, all_transactions: list[Transaction]) -> int:
+    """
+    Returns the number of times the user paid the same amount to MoneyLion in the past 90 days.
+    """
+    try:
+        txn_date = datetime.strptime(transaction.date, "%Y-%m-%d")
+        prior = [
+            t
+            for t in all_transactions
+            if (
+                t.user_id == transaction.user_id
+                and "moneylion" in t.name.lower()
+                and t.amount == transaction.amount
+                and t.date < transaction.date
+                and (txn_date - datetime.strptime(t.date, "%Y-%m-%d")).days <= 90
+            )
+        ]
+        return len(prior)
+    except Exception:
+        return 0
+
+
+def moneylion_weekday_pattern(transaction: Transaction, all_transactions: list[Transaction]) -> bool:
+    """
+    Returns True if the transaction consistently happens on the same weekday across at least 3 past MoneyLion payments.
+    """
+    relevant = [
+        t
+        for t in all_transactions
+        if t.user_id == transaction.user_id and "moneylion" in t.name.lower() and t.date < transaction.date
+    ]
+    if len(relevant) < 3:
+        return False
+    try:
+        weekdays = [datetime.strptime(t.date, "%Y-%m-%d").weekday() for t in relevant]
+        common_day, count = Counter(weekdays).most_common(1)[0]
+        return count >= 3
+    except Exception:
+        return False
+
+
+def moneylion_recurrence_score(transaction: Transaction, all_transactions: list[Transaction]) -> float:
+    """
+    Returns a recurrence score between 0 and 1 based on frequency, weekday match, and amount pattern.
+    """
+    try:
+        user_txns = [t for t in all_transactions if t.user_id == transaction.user_id and "moneylion" in t.name.lower()]
+        if len(user_txns) < 3:
+            return 0.0
+
+        # frequency score (number of same-amount txns in 90 days)
+        count = moneylion_same_amount_count_90d(transaction, all_transactions)
+        freq_score = min(count / 5.0, 1.0)
+
+        # weekday consistency
+        weekday_score = 1.0 if moneylion_weekday_pattern(transaction, all_transactions) else 0.0
+
+        # amount popularity
+        amount_score = 1.0 if is_moneylion_common_amount(transaction, all_transactions) else 0.0
+
+        return round((freq_score + weekday_score + amount_score) / 3.0, 3)
+    except Exception:
+        return 0.0
+
+
+def apple_amount_close_to_median(transaction: Transaction, all_transactions: list[Transaction]) -> bool:
+    """
+    Returns True if the transaction amount is within $1 of the user's median Apple transaction amount.
+    """
+    relevant = [t.amount for t in all_transactions if t.user_id == transaction.user_id and "apple" in t.name.lower()]
+    if len(relevant) < 3:
+        return False
+    try:
+        median_amt = statistics.median(relevant)
+        return abs(transaction.amount - median_amt) <= 1.0
+    except Exception:
+        return False
+
+
+def apple_total_same_amount_past_6m(transaction: Transaction, all_transactions: list[Transaction]) -> int:
+    """
+    Returns the number of times the user paid the same amount to Apple in the past 180 days.
+    """
+    try:
+        txn_date = datetime.strptime(transaction.date, "%Y-%m-%d")
+        prior = [
+            t
+            for t in all_transactions
+            if (
+                t.user_id == transaction.user_id
+                and "apple" in t.name.lower()
+                and t.amount == transaction.amount
+                and t.date < transaction.date
+                and (txn_date - datetime.strptime(t.date, "%Y-%m-%d")).days <= 180
+            )
+        ]
+        return len(prior)
+    except Exception:
+        return 0
+
+
+def apple_std_dev_amounts(transaction: Transaction, all_transactions: list[Transaction]) -> float:
+    """
+    Returns the standard deviation of the user's Apple transaction amounts before the current transaction.
+    """
+    relevant = [
+        t.amount
+        for t in all_transactions
+        if t.user_id == transaction.user_id and "apple" in t.name.lower() and t.date < transaction.date
+    ]
+    if len(relevant) < 3:
+        return -1.0
+    try:
+        return round(statistics.stdev(relevant), 2)
+    except Exception:
+        return -1.0
+
+
+def apple_is_low_value_txn(transaction: Transaction) -> bool:
+    """
+    Returns True if the transaction amount is less than or equal to $20.
+    """
+    return transaction.amount <= 20.0
+
+
+def apple_days_since_first_seen_amount(transaction: Transaction, all_transactions: list[Transaction]) -> int:
+    """
+    Returns the number of days since the first time the user had an Apple transaction with the same amount.
+    """
+    try:
+        relevant = [
+            t.date
+            for t in all_transactions
+            if t.user_id == transaction.user_id and "apple" in t.name.lower() and t.amount == transaction.amount
+        ]
+        if not relevant:
+            return -1
+        first_seen = min(relevant)
+        d1 = datetime.strptime(transaction.date, "%Y-%m-%d")
+        d2 = datetime.strptime(first_seen, "%Y-%m-%d")
+        return (d1 - d2).days
+    except Exception:
+        return -1
 
 
 def get_new_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, int | bool | float]:
@@ -694,6 +1012,25 @@ def get_new_features(transaction: Transaction, all_transactions: list[Transactio
         "get_normalized_recency_praise": get_normalized_recency(transaction, all_transactions),
         #    "get_transaction_recency_score_praise": get_transaction_recency_score(transaction, all_transactions),
         "get_n_transactions_last_30_days_praise": get_n_transactions_last_30_days(transaction, all_transactions),
+        "afterpay_has_3_similar_in_6_weeks_praise": afterpay_has_3_similar_in_6_weeks(transaction, all_transactions),
+        "afterpay_is_first_of_series_praise": afterpay_is_first_of_series(transaction, all_transactions),
+        "afterpay_likely_payment_praise": afterpay_likely_payment(transaction, all_transactions),
+        "afterpay_prev_same_amount_count_praise": afterpay_prev_same_amount_count(transaction, all_transactions),
+        "afterpay_future_same_amount_exists_praise": afterpay_future_same_amount_exists(transaction, all_transactions),
+        "afterpay_recurrence_score_praise": afterpay_recurrence_score(transaction, all_transactions),
+        "is_moneylion_common_amount_praise": is_moneylion_common_amount(transaction, all_transactions),
+        "moneylion_days_since_last_same_amount_praise": moneylion_days_since_last_same_amount(
+            transaction, all_transactions
+        ),
+        "moneylion_is_biweekly_praise": moneylion_is_biweekly(transaction, all_transactions),
+        "moneylion_same_amount_count_90d_praise": moneylion_same_amount_count_90d(transaction, all_transactions),
+        "moneylion_weekday_pattern_praise": moneylion_weekday_pattern(transaction, all_transactions),
+        "moneylion_recurrence_score_praise": moneylion_recurrence_score(transaction, all_transactions),
+        "apple_amount_close_to_median_praise": apple_amount_close_to_median(transaction, all_transactions),
+        "apple_total_same_amount_past_6m_praise": apple_total_same_amount_past_6m(transaction, all_transactions),
+        "apple_std_dev_amounts_praise": apple_std_dev_amounts(transaction, all_transactions),
+        "apple_is_low_value_txn_praise": apple_is_low_value_txn(transaction),
+        "apple_days_since_first_seen_amount_praise": apple_days_since_first_seen_amount(transaction, all_transactions),
         #    "get_ratio_transactions_last_30_days_praise": get_ratio_transactions_last_30_days(
         # transaction, all_transactions
         # ),
