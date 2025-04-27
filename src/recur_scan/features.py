@@ -115,37 +115,38 @@ from recur_scan.features_emmanuel_eze import (
 from recur_scan.features_emmanuel_eze import (
     get_is_recurring as get_is_recurring_emmanuel_eze,
 )
-from recur_scan.features_emmanuel_ezechukwu1 import (
-    get_amount_cv,
-    get_days_between_std,
-    get_exact_amount_count,
-    get_has_recurring_keyword,
-    get_is_convenience_store,
-)
-from recur_scan.features_emmanuel_ezechukwu1 import (
-    get_day_of_month_consistency as get_day_of_month_consistency_emmanuel1,
-)
-from recur_scan.features_emmanuel_ezechukwu1 import (
-    get_is_always_recurring as get_is_always_recurring_emmanuel1,
-)
-from recur_scan.features_emmanuel_ezechukwu1 import (
-    get_is_insurance as get_is_insurance_emmanuel1,
-)
-from recur_scan.features_emmanuel_ezechukwu1 import (
-    get_is_phone as get_is_phone_emmanuel1,
-)
-from recur_scan.features_emmanuel_ezechukwu1 import (
-    get_is_utility as get_is_utility_emmanuel1,
-)
-from recur_scan.features_emmanuel_ezechukwu1 import (
-    get_n_transactions_days_apart as get_n_transactions_days_apart_emmanuel1,
-)
-from recur_scan.features_emmanuel_ezechukwu1 import (
-    get_n_transactions_same_amount as get_n_transactions_same_amount_emmanuel1,
-)
-from recur_scan.features_emmanuel_ezechukwu1 import (
-    get_percent_transactions_same_amount as get_percent_transactions_same_amount_emmanuel1,
-)
+
+# # from recur_scan.features_emmanuel_ezechukwu1 import (
+# #     get_amount_cv,
+# #     get_days_between_std,
+# #     get_exact_amount_count,
+# #     get_has_recurring_keyword,
+# #     get_is_convenience_store,
+# # )
+# # from recur_scan.features_emmanuel_ezechukwu1 import (
+# #     get_day_of_month_consistency as get_day_of_month_consistency_emmanuel1,
+# # )
+# from recur_scan.features_emmanuel_ezechukwu1 import (
+#     get_is_always_recurring as get_is_always_recurring_emmanuel1,
+# )
+# from recur_scan.features_emmanuel_ezechukwu1 import (
+#     get_is_insurance as get_is_insurance_emmanuel1,
+# )
+# from recur_scan.features_emmanuel_ezechukwu1 import (
+#     get_is_phone as get_is_phone_emmanuel1,
+# )
+# from recur_scan.features_emmanuel_ezechukwu1 import (
+#     get_is_utility as get_is_utility_emmanuel1,
+# )
+# from recur_scan.features_emmanuel_ezechukwu1 import (
+#     get_n_transactions_days_apart as get_n_transactions_days_apart_emmanuel1,
+# )
+# from recur_scan.features_emmanuel_ezechukwu1 import (
+#     get_n_transactions_same_amount as get_n_transactions_same_amount_emmanuel1,
+# )
+# from recur_scan.features_emmanuel_ezechukwu1 import (
+#     get_percent_transactions_same_amount as get_percent_transactions_same_amount_emmanuel1,
+# )
 from recur_scan.features_emmanuel_ezechukwu2 import (
     classify_subscription_tier,
     get_monthly_spending_trend,
@@ -717,21 +718,23 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         "has_incrementing_numbers": has_incrementing_numbers(transaction, all_transactions),
         "has_consistent_reference_codes": has_consistent_reference_codes(transaction, all_transactions),
         # Emmanuel Ezechukwu (1)'s features
-        "n_transactions_same_amount_emmanuel1": get_n_transactions_same_amount_emmanuel1(transaction, all_transactions),
-        "percent_transactions_same_amount_emmanuel1": get_percent_transactions_same_amount_emmanuel1(
-            transaction, all_transactions
-        ),
-        "days_between_std": get_days_between_std(transaction, all_transactions),
-        "amount_cv": get_amount_cv(transaction, all_transactions),
-        "day_of_month_consistency_emmanuel1": get_day_of_month_consistency_emmanuel1(transaction, all_transactions),
-        "exact_amount_count": get_exact_amount_count(transaction, all_transactions),
-        "has_recurring_keyword": get_has_recurring_keyword(transaction),
-        "is_always_recurring_emmanuel1": int(get_is_always_recurring_emmanuel1(transaction)),
-        "n_transactions_30_days_apart": get_n_transactions_days_apart_emmanuel1(transaction, all_transactions, 30, 2),
-        "is_convenience_store_emmanuel1": get_is_convenience_store(transaction),
-        "is_insurance_emmanuel1": int(get_is_insurance_emmanuel1(transaction)),
-        "is_utility_emmanuel1": int(get_is_utility_emmanuel1(transaction)),
-        "is_phone_emmanuel1": int(get_is_phone_emmanuel1(transaction)),
+        # "n_transactions_same_amount_emmanuel1": get_n_transactions_same_amount_emmanuel1(
+        #     transaction, all_transactions
+        # ),
+        # "percent_transactions_same_amount_emmanuel1": get_percent_transactions_same_amount_emmanuel1(
+        #     transaction, all_transactions
+        # ),
+        # "days_between_std": get_days_between_std(transaction, all_transactions),
+        # "amount_cv": get_amount_cv(transaction, all_transactions),
+        # "day_of_month_consistency_emmanuel1": get_day_of_month_consistency_emmanuel1(transaction, all_transactions),
+        # "exact_amount_count": get_exact_amount_count(transaction, all_transactions),
+        # "has_recurring_keyword": get_has_recurring_keyword(transaction),
+        # "is_always_recurring_emmanuel1": int(get_is_always_recurring_emmanuel1(transaction)),
+        # "n_transactions_30_days_apart": get_n_transactions_days_apart_emmanuel1(transaction, all_transactions, 30, 2),
+        # "is_convenience_store_emmanuel1": get_is_convenience_store(transaction),
+        # "is_insurance_emmanuel1": int(get_is_insurance_emmanuel1(transaction)),
+        # "is_utility_emmanuel1": int(get_is_utility_emmanuel1(transaction)),
+        # "is_phone_emmanuel1": int(get_is_phone_emmanuel1(transaction)),
         # Asimi's features
         **get_amount_features_asimi(transaction),
         **get_user_recurring_vendor_count(transaction, all_transactions),

@@ -16,7 +16,8 @@ from collections import defaultdict
 import joblib
 import matplotlib.pyplot as plt
 import pandas as pd
-import shap
+
+# import shap
 import xgboost as xgb
 from loguru import logger
 from sklearn.ensemble import RandomForestClassifier
@@ -31,7 +32,7 @@ from recur_scan.features_original import get_new_features
 from recur_scan.transactions import (
     group_transactions,
     read_labeled_transactions,
-    write_labeled_transactions,
+    # write_labeled_transactions,  # Ensure this function is defined in recur_scan.transactions
     write_transactions,
 )
 
@@ -113,7 +114,8 @@ else:
             for transaction in tqdm(transactions, desc="Processing transactions")
         )
     # save the features to a csv file
-    pd.DataFrame(features).to_csv(precomputed_features_path, index=False)
+    pd.DataFrame([f for f in features if f is not None]).to_csv(precomputed_features_path, index=False)
+    features = list(features)  # Convert generator to list
     logger.info(f"Generated {len(features)} features")
 
 # %%
@@ -130,7 +132,9 @@ logger.info(f"Added {len(new_features[0])} new features")
 # %%
 # convert all features to a matrix for machine learning
 dict_vectorizer = DictVectorizer(sparse=False)
-X = dict_vectorizer.fit_transform(features)
+# Filter out None values from the features list
+filtered_features = [f for f in features if f is not None]
+X = dict_vectorizer.fit_transform(filtered_features)
 feature_names = dict_vectorizer.get_feature_names_out()  # Get feature names from the vectorizer
 logger.info(f"Converted {len(features)} features into a {X.shape} matrix")
 
@@ -149,8 +153,11 @@ print(X_hpo.shape)
 
 # %%
 
+best_params = {}  # Initialize best_params to avoid unbound variable error
+
 if do_hyperparameter_optimization:
     # Define parameter grid
+    param_dist = {}
     if model_type == "rf":
         param_dist = {
             "n_estimators": [200, 300, 400, 500],  # [10, 20, 50, 100, 200, 500, 1000],
@@ -173,6 +180,11 @@ if do_hyperparameter_optimization:
         model = RandomForestClassifier(random_state=42, n_jobs=n_jobs)
     elif model_type == "xgb":
         model = xgb.XGBClassifier(random_state=42, n_jobs=n_jobs)
+    else:
+        raise ValueError(f"Unsupported model_type: {model_type}")  # Ensure model is always defined
+    if "param_dist" not in locals():
+        raise ValueError(f"param_dist is not defined for model_type: {model_type}")
+        raise ValueError(f"param_dist is not defined for model_type: {model_type}")
 
     cv = GroupKFold(n_splits=n_cv_folds)
     if search_type == "grid":
@@ -222,6 +234,13 @@ if model_type == "rf":
     model = RandomForestClassifier(random_state=42, **best_params, n_jobs=n_jobs)
 elif model_type == "xgb":
     model = xgb.XGBClassifier(random_state=42, **best_params, n_jobs=n_jobs)
+if model_type == "rf":
+    model = RandomForestClassifier(random_state=42, **best_params, n_jobs=n_jobs)
+elif model_type == "xgb":
+    model = xgb.XGBClassifier(random_state=42, **best_params, n_jobs=n_jobs)
+else:
+    raise ValueError(f"Unsupported model_type: {model_type}")
+
 model.fit(X, y)
 logger.info("Model trained")
 
@@ -241,6 +260,13 @@ for importance, feature in sorted_importances:
 # save the model using joblib
 
 logger.info(f"Saving the {model_type} model to {out_dir}")
+if model_type == "rf":
+    model = RandomForestClassifier(random_state=42, **best_params, n_jobs=n_jobs)
+elif model_type == "xgb":
+    model = xgb.XGBClassifier(random_state=42, **best_params, n_jobs=n_jobs)
+else:
+    raise ValueError(f"Unsupported model_type: {model_type}")
+
 joblib.dump(model, os.path.join(out_dir, "model.joblib"))
 # save the dict vectorizer as well
 joblib.dump(dict_vectorizer, os.path.join(out_dir, "dict_vectorizer.joblib"))
@@ -327,6 +353,12 @@ for fold, (train_idx, val_idx) in enumerate(cv.split(X_cv, y, groups=user_ids)):
         model = RandomForestClassifier(random_state=42, **best_params, n_jobs=n_jobs)
     elif model_type == "xgb":
         model = xgb.XGBClassifier(random_state=42, **best_params, n_jobs=n_jobs)
+    if model_type == "rf":
+        model = RandomForestClassifier(random_state=42, **best_params, n_jobs=n_jobs)
+    elif model_type == "xgb":
+        model = xgb.XGBClassifier(random_state=42, **best_params, n_jobs=n_jobs)
+    else:
+        raise ValueError(f"Unsupported model_type: {model_type}")
     model.fit(X_train, y_train)
 
     # Make predictions
@@ -423,7 +455,7 @@ for name, _ in sorted(misclassified_by_name.items(), key=lambda x: x[1], reverse
                 labels.append(label)
 
 # save the transactions to a csv file
-write_labeled_transactions(os.path.join(out_dir, "transactions_to_review.csv"), transactions_to_review, y, labels)
+# write_labeled_transactions(os.path.join(out_dir, "transactions_to_review.csv"), transactions_to_review, y, labels)
 
 # %%
 #
@@ -433,14 +465,14 @@ write_labeled_transactions(os.path.join(out_dir, "transactions_to_review.csv"), 
 # create a tree explainer
 # explainer = shap.TreeExplainer(model)
 # Faster approximation using PermutationExplainer
-X_sample = X[:10000]  # type: ignore
-explainer = shap.TreeExplainer(model)
+# X_sample = X[:10000]  # type: ignore
+# explainer = shap.TreeExplainer(model)
 
-logger.info("Calculating SHAP values")
-shap_values = explainer.shap_values(X_sample)
+# logger.info("Calculating SHAP values")
+# shap_values = explainer.shap_values(X_sample)
 
-# Plot SHAP summary
-shap.summary_plot(shap_values, X_sample, feature_names=feature_names)
+# # Plot SHAP summary
+# shap.summary_plot(shap_values, X_sample, feature_names=feature_names)
 
 # %%
 #
@@ -448,11 +480,14 @@ shap.summary_plot(shap_values, X_sample, feature_names=feature_names)
 # this step also takes a LONG time and is optional
 
 print("Best params:", best_params)
+
+# Ensure model is initialized based on model_type
 if model_type == "rf":
     model = RandomForestClassifier(random_state=42, **best_params, n_jobs=n_jobs)
 elif model_type == "xgb":
     model = xgb.XGBClassifier(random_state=42, **best_params, n_jobs=n_jobs)
-
+else:
+    raise ValueError(f"Unsupported model_type: {model_type}")
 
 # RFECV performs recursive feature elimination with cross-validation
 # to find the optimal number of features
@@ -509,6 +544,8 @@ if model_type == "rf":
     model_selected = RandomForestClassifier(random_state=42, **best_params, n_jobs=n_jobs)
 elif model_type == "xgb":
     model_selected = xgb.XGBClassifier(random_state=42, **best_params, n_jobs=n_jobs)
+else:
+    raise ValueError(f"Unsupported model_type: {model_type}")
 model_selected.fit(X_train_selected, y_train)
 
 # Evaluate model with selected features
@@ -528,6 +565,8 @@ if model_type == "rf":
     model_all = RandomForestClassifier(random_state=42, **best_params, n_jobs=n_jobs)
 elif model_type == "xgb":
     model_all = xgb.XGBClassifier(random_state=42, **best_params, n_jobs=n_jobs)
+else:
+    raise ValueError(f"Unsupported model_type: {model_type}")
 model_all.fit(X_train, y_train)
 y_pred_all = model_all.predict(X_test)
 precision = precision_score(y_test, y_pred_all)

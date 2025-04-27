@@ -27,7 +27,6 @@ dependencies = [
     "python-levenshtein>=0.27.1",
     "scikit-learn>=1.6.1",
     "scipy>=1.15.2",
-    "shap>=0.47.0",
     "thefuzz>=0.22.1",
     "tqdm>=4.67.1",
     "xgboost>=3.0.0",
