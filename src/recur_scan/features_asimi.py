@@ -361,7 +361,7 @@ def get_recurrence_streak(transaction: Transaction, all_transactions: list[Trans
         delta = (dates[i] - dates[i - 1]).days
         amount_diff = abs(amounts[i] - amounts[i - 1])
 
-        if (25 <= delta <= 35 and amount_diff < 0.1) or (abs(delta - 7) <= 1 and amount_diff < 0.1):
+        if 25 <= delta <= 35 and amount_diff < 0.1:
             streak += 1
         else:
             streak = 0  # Reset streak on broken pattern
@@ -573,7 +573,7 @@ def is_apple_subscription(transaction: Transaction, all_transactions: list[Trans
     # - Strong monthly pattern (>80%) OR strong biweekly pattern (>90%)
     # - AND day consistency is good
     # - AND no problematic bursts
-    return (monthly_ratio >= 0.8 or biweekly_count / len(intervals) >= 0.9) and day_consistency >= 0.7
+    return monthly_ratio >= 0.8 and day_consistency >= 0.7
 
 
 def is_afterpay_installment(transaction: Transaction, all_transactions: list[Transaction]) -> bool:
@@ -659,7 +659,6 @@ def get_apple_interval_score(transaction: Transaction, all_transactions: list[Tr
         return 0.0  # Mixed patterns = not a subscription
 
     return max(monthly_intervals, biweekly_intervals) / len(intervals)
-
 
 def get_new_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, int | bool | float]:
     return {
