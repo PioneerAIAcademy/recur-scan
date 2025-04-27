@@ -53,7 +53,7 @@ def get_interval_mode(all_transactions: list[Transaction]) -> float:
     if not intervals:
         return 0.0
     mode_result = mode(intervals, keepdims=True)
-    mode_array = cast(ndarray, mode_result.mode)
+    mode_array = cast("ndarray", mode_result.mode)
     if mode_array.size > 0:
         mode_value = int(mode_array.item(0))  # type: ignore[call-overload, operator]
         return float(mode_value)
