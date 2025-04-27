@@ -37,7 +37,6 @@ from recur_scan.features_adedotun import (
     get_vendor_occurrence_count_at,
     has_recurring_keywords,
     is_known_recurring_company,
-    is_known_recurring_vendor,
     is_price_trending,
     is_recurring_allowance_at,
     is_recurring_based_on_99,
@@ -402,12 +401,6 @@ def test_get_contains_common_nonrecurring_keywords_at(transactions):
     assert get_contains_common_nonrecurring_keywords_at(transactions[7])  # "Cinema Tickets"
     assert get_contains_common_nonrecurring_keywords_at(transactions[8])  # "Pizza Hut"
     assert not get_contains_common_nonrecurring_keywords_at(transactions[4])  # "Netflix"
-
-
-def test_is_known_recurring_vendor(transactions):
-    """Test detection of known recurring vendors."""
-    assert is_known_recurring_vendor(transactions[4])  # "Netflix"
-    assert not is_known_recurring_vendor(transactions[7])  # "Mr. John Doe"
 
 
 def test_has_recurring_keywords(transactions):

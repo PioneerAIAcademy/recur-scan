@@ -1135,65 +1135,6 @@ RECURRING_KEYWORDS = frozenset([
 ])
 
 
-def normalize_vendor_name_rf(vendor: str) -> str:
-    """
-    Normalize vendor names to handle variations in transaction descriptions.
-    """
-    # Remove common prefixes/suffixes and convert to lowercase
-    norm_vendor = vendor.lower()
-
-    # Remove common payment descriptor texts
-    for text in [
-        "payment to ",
-        "automatic payment",
-        "monthly payment",
-        "recurring payment",
-        "subscription to ",
-        "bill payment",
-        "autopay",
-        "auto-pay",
-        "monthly subscription",
-        "payment for ",
-        "payment - ",
-        "debit card purchase",
-    ]:
-        norm_vendor = norm_vendor.replace(text, "")
-
-    # Remove dates, amounts, and other numeric patterns
-    norm_vendor = re.sub(r"\d{1,2}/\d{1,2}(?:/\d{2,4})?", "", norm_vendor)  # dates
-    norm_vendor = re.sub(r"\$\d+\.?\d*", "", norm_vendor)  # dollar amounts
-    norm_vendor = re.sub(r"\d+\.?\d*", "", norm_vendor)  # numbers
-
-    # Remove special characters and extra spaces
-    norm_vendor = re.sub(r"[^\w\s]", " ", norm_vendor)
-    norm_vendor = re.sub(r"\s+", " ", norm_vendor).strip()
-
-    # Check for known aliases first
-    if norm_vendor in VENDOR_ALIASES:
-        return VENDOR_ALIASES[norm_vendor]
-
-    # Use fuzzy matching for potential matches
-    for alias, normalized in VENDOR_ALIASES.items():
-        if alias in norm_vendor or norm_vendor in alias:
-            return normalized
-
-    # Check for direct matches in the recurring vendors list
-    for vendor_name in RECURRING_VENDORS:
-        if vendor_name in norm_vendor or norm_vendor in vendor_name:
-            return vendor_name
-
-    # If no match is found, return the cleaned vendor name
-    return norm_vendor
-
-
-def is_known_recurring_vendor(transaction: Transaction) -> bool:
-    """
-    Check if the transaction is from a known recurring vendor.
-    """
-    normalized_name = normalize_vendor_name_rf(transaction.name)
-    return normalized_name in RECURRING_VENDORS
-
-
 def has_recurring_keywords(transaction: Transaction) -> bool:
     """
     Check if the transaction description contains keywords typically
