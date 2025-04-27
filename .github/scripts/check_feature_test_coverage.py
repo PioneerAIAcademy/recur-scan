@@ -11,6 +11,7 @@ untested_funcs = [
     "read_unlabeled_transactions",
     "group_transactions",
     "write_transactions",
+    "write_labeled_transactions",
 ]
 
 

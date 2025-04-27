@@ -11,6 +11,7 @@ module from recur_scan.features to prepare the input data.
 import argparse
 import json
 import os
+from collections import defaultdict
 import sys
 
 # Add the src directory to the Python path
@@ -31,8 +32,13 @@ from sklearn.model_selection import GridSearchCV, GroupKFold, RandomizedSearchCV
 from tqdm import tqdm
 
 from recur_scan.features import get_features
-from recur_scan.features_ebenezer import get_new_features
-from recur_scan.transactions import group_transactions, read_labeled_transactions, write_transactions
+from recur_scan.features_original import get_new_features
+from recur_scan.transactions import (
+    group_transactions,
+    read_labeled_transactions,
+    write_labeled_transactions,
+    write_transactions,
+)
 
 # %%
 # configure the script
@@ -45,9 +51,9 @@ search_type = "random"  # "grid" or "random"
 n_hpo_iters = 200  # number of hyperparameter optimization iterations
 n_jobs = -1  # number of jobs to run in parallel (set to 1 if your laptop gets too hot)
 
-in_path = "scripts/recur_scan_data.csv"  # path to the input CSV file containing transactions
-precomputed_features_path = "scripts/train_features.csv"
-out_dir = "output directory"
+in_path = "../../data/train.csv"
+precomputed_features_path = "../../data/train_features.csv"
+out_dir = "../../data/training_out"
 
 # %%
 # parse script arguments from command line
@@ -307,6 +313,8 @@ print(X_cv.shape)
 cv = GroupKFold(n_splits=n_cv_folds)
 
 misclassified = []
+false_positives = set()
+false_negatives = set()
 precisions = []
 recalls = []
 f1s = []
@@ -335,6 +343,10 @@ for fold, (train_idx, val_idx) in enumerate(cv.split(X_cv, y, groups=user_ids)):
     misclassified_fold = [transactions_val[i] for i in range(len(y_val)) if y_val[i] != y_pred[i]]
     misclassified.extend(misclassified_fold)
 
+    # track false positives and false negatives
+    false_positives.update([transactions_val[i] for i in range(len(y_val)) if y_val[i] != y_pred[i] and y_val[i] == 0])
+    false_negatives.update([transactions_val[i] for i in range(len(y_val)) if y_val[i] != y_pred[i] and y_val[i] == 1])
+
     # Report recall, precision, and f1 score
     precision = precision_score(y_val, y_pred)
     recall = recall_score(y_val, y_pred)
@@ -358,6 +370,67 @@ print(f"F1 Score: {sum(f1s) / len(f1s):.3f}")
 logger.info(f"Found {len(misclassified)} misclassified transactions (variance errors)")
 
 write_transactions(os.path.join(out_dir, "variance_errors.csv"), misclassified, y)
+
+# %%
+# count false positives and false negatives
+
+print(f"False positives: {len(false_positives)}")
+print(f"False negatives: {len(false_negatives)}")
+
+# %%
+# count the number of misclassified transactions by transaction.name
+
+# print the misclassified transactions by name
+print("Misclassified transactions by name:")
+misclassified_by_name: dict[str, int] = defaultdict(int)
+for transaction in misclassified:
+    misclassified_by_name[transaction.name] += 1
+for name, count in sorted(misclassified_by_name.items(), key=lambda x: x[1], reverse=True):
+    print(f"{name}: {count}")
+
+# print the false positives and false negatives by name
+print("\nFalse positives by name:")
+false_positives_by_name: dict[str, int] = defaultdict(int)
+for transaction in false_positives:
+    false_positives_by_name[transaction.name] += 1
+for name, count in sorted(false_positives_by_name.items(), key=lambda x: x[1], reverse=True):
+    print(f"{name}: {count}")
+
+print("\nFalse negatives by name:")
+false_negatives_by_name: dict[str, int] = defaultdict(int)
+for transaction in false_negatives:
+    false_negatives_by_name[transaction.name] += 1
+for name, count in sorted(false_negatives_by_name.items(), key=lambda x: x[1], reverse=True):
+    print(f"{name}: {count}")
+
+# %%
+# for each user_id, name pair in misclassified transactions,
+# save all of the transactions with that user_id and name to a transactions_to_review.csv file
+# include a new column "label" that is either "fp" for false positive or "fn" for false negative
+# or empty if the transaction is correctly classified
+
+# create a dictionary of names -> user_id's with misclassified transactions for that name
+misclassified_name_to_user_ids = defaultdict(set)
+for transaction in misclassified:
+    misclassified_name_to_user_ids[transaction.name].add(transaction.user_id)
+
+transactions_to_review = []
+labels = []
+# loop through the names in reverse order of misclassified transactions
+for name, _ in sorted(misclassified_by_name.items(), key=lambda x: x[1], reverse=True):
+    for user_id in misclassified_name_to_user_ids[name]:
+        for transaction in transactions:
+            if transaction.name == name and transaction.user_id == user_id:
+                transactions_to_review.append(transaction)
+                label = ""
+                if transaction in false_positives:
+                    label = "fp"
+                elif transaction in false_negatives:
+                    label = "fn"
+                labels.append(label)
+
+# save the transactions to a csv file
+write_labeled_transactions(os.path.join(out_dir, "transactions_to_review.csv"), transactions_to_review, y, labels)
 
 # %%
 #
