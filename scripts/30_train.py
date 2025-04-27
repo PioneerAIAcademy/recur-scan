@@ -27,7 +27,7 @@ from sklearn.model_selection import GridSearchCV, GroupKFold, RandomizedSearchCV
 from tqdm import tqdm
 
 from recur_scan.features import get_features
-from recur_scan.features_original import get_new_features
+from recur_scan.features_felix import get_new_features
 from recur_scan.transactions import (
     group_transactions,
     read_labeled_transactions,
