@@ -27,7 +27,7 @@ from sklearn.model_selection import GridSearchCV, GroupKFold, RandomizedSearchCV
 from tqdm import tqdm
 
 from recur_scan.features import get_features
-from recur_scan.features_original import get_new_features
+from recur_scan.features_tife import get_new_features
 from recur_scan.transactions import (
     group_transactions,
     read_labeled_transactions,
@@ -46,9 +46,9 @@ search_type = "random"  # "grid" or "random"
 n_hpo_iters = 200  # number of hyperparameter optimization iterations
 n_jobs = -1  # number of jobs to run in parallel (set to 1 if your laptop gets too hot)
 
-in_path = "../../data/train.csv"
-precomputed_features_path = "../../data/train_features.csv"
-out_dir = "../../data/training_out"
+in_path = "/home/tife/recur-scan/data/recur_scan_train - train.csv"
+precomputed_features_path = "/home/tife/recur-scan/data/train_features.csv"
+out_dir = "/home/tife/recur-scan/data/training_out"
 
 # %%
 # parse script arguments from command line

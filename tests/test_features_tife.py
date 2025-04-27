@@ -5,22 +5,35 @@ import pytest
 
 from recur_scan.features_tife import (
     get_amount_cluster_count,
+    get_amount_deviation,
     get_amount_range,
     get_amount_relative_change,
+    get_amount_similarity_ratio,
     get_amount_stability_score,
     get_amount_variability,
+    get_day_of_month_consistency,
     get_days_since_last_same_amount,
     get_dominant_interval_strength,
+    get_duplicate_transaction_indicator,
+    get_interval_cluster_strength,
     get_interval_consistency,
     get_interval_histogram,
     get_interval_mode,
+    get_long_term_recurrence,
     get_merchant_amount_signature,
     get_merchant_name_frequency,
+    get_merchant_recurrence_consistency,
+    get_merchant_recurrence_score,
     get_near_amount_consistency,
     get_normalized_interval_consistency,
+    get_transaction_amount_bin,
     get_transaction_count,
     get_transaction_density,
     get_transaction_frequency,
+    get_transaction_interval,
+    get_user_spending_profile,
+    get_vendor_category,
+    get_vendor_transaction_frequency,
 )
 from recur_scan.transactions import Transaction
 
@@ -47,6 +60,16 @@ def empty_transactions():
 def single_transaction():
     """Fixture providing a single transaction."""
     return [Transaction(id=1, user_id="user1", name="vendor1", amount=100.0, date="2024-01-01")]
+
+
+@pytest.fixture
+def same_day_transactions():
+    """Fixture providing transactions on the same day to test zero intervals."""
+    return [
+        Transaction(id=1, user_id="user1", name="vendor1", amount=100.0, date="2024-01-01"),
+        Transaction(id=2, user_id="user1", name="vendor1", amount=100.0, date="2024-01-01"),
+        Transaction(id=3, user_id="user1", name="vendor1", amount=105.0, date="2024-01-01"),
+    ]
 
 
 def test_get_transaction_frequency(transactions, empty_transactions, single_transaction) -> None:
@@ -113,8 +136,6 @@ def test_get_days_since_last_same_amount(transactions) -> None:
 
 def test_get_amount_cluster_count(transactions, empty_transactions, single_transaction) -> None:
     """Test that get_amount_cluster_count counts clusters with interval filtering."""
-    # 100.0 and 105.0 within 5%, counting instances where interval > 5 days
-    # 100.0 at 01-15, 105.0 at 02-01, 100.0 at 03-15
     assert get_amount_cluster_count(transactions[0], transactions) == 3
     assert get_amount_cluster_count(transactions[0], empty_transactions) == 0
     assert get_amount_cluster_count(transactions[0], single_transaction) == 0
@@ -169,7 +190,6 @@ def test_get_near_amount_consistency(transactions, empty_transactions) -> None:
 
 def test_get_merchant_amount_signature(transactions, empty_transactions) -> None:
     """Test that get_merchant_amount_signature calculates the signature for the merchant."""
-    # vendor1: [100, 100, 105, 200], 3 within 5% of 100
     assert pytest.approx(get_merchant_amount_signature(transactions[0], transactions)) == 3 / 4
     assert get_merchant_amount_signature(transactions[4], transactions) == 1.0  # vendor2: [100]
     assert get_merchant_amount_signature(transactions[0], empty_transactions) == 0.0
@@ -188,3 +208,120 @@ def test_get_transaction_density(transactions, empty_transactions, single_transa
     assert pytest.approx(get_transaction_density(transactions)) == len(transactions) / time_span
     assert get_transaction_density(empty_transactions) == 0.0
     assert get_transaction_density(single_transaction) == 0.0
+
+
+def test_get_transaction_interval(transactions, empty_transactions, single_transaction, same_day_transactions) -> None:
+    """Test that get_transaction_interval calculates the interval for recurring merchants."""
+    assert get_transaction_interval(transactions[3], transactions) == 29  # 2024-03-01 - 2024-02-01
+    assert get_transaction_interval(transactions[4], transactions) == 0.0  # vendor2 has 1 transaction
+    assert get_transaction_interval(transactions[0], empty_transactions) == 0.0
+    assert get_transaction_interval(transactions[0], single_transaction) == 0.0
+    assert get_transaction_interval(same_day_transactions[2], same_day_transactions) == 0.0  # Zero intervals
+
+
+def test_get_amount_deviation(transactions, empty_transactions, single_transaction) -> None:
+    """Test that get_amount_deviation calculates the z-score of the amount."""
+    amounts = [100.0, 100.0, 105.0, 200.0]
+    mean_amount = np.mean(amounts)
+    std_amount = np.std(amounts, ddof=0)
+    expected_z = (200.0 - mean_amount) / std_amount
+    assert pytest.approx(get_amount_deviation(transactions[3], transactions)) == expected_z
+    assert get_amount_deviation(transactions[0], empty_transactions) == 0.0
+    assert get_amount_deviation(transactions[0], single_transaction) == 0.0
+
+
+def test_get_vendor_transaction_frequency(transactions, empty_transactions, single_transaction) -> None:
+    """Test that get_vendor_transaction_frequency calculates normalized frequency."""
+    assert pytest.approx(get_vendor_transaction_frequency(transactions[0], transactions)) == 4 / 5
+    assert get_vendor_transaction_frequency(transactions[0], empty_transactions) == 0.0
+    assert get_vendor_transaction_frequency(transactions[0], single_transaction) == 1.0
+
+
+def test_get_user_spending_profile(transactions, empty_transactions, single_transaction) -> None:
+    """Test that get_user_spending_profile calculates the z-score for the user."""
+    amounts = [100.0, 100.0, 105.0, 200.0, 100.0]
+    mean_amount = np.mean(amounts)
+    std_amount = np.std(amounts, ddof=0)
+    expected_z = (200.0 - mean_amount) / std_amount
+    assert pytest.approx(get_user_spending_profile(transactions[3], transactions)) == expected_z
+    assert get_user_spending_profile(transactions[0], empty_transactions) == 0.0
+    assert get_user_spending_profile(transactions[0], single_transaction) == 0.0
+
+
+def test_get_duplicate_transaction_indicator(transactions, empty_transactions, single_transaction) -> None:
+    """Test that get_duplicate_transaction_indicator detects duplicates within 7 days."""
+    assert get_duplicate_transaction_indicator(transactions[1], transactions) == 0.0
+    assert get_duplicate_transaction_indicator(transactions[0], empty_transactions) == 0.0
+    assert get_duplicate_transaction_indicator(transactions[0], single_transaction) == 0.0
+
+
+def test_get_merchant_recurrence_consistency(
+    transactions, empty_transactions, single_transaction, same_day_transactions
+) -> None:
+    """Test that get_merchant_recurrence_consistency detects inconsistent intervals."""
+    assert get_merchant_recurrence_consistency(transactions[3], transactions) == 1.0
+    assert get_merchant_recurrence_consistency(transactions[2], transactions) == 0.0
+    assert get_merchant_recurrence_consistency(transactions[0], empty_transactions) == 0.0
+    assert get_merchant_recurrence_consistency(transactions[0], single_transaction) == 0.0
+    assert get_merchant_recurrence_consistency(same_day_transactions[2], same_day_transactions) == 0.0
+
+
+def test_get_vendor_category(transactions) -> None:
+    """Test that get_vendor_category assigns correct category scores."""
+    assert get_vendor_category(transactions[0]) == 0.0  # vendor1 -> Other
+    apple_transaction = Transaction(id=6, user_id="user1", name="Apple", amount=9.99, date="2024-01-01")
+    assert get_vendor_category(apple_transaction) == 1.0  # Apple -> Subscription
+
+
+def test_get_transaction_amount_bin(transactions) -> None:
+    """Test that get_transaction_amount_bin assigns correct bins."""
+    assert get_transaction_amount_bin(transactions[0]) == 2.0  # 100.0 -> Medium
+    assert get_transaction_amount_bin(transactions[3]) == 3.0  # 200.0 -> High
+    apple_transaction = Transaction(id=6, user_id="user1", name="Apple", amount=9.99, date="2024-01-01")
+    assert get_transaction_amount_bin(apple_transaction) == 1.0  # 9.99 -> Low
+
+
+def test_get_amount_similarity_ratio(transactions, empty_transactions, single_transaction) -> None:
+    """Test that get_amount_similarity_ratio calculates the proportion of similar amounts."""
+    assert pytest.approx(get_amount_similarity_ratio(transactions[0], transactions)) == 3 / 4
+    assert get_amount_similarity_ratio(transactions[4], transactions) == 1.0
+    assert get_amount_similarity_ratio(transactions[0], empty_transactions) == 0.0
+    assert get_amount_similarity_ratio(transactions[0], single_transaction) == 1.0
+
+
+def test_get_interval_cluster_strength(
+    transactions, empty_transactions, single_transaction, same_day_transactions
+) -> None:
+    """Test that get_interval_cluster_strength measures the dominant interval cluster."""
+    assert pytest.approx(get_interval_cluster_strength(transactions)) == 2 / 4
+    assert get_interval_cluster_strength(empty_transactions) == 0.0
+    assert get_interval_cluster_strength(single_transaction) == 0.0
+    assert get_interval_cluster_strength(same_day_transactions) == 0.0
+
+
+def test_get_merchant_recurrence_score(
+    transactions, empty_transactions, single_transaction, same_day_transactions
+) -> None:
+    """Test that get_merchant_recurrence_score calculates recurrence score."""
+    # vendor1: intervals [14, 17, 29], mean=20, std≈6.48, consistency=1-(6.48/20)≈0.676
+    # frequency=4/5, score=0.676 * 0.8 ≈ 0.5408
+    assert pytest.approx(get_merchant_recurrence_score(transactions[0], transactions), rel=1e-4) == 0.5407703720636856
+    assert get_merchant_recurrence_score(transactions[4], transactions) == 0.0
+    assert get_merchant_recurrence_score(transactions[0], empty_transactions) == 0.0
+    assert get_merchant_recurrence_score(transactions[0], single_transaction) == 0.0
+    assert get_merchant_recurrence_score(same_day_transactions[2], same_day_transactions) == 0.0
+
+
+def test_get_day_of_month_consistency(transactions, empty_transactions, single_transaction) -> None:
+    """Test that get_day_of_month_consistency calculates day-of-month consistency."""
+    assert pytest.approx(get_day_of_month_consistency(transactions)) == 3 / 5
+    assert get_day_of_month_consistency(empty_transactions) == 0.0
+    assert get_day_of_month_consistency(single_transaction) == 0.0
+
+
+def test_get_long_term_recurrence(transactions, empty_transactions, single_transaction, same_day_transactions) -> None:
+    """Test that get_long_term_recurrence calculates time span in years."""
+    assert pytest.approx(get_long_term_recurrence(transactions)) == 74 / 365
+    assert get_long_term_recurrence(empty_transactions) == 0.0
+    assert get_long_term_recurrence(single_transaction) == 0.0
+    assert get_long_term_recurrence(same_day_transactions) == 0.0
