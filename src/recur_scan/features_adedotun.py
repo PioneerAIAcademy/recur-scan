@@ -6,7 +6,6 @@ from datetime import datetime
 from fuzzywuzzy import fuzz
 
 from recur_scan.transactions import Transaction
-from recur_scan.utils import parse_date
 
 INSURANCE_PATTERN = re.compile(r"\b(insurance|insur|insuranc)\b", re.IGNORECASE)
 UTILITY_PATTERN = re.compile(r"\b(utility|utilit|energy)\b", re.IGNORECASE)
@@ -40,6 +39,45 @@ ALWAYS_RECURRING_VENDORS_AT = frozenset([
     "cpsenergy",
     "disney+",
 ])
+
+
+def parse_date(date_str: str) -> datetime:
+    """
+    Parse a date string in multiple formats.
+
+    Args:
+        date_str: Date string to parse
+
+    Returns:
+        Parsed datetime object
+
+    Raises:
+        ValueError: If date string is invalid
+    """
+    for fmt in ["%Y-%m-%d", "%m/%d/%Y", "%m-%d-%Y"]:
+        try:
+            return datetime.strptime(date_str, fmt)
+        except ValueError:
+            continue
+    raise ValueError(f"Invalid date: {date_str}")
+
+
+def normalize_amount(amount: float) -> float:
+    """
+    Normalize transaction amount by rounding and adjusting for common patterns.
+
+    Args:
+        amount: Transaction amount
+
+    Returns:
+        Normalized amount
+    """
+    if amount <= 0:
+        return 0.0
+    rounded = round(amount, 2)
+    if abs((amount * 100) % 100 - 99) < 5 or abs((amount * 100) % 100) < 5:
+        return rounded
+    return rounded
 
 
 def normalize_vendor_name(vendor: str) -> str:
@@ -302,19 +340,6 @@ def get_days_since_last_occurrence_at(transaction: Transaction, all_transactions
     return (parse_date(transaction.date) - parse_date(max(t.date for t in vendor_txns))).days
 
 
-def get_days_until_next_occurrence_at(transaction: Transaction, all_transactions: list[Transaction]) -> int:
-    """Days until next transaction with same vendor."""
-    vendor_txns = [
-        t
-        for t in all_transactions
-        if normalize_vendor_name_at(t.name) == normalize_vendor_name_at(transaction.name)
-        and parse_date(t.date) > parse_date(transaction.date)
-    ]
-    if not vendor_txns:
-        return 365 * 5  # Large value if no future occurrence
-    return (parse_date(min(t.date for t in vendor_txns)) - parse_date(transaction.date)).days
-
-
 def get_is_weekend_at(transaction: Transaction) -> bool:
     """Check if transaction occurred on a weekend."""
     return parse_date(transaction.date).weekday() >= 5
@@ -375,9 +400,13 @@ def get_contains_common_nonrecurring_keywords_at(transaction: Transaction) -> bo
 def is_recurring_based_on_99(transaction: Transaction, all_transactions: list[Transaction]) -> bool:
     """
     Check if a .99-ending transaction is recurring based on vendor, amount, and timing.
-    :param transaction: Transaction to check
-    :param all_transactions: List of all transactions
-    :return: True if likely recurring, False otherwise
+
+    Args:
+        transaction: Transaction to check
+        all_transactions: List of all transactions
+
+    Returns:
+        True if likely recurring, False otherwise
     """
     # Check .99 ending
     if abs((transaction.amount * 100) % 100 - 99) > 0.01:
@@ -387,7 +416,7 @@ def is_recurring_based_on_99(transaction: Transaction, all_transactions: list[Tr
     base_vendor = re.sub(r"[^\w\s]", "", transaction.name.lower()).strip()
 
     # Find similar .99 transactions
-    similar = []
+    similar: list[Transaction] = []
     for t in all_transactions:
         t_vendor = re.sub(r"[^\w\s]", "", t.name.lower()).strip()
         if fuzz.token_sort_ratio(base_vendor, t_vendor) > 90 and abs((t.amount * 100) % 100 - 99) < 0.01:
@@ -398,16 +427,13 @@ def is_recurring_based_on_99(transaction: Transaction, all_transactions: list[Tr
         return False
 
     # Parse and sort dates
-    def parse_date(date_str: str) -> datetime:
-        for fmt in ["%Y-%m-%d", "%m/%d/%Y", "%m-%d-%Y"]:
-            try:
-                return datetime.strptime(date_str, fmt)
-            except ValueError:
-                continue
-        raise ValueError(f"Invalid date: {date_str}")
-
-    similar.sort(key=lambda t: parse_date(t.date))
-    intervals = [(parse_date(similar[i].date) - parse_date(similar[i - 1].date)).days for i in range(1, len(similar))]
+    try:
+        similar.sort(key=lambda t: parse_date(t.date))  # Use top-level parse_date
+        intervals = [
+            (parse_date(similar[i].date) - parse_date(similar[i - 1].date)).days for i in range(1, len(similar))
+        ]
+    except ValueError:
+        return False  # Invalid dates
 
     # Check for 2 occurrences with strong evidence
     if len(similar) == 2:
@@ -516,7 +542,9 @@ def amount_variability_score(transactions: list[Transaction], base_vendor: str |
 
     # Store transactions with valid dates and amounts
     valid_transactions: list[tuple[Transaction, datetime]] = [
-        (t, parsed_date) for t in transactions if (parsed_date := parse_date(t.date)) is not None and t.amount > 0
+        (t, datetime.combine(parsed_date, datetime.min.time()))
+        for t in transactions
+        if (parsed_date := parse_date(t.date)) is not None and t.amount > 0
     ]
     if len(valid_transactions) < 2:
         return 1.0
@@ -789,76 +817,6 @@ def is_price_trending(transaction: Transaction, all_transactions: list[Transacti
 
     # Tiered subscriptions
     return unique_amounts <= 3 and amount_ratio <= 0.5 and is_interval_consistent
-
-
-def get_median_interval(transactions: list[Transaction], base_vendor: str | None = None) -> float:
-    """
-    Calculates the median gap (in days) between transactions for a specific vendor or all transactions.
-    Supports all recurring scenarios (fixed, variable, tiered, sparse) with robust date handling,
-    fuzzy vendor matching, and interval normalization.
-    :param transactions: List of transactions to analyze
-    :param base_vendor: Optional vendor name to filter transactions (normalized)
-    :return: Median gap in days (0.0 if insufficient data)
-    """
-    if not transactions:
-        return 0.0  # Empty list
-
-    # Normalize vendor name and filter transactions
-    if base_vendor:
-        base_vendor = re.sub(r"[^\w\s]", "", base_vendor.lower()).strip()
-        transactions = [
-            t
-            for t in transactions
-            if fuzz.token_sort_ratio(base_vendor, re.sub(r"[^\w\s]", "", t.name.lower()).strip()) > 85
-        ]
-
-    if len(transactions) < 2:
-        return 0.0  # Need at least 2 transactions
-
-    # Parse dates
-    def parse_date(date_str: str) -> datetime | None:
-        for fmt in ["%Y-%m-%d", "%m/%d/%Y", "%m-%d-%Y"]:
-            try:
-                return datetime.strptime(date_str, fmt)
-            except ValueError:
-                continue
-        return None
-
-    # Filter valid transactions with dates
-    valid_transactions: list[tuple[Transaction, datetime]] = [
-        (t, parsed_date) for t in transactions if (parsed_date := parse_date(t.date)) is not None and t.amount > 0
-    ]
-    if len(valid_transactions) < 2:
-        return 0.0
-
-    # Sort by date
-    valid_transactions.sort(key=lambda x: x[1])
-    dates = [t_date for _, t_date in valid_transactions]
-
-    # Calculate gaps
-    gaps = [
-        (dates[i + 1] - dates[i]).days
-        for i in range(len(dates) - 1)
-        if dates[i + 1] > dates[i]  # Exclude same-day transactions
-    ]
-    if not gaps:
-        return 0.0  # No valid gaps (e.g., all same-day)
-
-    # Normalize gaps to common billing cycles
-    common_intervals = {
-        7: range(5, 10),  # Weekly
-        14: range(12, 17),  # Bi-weekly
-        30: range(25, 36),  # Monthly
-        60: range(55, 66),  # Bi-monthly
-        90: range(85, 96),  # Quarterly
-    }
-    normalized_gaps = [next((k for k, v in common_intervals.items() if gap in v), gap) for gap in gaps]
-
-    # Calculate median
-    try:
-        return statistics.median(normalized_gaps)
-    except statistics.StatisticsError:
-        return 0.0
 
 
 def get_n_transactions_same_amount_chris(
@@ -1281,7 +1239,6 @@ def get_new_features(transaction: Transaction, all_transactions: list[Transactio
         "vendor_occurrence_count": get_vendor_occurrence_count_at(transaction, all_transactions),
         "user_vendor_occurrence_count": get_user_vendor_occurrence_count_at(transaction, all_transactions),
         "days_since_last_occurrence": get_days_since_last_occurrence_at(transaction, all_transactions),
-        "days_until_next_occurrence": get_days_until_next_occurrence_at(transaction, all_transactions),
         # Amount patterns
         "same_amount_count": get_same_amount_count_at(transaction, all_transactions),
         "similar_amount_count": get_similar_amount_count_at(transaction, all_transactions),
@@ -1303,7 +1260,6 @@ def get_new_features(transaction: Transaction, all_transactions: list[Transactio
         "amount_variability_score_refine": amount_variability_score(all_transactions, transaction.name),
         "is_known_recurring_company_refine": is_known_recurring_company(transaction, all_transactions),
         "is_price_trendin_refine": is_price_trending(transaction, all_transactions),
-        "get_median_interval_refine": get_median_interval(all_transactions, transaction.name),
         "get_percent_transactions_same_amount_chris_refine": get_percent_transactions_same_amount_chris(
             transaction, all_transactions, transaction.name
         ),

@@ -1,17 +1,30 @@
 # test features
+from datetime import datetime
+
 import pytest
 
 from recur_scan.features_adedotun import (
+    amount_variability_score,
     compute_recurring_inputs_at,  # Add missing import
     get_amount_uniqueness_score_at,
+    get_contains_common_nonrecurring_keywords_at,
     get_days_since_last_occurrence_at,
     get_interval_histogram,
     get_interval_variance_coefficient,
     get_is_always_recurring_at,
     get_is_communication_or_energy_at,
+    get_is_entertainment_at,
+    get_is_food_dining_at,
+    get_is_gambling_at,
+    get_is_gaming_at,
     get_is_insurance_at,
+    get_is_month_end_at,
+    get_is_one_time_vendor_at,
     get_is_phone_at,
+    get_is_retail_at,
+    get_is_travel_at,
     get_is_utility_at,
+    get_is_weekend_at,
     get_n_transactions_same_amount_at,
     get_n_transactions_same_amount_chris,
     get_new_features,
@@ -20,15 +33,20 @@ from recur_scan.features_adedotun import (
     get_same_amount_count_at,
     get_similar_amount_count_at,
     get_user_vendor_occurrence_count_at,
+    get_vendor_name_entropy_at,
     get_vendor_occurrence_count_at,
+    has_recurring_keywords,
     is_known_recurring_company,
+    is_known_recurring_vendor,
     is_price_trending,
     is_recurring_allowance_at,
     is_recurring_based_on_99,
     is_recurring_core_at,
     is_subscription_amount,
+    normalize_amount,
     normalize_vendor_name,  # Add import
     normalize_vendor_name_at,
+    parse_date,
     preprocess_transactions_at,
 )
 from recur_scan.transactions import Transaction
@@ -44,6 +62,16 @@ def transactions():
         Transaction(id=4, user_id="user1", name="Netflix", amount=15.99, date="2024-03-01"),
         Transaction(id=5, user_id="user1", name="Netflix", amount=15.99, date="2024-04-01"),
         Transaction(id=6, user_id="user1", name="Allstate Insurance", amount=100, date="2024-02-01"),
+        # Additional transactions for testing
+        Transaction(id=7, user_id="user1", name="Mr. John Doe", date="2024-01-01", amount=50.00),
+        Transaction(id=8, user_id="user1", name="Cinema Tickets", date="2024-01-07", amount=25.00),
+        Transaction(id=9, user_id="user1", name="Pizza Hut", date="2024-01-14", amount=30.00),
+        Transaction(id=10, user_id="user1", name="Casino Royale", date="2024-01-21", amount=100.00),
+        Transaction(id=11, user_id="user1", name="Steam Games", date="2024-01-28", amount=59.99),
+        Transaction(id=12, user_id="user1", name="Mall Store", date="2024-02-01", amount=75.00),
+        Transaction(id=13, user_id="user1", name="Uber", date="2024-02-15", amount=20.00),
+        Transaction(id=14, user_id="user1", name="Spotify Subscription", date="2024-01-01", amount=9.99),
+        Transaction(id=15, user_id="user1", name="Spotify Subscription", date="2024-02-01", amount=9.99),
     ]
 
 
@@ -324,3 +352,117 @@ def test_get_interval_histogram(transactions):
     score = get_interval_histogram(transaction, transactions)
     assert 0.0 <= score <= 1.0
     assert score == 0.0  # Only one other matching transaction after filtering, no intervals
+
+
+# Vendor Type Indicators
+def test_get_is_one_time_vendor_at(transactions):
+    """Test detection of one-time vendors (person names, emails, phone numbers)."""
+    assert get_is_one_time_vendor_at(transactions[6])  # "Mr. John Doe"
+    assert not get_is_one_time_vendor_at(transactions[4])  # "Netflix"
+
+
+def test_get_is_entertainment_at(transactions):
+    """Test detection of entertainment-related vendors."""
+    assert get_is_entertainment_at(transactions[7])  # "Cinema Tickets"
+    assert not get_is_entertainment_at(transactions[4])  # "Netflix"
+
+
+def test_get_is_food_dining_at(transactions):
+    """Test detection of food/dining-related vendors."""
+    assert get_is_food_dining_at(transactions[8])  # "Pizza Hut"
+    assert not get_is_food_dining_at(transactions[4])  # "Netflix"
+
+
+def test_get_is_gambling_at(transactions):
+    """Test detection of gambling-related vendors."""
+    assert get_is_gambling_at(transactions[9])  # "Casino Royale"
+    assert not get_is_gambling_at(transactions[4])  # "Netflix"
+
+
+def test_get_is_gaming_at(transactions):
+    """Test detection of gaming-related vendors."""
+    assert get_is_gaming_at(transactions[10])  # "Steam Games"
+    assert not get_is_gaming_at(transactions[4])  # "Netflix"
+
+
+def test_get_is_retail_at(transactions):
+    """Test detection of retail shopping-related vendors."""
+    assert get_is_retail_at(transactions[11])  # "Mall Store"
+    assert not get_is_retail_at(transactions[4])  # "Netflix"
+
+
+def test_get_is_travel_at(transactions):
+    """Test detection of travel-related vendors."""
+    assert get_is_travel_at(transactions[12])  # "Uber"
+    assert not get_is_travel_at(transactions[4])  # "Netflix"
+
+
+def test_get_contains_common_nonrecurring_keywords_at(transactions):
+    """Test detection of non-recurring keywords."""
+    assert get_contains_common_nonrecurring_keywords_at(transactions[7])  # "Cinema Tickets"
+    assert get_contains_common_nonrecurring_keywords_at(transactions[8])  # "Pizza Hut"
+    assert not get_contains_common_nonrecurring_keywords_at(transactions[4])  # "Netflix"
+
+
+def test_is_known_recurring_vendor(transactions):
+    """Test detection of known recurring vendors."""
+    assert is_known_recurring_vendor(transactions[4])  # "Netflix"
+    assert not is_known_recurring_vendor(transactions[7])  # "Mr. John Doe"
+
+
+def test_has_recurring_keywords(transactions):
+    """Test detection of recurring keywords in transaction names."""
+    assert has_recurring_keywords(transactions[13])  # "Spotify Subscription"
+    assert not has_recurring_keywords(transactions[7])  # "Mr. John Doe"
+
+
+# Vendor Characteristics
+def test_get_vendor_name_entropy_at(transactions):
+    """Test calculation of vendor name entropy."""
+    entropy_netflix = get_vendor_name_entropy_at(transactions[4])  # "Netflix"
+    entropy_john_doe = get_vendor_name_entropy_at(transactions[6])  # "Mr. John Doe"
+    assert entropy_netflix > 0
+    assert entropy_john_doe > entropy_netflix  # More complex name has higher entropy
+
+
+# Transaction Context
+def test_get_is_weekend_at(transactions):
+    """Test detection of weekend transactions."""
+    # Assuming 2024-01-07 is a Sunday
+    assert get_is_weekend_at(transactions[7])  # "Cinema Tickets" on 2024-01-07
+    assert not get_is_weekend_at(transactions[4])  # "Netflix" on 2024-03-01 (Friday)
+
+
+def test_get_is_month_end_at(transactions):
+    """Test detection of month-end transactions."""
+    assert get_is_month_end_at(Transaction(id=16, user_id="user1", name="Test", date="2024-01-31", amount=10.00))
+    assert not get_is_month_end_at(transactions[4])  # "Netflix" on 2024-03-01
+
+
+# Amount and Interval Analysis
+def test_amount_variability_score(transactions):
+    """Test calculation of amount variability score."""
+    netflix_txs = [transactions[4], transactions[5]]  # Netflix: 15.99, 15.99
+    spotify_txs = [transactions[13], transactions[14]]  # Spotify: 9.99, 9.99
+    score_netflix = amount_variability_score(netflix_txs, "Netflix")
+    score_spotify = amount_variability_score(spotify_txs, "Spotify")
+    assert score_netflix == 1.0  # Consistent amounts
+    assert score_spotify == 1.0  # Consistent amounts
+
+
+def test_parse_date():
+    """Test parsing of date strings in multiple formats."""
+    assert parse_date("2024-01-01").date() == datetime(2024, 1, 1).date()
+    assert parse_date("01/01/2024").date() == datetime(2024, 1, 1).date()
+    assert parse_date("01-01-2024").date() == datetime(2024, 1, 1).date()
+    with pytest.raises(ValueError, match=r"Invalid date: invalid_date"):
+        parse_date("invalid_date")
+
+
+def test_normalize_amount():
+    """Test normalization of transaction amounts."""
+    assert normalize_amount(15.99) == 15.99
+    assert normalize_amount(10.00) == 10.00
+    assert normalize_amount(9.999) == 10.00
+    assert normalize_amount(0.0) == 0.0
+    assert normalize_amount(-5.0) == 0.0
