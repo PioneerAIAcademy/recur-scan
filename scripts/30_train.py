@@ -26,7 +26,7 @@ from sklearn.model_selection import GridSearchCV, GroupKFold, RandomizedSearchCV
 from tqdm import tqdm
 
 from recur_scan.features import get_features
-from recur_scan.features_original import get_new_features
+from recur_scan.features_nnanna import get_new_features
 from recur_scan.transactions import group_transactions, read_labeled_transactions, write_transactions
 
 # %%
@@ -34,15 +34,15 @@ from recur_scan.transactions import group_transactions, read_labeled_transaction
 
 use_precomputed_features = True
 model_type = "xgb"  # "rf" or "xgb"
-n_cv_folds = 5  # number of cross-validation folds, could be 5
+n_cv_folds = 3  # number of cross-validation folds, could be 5
 do_hyperparameter_optimization = False  # set to False to use the default hyperparameters
 search_type = "random"  # "grid" or "random"
 n_hpo_iters = 200  # number of hyperparameter optimization iterations
 n_jobs = -1  # number of jobs to run in parallel (set to 1 if your laptop gets too hot)
 
-in_path = "training file"
-precomputed_features_path = "precomputed features file"
-out_dir = "output directory"
+in_path = "data/recur_scan_train.csv"  # path to the input CSV file containing transactions
+precomputed_features_path = "scripts/train_features.csv"  # path to the precomputed features CSV file
+out_dir = "data/result"  # path to the output directory where the model and features will be saved
 
 # %%
 # parse script arguments from command line
