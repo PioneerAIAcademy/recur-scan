@@ -1,14 +1,17 @@
 import os
+import statistics
 import sys
 from statistics import stdev
+
+import pytest
 
 # Add the src directory to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
 
 
-import pytest
-
 from recur_scan.features_ebenezer import (
+    get_amount_consistency,
+    get_amount_range_same_name,
     get_avg_amount_same_day_of_week,
     get_avg_amount_same_month,
     get_avg_amount_same_name,
@@ -32,6 +35,8 @@ from recur_scan.features_ebenezer import (
     get_std_amount_same_day_of_week,
     get_std_amount_same_month,
     get_std_amount_same_name,
+    get_user_avg_transaction_amount,
+    get_user_transaction_frequency,
 )
 from recur_scan.transactions import Transaction
 
@@ -182,7 +187,8 @@ def test_get_percent_transactions_within_amount_range(transactions) -> None:
 
 
 def test_get_avg_time_between_transactions(transactions) -> None:
-    """Test that get_avg_time_between_transactions returns the correct average time between transactions."""
+    """Test that get_avg_time_between_transactions
+    returns the correct average time between transactions."""
     result = get_avg_time_between_transactions(transactions[0], transactions)
     assert pytest.approx(result) == 1.0  # Assuming 1 day between transactions
 
@@ -194,7 +200,8 @@ def test_get_is_recurring(transactions) -> None:
 
 
 def test_get_median_amount_same_name(transactions) -> None:
-    """Test that get_median_amount_same_name returns the correct median amount for transactions with the same name."""
+    """Test that get_median_amount_same_name returns the
+    correct median amount for transactions with the same name."""
     result = get_median_amount_same_name(transactions[0], transactions)
     assert pytest.approx(result) == 100  # Assuming the median is 100
 
@@ -209,6 +216,49 @@ def test_get_is_weekend(transactions) -> None:
     """Test that get_is_weekend correctly identifies if a transaction occurred on a weekend."""
     result = get_is_weekend(transactions[0])
     assert result == 0  # Assuming the transaction did not occur on a weekend
+
+
+def test_get_amount_range_same_name(transactions) -> None:
+    """Test that get_amount_range_same_name returns the
+    correct range of amounts for transactions with the same name."""
+    result = get_amount_range_same_name(transactions[0], transactions)
+    assert pytest.approx(result) == 100  # Assuming the range is 200 - 100 = 100
+
+
+def test_get_user_avg_transaction_amount(transactions) -> None:
+    """Test that get_user_avg_transaction_amount returns
+    the correct average transaction amount for the user."""
+    result = get_user_avg_transaction_amount(transactions[0], transactions)
+    assert pytest.approx(result) == (100 + 100 + 200) / 3  # Assuming the average is 133.33
+
+
+# def test_get_user_transaction_frequency(transactions) -> None:
+#     """Test that get_user_transaction_frequency return
+#     s the correct transaction frequency for the user."""
+#     result = get_user_transaction_frequency(transactions[0], transactions)
+#     assert pytest.approx(result) == 3.0  # Assuming 3 days between transactions
+
+
+# def test_get_user_transaction_frequency(transactions) -> None:
+#     """Test that get_user_transaction_frequency returns
+#     the correct transaction frequency for the user."""
+#     result = get_user_transaction_frequency(transactions[0], transactions)
+#     assert pytest.approx(result) == 1.0  # Assuming 1 day between transactions
+
+
+def test_get_amount_consistency(transactions) -> None:
+    """Test that get_amount_consistency returns the correct
+    consistency of amounts for transactions with the same name."""
+    result = get_amount_consistency(transactions[0], transactions)
+    variance = statistics.variance([100, 100, 200])
+    expected_consistency = 1.0 / (1.0 + variance)
+    assert pytest.approx(result) == expected_consistency
+
+
+def test_get_user_transaction_frequency(transactions) -> None:
+    """Test that get_user_transaction_frequency returns the correct transaction frequency for the user."""
+    result = get_user_transaction_frequency(transactions[0], transactions)
+    assert pytest.approx(result) == 1.0  # Assuming 3 days between transaction
 
 
 if __name__ == "__main__":

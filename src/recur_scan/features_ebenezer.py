@@ -5,7 +5,8 @@ from recur_scan.transactions import Transaction
 
 
 def get_n_transactions_same_name(transaction: Transaction, all_transactions: list[Transaction]) -> int:
-    """Get the number of transactions in all_transactions with the same name as transaction"""
+    """Get the number of transactions in all_
+    transactions with the same name as transaction"""
     return len([t for t in all_transactions if t.name == transaction.name])
 
 
@@ -234,11 +235,6 @@ def get_user_avg_transaction_amount(transaction: Transaction, all_transactions: 
     return sum(user_transactions) / len(user_transactions)
 
 
-def get_user_transaction_frequency(transaction: Transaction, all_transactions: list[Transaction]) -> int:
-    """Get the number of transactions made by the user."""
-    return len([t for t in all_transactions if t.user_id == transaction.user_id])
-
-
 # crazy feature expected to increase  the recall
 
 
@@ -250,13 +246,20 @@ def get_amount_variance(transaction: Transaction, all_transactions: list[Transac
     return statistics.variance(amounts)
 
 
-def get_amount_consistency(transaction: Transaction, all_transactions: list[Transaction]) -> int:
-    """Check if the transaction amount matches the most frequent amount for the same name."""
-    amounts = [t.amount for t in all_transactions if t.name == transaction.name]
-    if not amounts:
-        return 0
-    most_frequent_amount = max(set(amounts), key=amounts.count)
-    return int(transaction.amount == most_frequent_amount)
+def get_amount_consistency(transaction: Transaction, all_transactions: list[Transaction]) -> float:
+    """Calculate the consistency of amounts for transactions with the same name (1 - variance)."""
+    variance = get_amount_variance(transaction, all_transactions)
+    return 1.0 / (1.0 + variance) if variance > 0 else 1.0
+
+
+def get_user_transaction_frequency(transaction: Transaction, all_transactions: list[Transaction]) -> float:
+    """Calculate the frequency of transactions for the user."""
+    user_transactions = [t for t in all_transactions if t.user_id == transaction.user_id]
+    if len(user_transactions) < 2:
+        return 0.0
+    dates = sorted([datetime.strptime(t.date, "%Y-%m-%d") for t in user_transactions])
+    intervals = [(dates[i] - dates[i - 1]).days for i in range(1, len(dates))]
+    return sum(intervals) / len(intervals) if intervals else 0.0
 
 
 # def get_normalized_amount(transaction: Transaction, all_transactions: list[Transaction]) -> float:
