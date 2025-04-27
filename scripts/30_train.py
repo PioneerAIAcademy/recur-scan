@@ -11,8 +11,8 @@ module from recur_scan.features to prepare the input data.
 import argparse
 import json
 import os
-from collections import defaultdict
 import sys
+from collections import defaultdict
 
 # Add the src directory to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))

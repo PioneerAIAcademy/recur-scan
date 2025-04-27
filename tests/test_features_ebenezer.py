@@ -12,6 +12,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../src"
 from recur_scan.features_ebenezer import (
     get_amount_consistency,
     get_amount_range_same_name,
+    get_amount_variance,
     get_avg_amount_same_day_of_week,
     get_avg_amount_same_month,
     get_avg_amount_same_name,
@@ -259,6 +260,18 @@ def test_get_user_transaction_frequency(transactions) -> None:
     """Test that get_user_transaction_frequency returns the correct transaction frequency for the user."""
     result = get_user_transaction_frequency(transactions[0], transactions)
     assert pytest.approx(result) == 1.0  # Assuming 3 days between transaction
+
+
+def test_get_amount_variance(transactions) -> None:
+    """Test that get_amount_variance returns the correct variance of amounts for transactions with the same name."""
+    result = get_amount_variance(transactions[0], transactions)
+    expected_variance = statistics.variance([100, 100, 200])  # Variance of amounts for "vendor1"
+    assert pytest.approx(result) == expected_variance
+
+    # Test with fewer than 2 transactions (should return 0.0)
+    single_transaction = [Transaction(id=6, user_id="user3", name="vendor3", amount=500, date="2024-03-01")]
+    result = get_amount_variance(single_transaction[0], single_transaction)
+    assert result == 0.0
 
 
 if __name__ == "__main__":
