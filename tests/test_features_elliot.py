@@ -1,8 +1,13 @@
+import pandas as pd
 import pytest
 
 from recur_scan.features_elliot import (
+    amount_similarity,
+    amount_variability_ratio,
     get_is_always_recurring,
     get_is_near_same_amount,
+    get_time_regularity_score,
+    get_transaction_amount_variance,
     get_transaction_similarity,
     is_auto_pay,
     is_membership,
@@ -11,6 +16,7 @@ from recur_scan.features_elliot import (
     is_split_transaction,
     is_utility_bill,
     is_weekday_transaction,
+    most_common_interval,
 )
 from recur_scan.transactions import Transaction
 
@@ -148,3 +154,113 @@ def test_is_split_transaction():
 
     assert is_split_transaction(all_transactions[0], all_transactions) is True  # Two smaller related transactions
     assert is_split_transaction(all_transactions[3], all_transactions) is False  # No split transactions
+
+    # NEW FEATURES TESTS
+
+    def test_get_time_regularity_score():
+        """Test get_time_regularity_score function."""
+        txns = [
+            {"name": "Spotify", "date": "2024-01-01"},
+            {"name": "Spotify", "date": "2024-01-08"},  # 7 days later
+            {"name": "Spotify", "date": "2024-01-15"},  # 7 days later
+            {"name": "Netflix", "date": "2024-01-01"},  # Different vendor
+        ]
+        txn = {"name": "Spotify", "date": "2024-01-01"}
+
+        # Case 1: Regular intervals (7 days)
+        assert get_time_regularity_score(txn, txns) > 0.5
+
+        # Case 2: Irregular intervals
+        irregular_txns = [
+            {"name": "Spotify", "date": "2024-01-01"},
+            {"name": "Spotify", "date": "2024-01-10"},  # 9 days later
+            {"name": "Spotify", "date": "2024-01-20"},  # 10 days later
+        ]
+        assert get_time_regularity_score(txn, irregular_txns) < 0.5
+
+        # Case 3: Not enough transactions
+        small_txns = [{"name": "Spotify", "date": "2024-01-01"}]
+        assert get_time_regularity_score(txn, small_txns) == 0.0
+
+    def test_get_transaction_amount_variance():
+        """Test get_transaction_amount_variance function."""
+        txns = [
+            {"name": "Spotify", "amount": 9.99},
+            {"name": "Spotify", "amount": 10.99},
+            {"name": "Spotify", "amount": 11.99},
+            {"name": "Netflix", "amount": 15.99},  # Different vendor
+        ]
+        txn = {"name": "Spotify", "amount": 9.99}
+
+        # Case 1: Variance exists
+        assert get_transaction_amount_variance(txn, txns) > 0.0
+
+        # Case 2: No variance (all amounts are the same)
+        uniform_txns = [
+            {"name": "Spotify", "amount": 9.99},
+            {"name": "Spotify", "amount": 9.99},
+            {"name": "Spotify", "amount": 9.99},
+        ]
+        assert get_transaction_amount_variance(txn, uniform_txns) == 0.0
+
+        # Case 3: Not enough transactions
+        small_txns = [{"name": "Spotify", "amount": 9.99}]
+        assert get_transaction_amount_variance(txn, small_txns) == 0.0
+
+    def test_most_common_interval():
+        """Test most_common_interval function."""
+        data = {
+            "date": ["2024-01-01", "2024-01-08", "2024-01-15", "2024-01-22"],  # 7-day intervals
+            "amount": [9.99, 9.99, 9.99, 9.99],
+        }
+        df = pd.DataFrame(data)
+
+        # Case 1: Regular intervals
+        assert most_common_interval(df) == 7
+
+        # Case 2: Irregular intervals
+        data_irregular = {
+            "date": ["2024-01-01", "2024-01-10", "2024-01-20"],  # 9 and 10-day intervals
+            "amount": [9.99, 9.99, 9.99],
+        }
+        df_irregular = pd.DataFrame(data_irregular)
+        assert most_common_interval(df_irregular) == 9
+
+        # Case 3: Single transaction
+        data_single = {"date": ["2024-01-01"], "amount": [9.99]}
+        df_single = pd.DataFrame(data_single)
+        assert most_common_interval(df_single) == 0
+
+    def test_amount_variability_ratio():
+        """Test amount_variability_ratio function."""
+        data = {"amount": [9.99, 10.99, 11.99, 12.99]}
+        df = pd.DataFrame(data)
+
+        # Case 1: Variability exists
+        assert amount_variability_ratio(df) > 0.0
+
+        # Case 2: No variability (all amounts are the same)
+        data_uniform = {"amount": [9.99, 9.99, 9.99]}
+        df_uniform = pd.DataFrame(data_uniform)
+        assert amount_variability_ratio(df_uniform) == 0.0
+
+        # Case 3: Empty DataFrame
+        df_empty = pd.DataFrame({"amount": []})
+        assert amount_variability_ratio(df_empty) == 0.0
+
+    def test_amount_similarity():
+        """Test amount_similarity function."""
+        data = {"amount": [9.99, 10.00, 10.01, 10.02]}  # Close to the mean
+        df = pd.DataFrame(data)
+
+        # Case 1: High similarity
+        assert amount_similarity(df, tolerance=0.1) > 0.75
+
+        # Case 2: Low similarity
+        data_dissimilar = {"amount": [9.99, 20.00, 30.00, 40.00]}  # Far from the mean
+        df_dissimilar = pd.DataFrame(data_dissimilar)
+        assert amount_similarity(df_dissimilar, tolerance=0.1) < 0.5
+
+        # Case 3: Empty DataFrame
+        df_empty = pd.DataFrame({"amount": []})
+        assert amount_similarity(df_empty) == 0.0
