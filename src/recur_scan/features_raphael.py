@@ -382,12 +382,88 @@ def get_amount_roundness(transaction: Transaction) -> float:
     return 0.0
 
 
-def get_new_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict:
+def get_vendor_risk_keywords(vendor_name: str, risk_keywords: set[str] | None = None) -> bool:
+    """
+    Args:
+        vendor_name (str): Vendor name.
+        risk_keywords (set): Keywords indicating high risk.
+    Returns:
+        bool: True if any keyword is found in vendor_name.
+    """
+    if risk_keywords is None:
+        risk_keywords = {"Lending", "Payday", "Advance"}
+    return any(keyword.lower() in vendor_name.lower() for keyword in risk_keywords)
+
+
+def get_vendor_trust_score(vendor_name: str, trusted_vendors: set[str], high_risk_vendors: set[str]) -> float:
+    """
+    Args:
+        vendor_name: Name of the vendor.
+        trusted_vendors: Predefined trusted vendors (e.g., {"Apple", "AT&T"}).
+        high_risk_vendors: Predefined high-risk vendors (e.g., {"AfterPay", "CreditNinja"}).
+    Returns:
+        1.0 (trusted), 0.1 (high risk), 0.5 (neutral).
+    """
+    if vendor_name in trusted_vendors:
+        return 1.0
+    if vendor_name in high_risk_vendors:
+        return 0.1
+    return 0.5
+
+
+def get_is_recurring_charge(
+    vendor_name: str, user_id: str, transaction_history: dict[str, list[dict[str, int | str]]]
+) -> bool:
+    """
+    Args:
+        vendor_name: Vendor name.
+        user_id: User ID.
+        transaction_history: {user_id: [{"vendor": str, "days_ago": int}, ...]}.
+    Returns:
+        True if same vendor appears >=2 times in last 30 days.
+    """
+    user_txns = transaction_history.get(user_id, [])
+    recent_txns = [t for t in user_txns if int(t["days_ago"]) <= 30 and t["vendor"] == vendor_name]
+    return len(recent_txns) >= 2
+
+
+def is_apple_subscription_service(transaction_name: str) -> bool:
+    """
+    Args:
+        transaction_name: Vendor name or transaction description
+    Returns:
+        True if this is a known Apple subscription service
+    """
+    apple_services = {
+        "Apple Music",
+        "Apple TV+",
+        "Apple Arcade",
+        "iCloud",
+        "Apple Fitness+",
+        "Apple News+",
+        "Apple One",
+    }
+    return any(service.lower() in transaction_name.lower() for service in apple_services)
+
+
+def apple_transaction_amount_profile(amount: float) -> float:
+    """
+    Args:
+        amount: Transaction amount
+    Returns:
+        1.0 if amount matches common Apple pattern, 0.0 if suspicious
+    """
+    common_amounts = {0.99, 1.99, 2.99, 4.99, 9.99, 14.99, 19.99, 29.99}
+    return 1.0 if amount in common_amounts else 0.0
+
+
+def get_new_features(
+    transaction: Transaction, all_transactions: list[Transaction]
+) -> dict[str, float | int | bool | str]:
     """
     Return a dictionary containing only the new features for the given transaction.
     """
     return {
-        # New features
         "is_weekday_consistent": get_is_weekday_consistent(transaction, all_transactions),
         "is_seasonal": get_is_seasonal(transaction, all_transactions),
         "amount_variation_pct": get_amount_variation(transaction, all_transactions),
@@ -402,4 +478,9 @@ def get_new_features(transaction: Transaction, all_transactions: list[Transactio
         "recurring_confidence": get_recurring_confidence(transaction, all_transactions),
         "amount_mad_pct": get_amount_mad(transaction, all_transactions),
         "amount_roundness": get_amount_roundness(transaction),
+        "vendor_risk_keywords": get_vendor_risk_keywords(transaction.name),
+        "vendor_trust_score": get_vendor_trust_score(transaction.name, {"Apple", "AT&T"}, {"AfterPay", "CreditNinja"}),
+        "is_recurring_charge": get_is_recurring_charge(transaction.name, transaction.user_id, {}),
+        "is_apple_subscription_service": is_apple_subscription_service(transaction.name),
+        "apple_transaction_amount_profile": apple_transaction_amount_profile(transaction.amount),
     }

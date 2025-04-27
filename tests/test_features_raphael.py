@@ -2,6 +2,7 @@
 
 
 from recur_scan.features_raphael import (
+    apple_transaction_amount_profile,  # <-- Add this import to fix the NameError
     get_amount_mad,  # <-- Added missing import
     get_amount_roundness,  # <-- Add this import
     get_amount_variation,
@@ -11,6 +12,7 @@ from recur_scan.features_raphael import (
     get_is_common_subscription_amount,
     get_is_first_of_month,
     get_is_fixed_interval,
+    get_is_recurring_charge,  # <-- Add this import to fix the NameError
     get_is_seasonal,
     get_is_similar_name,
     # New feature imports
@@ -26,6 +28,9 @@ from recur_scan.features_raphael import (
     get_recurrence_confidence_score,  # <-- Added missing import
     get_recurring_confidence,  # <-- Fix: import the missing function
     get_transaction_trust_score,  # <-- Add this import
+    get_vendor_risk_keywords,  # <-- Add this import to fix the NameError
+    get_vendor_trust_score,  # <-- Add this import to fix the NameError
+    is_apple_subscription_service,  # <-- Add this import to fix the NameError
 )
 from recur_scan.transactions import Transaction
 
@@ -343,7 +348,15 @@ def test_get_amount_mad():
     assert get_amount_mad(t6, [t6, t7]) == 0.0
 
 
-test_get_amount_mad()
+def test_get_vendor_risk_keywords():
+    # Should detect risk keywords
+    assert get_vendor_risk_keywords("Payday Loans") is True
+    assert get_vendor_risk_keywords("Lending Club") is True
+    # Should not detect risk keywords
+    assert get_vendor_risk_keywords("Apple Store") is False
+    # Custom keywords
+    assert get_vendor_risk_keywords("FastAdvance", {"Advance"}) is True
+    assert get_vendor_risk_keywords("SafeBank", {"Advance"}) is False
 
 
 def test_amount_roundness():
@@ -355,6 +368,54 @@ def test_amount_roundness():
     # Non-typical amounts
     assert get_amount_roundness(Transaction(id=4, user_id="user1", name="Sub", amount=9.97, date="2023-01-01")) == 0.0
     assert get_amount_roundness(Transaction(id=5, user_id="user1", name="Sub", amount=10.23, date="2023-01-01")) == 0.0
+
+
+def test_vendor_trust_score():
+    # Trusted vendors
+    assert get_vendor_trust_score("Apple", {"Apple", "AT&T"}, {"AfterPay"}) == 1.0
+    assert get_vendor_trust_score("AT&T", {"Apple", "AT&T"}, {"AfterPay"}) == 1.0
+
+    # High-risk vendors
+    assert get_vendor_trust_score("AfterPay", {"Apple"}, {"AfterPay", "CreditNinja"}) == 0.1
+    assert get_vendor_trust_score("CreditNinja", {"Apple"}, {"AfterPay", "CreditNinja"}) == 0.1
+
+    # Neutral vendors
+    assert get_vendor_trust_score("Amazon", {"Apple"}, {"AfterPay"}) == 0.5
+    assert get_vendor_trust_score("Netflix", {"Apple"}, {"AfterPay"}) == 0.5
+
+
+def test_is_recurring_charge():
+    # Recurring charges
+    history = {"user1": [{"vendor": "Netflix", "days_ago": 15}, {"vendor": "Netflix", "days_ago": 10}]}
+    assert get_is_recurring_charge("Netflix", "user1", history) is True
+
+    # Non-recurring charges
+    history = {"user2": [{"vendor": "Amazon", "days_ago": 40}]}
+    assert get_is_recurring_charge("Amazon", "user2", history) is False
+
+    # Edge case: exactly 30 days
+    history = {"user3": [{"vendor": "Spotify", "days_ago": 30}, {"vendor": "Spotify", "days_ago": 29}]}
+    assert get_is_recurring_charge("Spotify", "user3", history) is True
+
+
+def test_is_apple_subscription_service():
+    # Legitimate subscriptions
+    assert is_apple_subscription_service("APPLE MUSIC") is True
+    assert is_apple_subscription_service("iCloud 50GB Storage") is True
+
+    # Non-subscription purchases
+    assert is_apple_subscription_service("Apple Store Purchase") is False
+    assert is_apple_subscription_service("Apple iPhone Case") is False
+
+
+def test_apple_transaction_amount_profile():
+    # Common subscription amounts
+    assert apple_transaction_amount_profile(9.99) == 1.0
+    assert apple_transaction_amount_profile(4.99) == 1.0
+
+    # Suspicious amounts
+    assert apple_transaction_amount_profile(100.00) == 0.0
+    assert apple_transaction_amount_profile(37.42) == 0.0
 
 
 def test_get_new_features() -> None:
@@ -375,8 +436,8 @@ def test_get_new_features() -> None:
     assert "is_weekday_consistent" in netflix_features
     assert "is_seasonal" in netflix_features
     assert "amount_variation_pct" in netflix_features
-    # assert "had_trial_period" in netflix_features
-    # assert "description_pattern" in netflix_features
+    assert "had_trial_period" in netflix_features
+    assert "description_pattern" in netflix_features
     assert "is_weekend_transaction" in netflix_features
     assert "n_days_apart_30" in netflix_features
     assert "pct_days_apart_30" in netflix_features
@@ -392,8 +453,8 @@ def test_get_new_features() -> None:
 
     # Test ACH Rent (should score high due to consistent amount + ACH in name)
     rent_features = get_new_features(transactions[3], transactions)
-    assert 0.95 <= rent_features["merchant_fingerprint"] <= 1.0
+    assert 0.95 <= float(rent_features["merchant_fingerprint"]) <= 1.0
 
     # Test Trial Service (lower score due to amount change)
     trial_features = get_new_features(transactions[5], transactions)
-    assert 0.15 <= trial_features["merchant_fingerprint"] <= 0.3
+    assert 0.15 <= float(trial_features["merchant_fingerprint"]) <= 0.3
