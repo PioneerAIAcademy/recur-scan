@@ -27,7 +27,7 @@ from sklearn.model_selection import GridSearchCV, GroupKFold, RandomizedSearchCV
 from tqdm import tqdm
 
 from recur_scan.features import get_features
-from recur_scan.features_original import get_new_features
+from recur_scan.features_victor import get_new_features
 from recur_scan.transactions import (
     group_transactions,
     read_labeled_transactions,
@@ -46,9 +46,9 @@ search_type = "random"  # "grid" or "random"
 n_hpo_iters = 200  # number of hyperparameter optimization iterations
 n_jobs = -1  # number of jobs to run in parallel (set to 1 if your laptop gets too hot)
 
-in_path = "../../data/train.csv"
+in_path = "train_features.csv"
 precomputed_features_path = "../../data/train_features.csv"
-out_dir = "../../data/training_out"
+out_dir = "train_features.csv.gz"
 
 # %%
 # parse script arguments from command line
@@ -119,9 +119,15 @@ else:
 # %%
 # add new features
 new_features = [
-    get_new_features(transaction, grouped_transactions[(transaction.user_id, transaction.name)])
+    get_new_features(
+        grouped_transactions[(transaction.user_id, transaction.name)],  # all transactions for this user/vendor
+        {},  # merchant scores (empty for now unless you have real scores)
+        transaction,  # current transaction
+    )
     for transaction in tqdm(transactions, desc="Processing transactions")
 ]
+
+
 # add the new features to the existing features
 for i, new_transaction_features in enumerate(new_features):
     features[i].update(new_transaction_features)  # type: ignore
