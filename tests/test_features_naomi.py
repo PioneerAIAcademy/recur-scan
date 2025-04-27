@@ -1,16 +1,26 @@
 # test features
 
+
+from datetime import date, datetime
+
 import pytest
 
 from recur_scan.features_naomi import (
+    days_since_last,
+    get_amount_change_trend,
+    get_avg_amount_same_name,
     get_cluster_label,
+    get_date,
+    get_empower_twice_monthly_count,
     get_is_monthly_recurring,
     get_is_similar_amount,
+    get_merchant_recurrence_score,
     get_outlier_score,
     get_recurring_confidence_score,
     get_subscription_keyword_score,
     get_time_regularity_score,
     get_transaction_interval_consistency,
+    get_txns_last_30_days,
 )
 from recur_scan.transactions import Transaction
 
@@ -21,6 +31,7 @@ class MockTransaction:
         self.name = name
         self.date = date
         self.amount = amount
+        # self.type = type
 
 
 def test_get_is_monthly_recurring():
@@ -131,3 +142,127 @@ def test_get_outlier_score_outlier_transaction():
     ]
     result = get_outlier_score(transactions[3], transactions)
     assert result > 1.49, f"Expected z-score > 1.49, but got {result}"  # Adjusted to match actual value
+
+
+def test_get_date_from_date_field():
+    txn = Transaction(
+        id="1",  # Add the required id parameter
+        user_id="user1",
+        name="Netflix",
+        amount=12.99,
+        date=date(2024, 4, 26),
+    )
+    assert get_date(txn) == date(2024, 4, 26)
+
+
+def test_get_date_from_datetime_field():
+    txn = Transaction(
+        id="2",
+        user_id="user1",
+        name="Spotify",
+        amount=9.99,
+        date=datetime(2024, 4, 26, 15, 30),
+    )
+    # Update assertion to check if the returned value is a datetime
+    # and then compare just the date components
+    result = get_date(txn)
+    if isinstance(result, datetime):
+        assert result.date() == date(2024, 4, 26)
+    else:
+        assert result == date(2024, 4, 26)
+
+
+def test_get_date_from_string():
+    txn = Transaction(
+        id="3",  # Add the required id parameter
+        user_id="user1",
+        name="Disney+",
+        amount=7.99,
+        date="2024-04-26",
+    )
+    assert get_date(txn) == date(2024, 4, 26)
+
+
+def test_get_date_from_timestamp():
+    # Create a mock object that has the timestamp attribute
+    class MockTransaction:
+        def __init__(self):
+            self.date = "2024-04-26"
+            self.timestamp = 1714089600  # April 26, 2024
+
+    txn = MockTransaction()
+    assert get_date(txn) == date(2024, 4, 26)
+
+
+def test_days_since_last():
+    txns = [
+        Transaction(id="1", user_id="u1", name="Netflix", amount=0, date="2023-01-01"),
+        Transaction(id="2", user_id="u1", name="Netflix", amount=0, date="2023-01-01"),
+        Transaction(id="3", user_id="u1", name="Netflix", amount=0, date="2023-01-02"),
+    ]
+    assert days_since_last(txns[1], txns[:1]) == -1  # Same day
+    assert days_since_last(txns[2], txns[:2]) == 1  # 1 day later
+    txns = [
+        Transaction(id="4", user_id="u1", name="Gym", amount=0, date="2023-01-01"),
+        Transaction(id="5", user_id="u1", name="Gym", amount=0, date="2023-02-03"),
+    ]
+    assert days_since_last(txns[1], txns[:1], grace_period=3) == 30  # 33 - 3 grace
+
+
+def test_get_amount_change_trend():
+    txns = [
+        {"merchant": "Spotify", "timestamp": 1, "amount": 9.99, "date": "2023-01-01"},
+        {"merchant": "Spotify", "timestamp": 2, "amount": 10.99, "date": "2023-01-02"},
+    ]
+    assert get_amount_change_trend(txns) == 1.0  # Increasing
+
+
+def test_get_txns_last_30_days():
+    txns = [
+        Transaction(id="1", user_id="u1", name="A", amount=0, date="2023-01-01"),
+        Transaction(id="2", user_id="u1", name="A", amount=0, date="2023-01-15"),
+        Transaction(id="3", user_id="u1", name="A", amount=0, date="2023-01-31"),
+        Transaction(id="4", user_id="u1", name="B", amount=0, date="2023-01-20"),
+    ]
+    assert get_txns_last_30_days(txns[2], txns) == 2  # Only Jan15 counts
+
+
+def test_avg_amount_same_name():
+    txns = [
+        Transaction(id="1", user_id="u1", name="Disney+", amount=7.99, date="2025-03-01"),
+        Transaction(id="2", user_id="u1", name="Disney+", amount=7.99, date="2025-03-15"),
+        Transaction(id="3", user_id="u1", name="Disney+", amount=9.99, date="2025-03-30"),
+    ]
+    new_txn = Transaction(id="4", user_id="u1", name="Disney+", amount=7.99, date="2025-04-15")
+    assert abs(get_avg_amount_same_name(new_txn, txns) - 8.6566) < 0.01
+
+
+def test_feature_get_empower_twice_monthly_count():
+    transactions = [
+        Transaction(id="1", user_id="1", name="Empower", amount=0, date="2023-01-01"),
+        Transaction(id="2", user_id="1", name="Empower", amount=0, date="2023-01-15"),
+        Transaction(id="3", user_id="1", name="Empower", amount=0, date="2023-02-03"),
+        Transaction(id="4", user_id="1", name="Empower", amount=0, date="2023-02-20"),
+        Transaction(id="5", user_id="1", name="Empower", amount=0, date="2023-03-01"),
+        Transaction(id="6", user_id="1", name="Empower", amount=0, date="2023-03-15"),
+        Transaction(id="7", user_id="2", name="Empower", amount=0, date="2023-01-05"),
+        Transaction(id="8", user_id="2", name="Empower", amount=0, date="2023-01-25"),
+        Transaction(id="9", user_id="2", name="Netflix", amount=0, date="2023-01-10"),
+    ]
+    result = get_empower_twice_monthly_count(transactions)
+    assert result == 3  # 3 months for user 1, 1 for user 2
+
+
+def test_get_merchant_recurrence_score():
+    transactions = [
+        Transaction(id="1", user_id="user1", name="Netflix", amount=15.99, date="2024-01-10"),
+        Transaction(id="2", user_id="user1", name="Netflix", amount=15.99, date="2024-02-10"),
+        Transaction(id="3", user_id="user1", name="Netflix", amount=15.99, date="2024-03-10"),
+        Transaction(id="4", user_id="user1", name="Netflix", amount=15.99, date="2024-04-10"),
+        Transaction(id="5", user_id="user1", name="Spotify", amount=9.99, date="2024-01-05"),
+        Transaction(id="6", user_id="user1", name="Spotify", amount=9.99, date="2024-04-05"),
+    ]
+    netflix_txn = transactions[0]
+    spotify_txn = transactions[4]
+    assert round(get_merchant_recurrence_score(netflix_txn, transactions), 2) == 1.0
+    assert round(get_merchant_recurrence_score(spotify_txn, transactions), 2) == 0.5
