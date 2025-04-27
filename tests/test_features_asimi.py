@@ -40,7 +40,9 @@ from recur_scan.features_asimi import (
     is_annual_subscription,
     is_apple_subscription,
     is_apple_subscription_amount,
+    is_common_subscription,
     is_common_subscription_amount,
+    is_similar_amount,
     is_valid_recurring_transaction,
 )
 from recur_scan.features_original import get_percent_transactions_same_amount
@@ -652,3 +654,32 @@ def test_get_apple_interval_score() -> None:
     assert 0.0 <= score <= 1.0
     assert score == pytest.approx(1.0)  # Perfect monthly
     assert isinstance(score, float)
+
+
+def test_is_similar_amount():
+    """Compact test for amount similarity checking"""
+    # Identical amounts
+
+    assert is_similar_amount(100.0, 100.0) is True
+
+    # Within 5% threshold (default)
+    assert is_similar_amount(100.0, 95.0) is True  # -5%
+    assert is_similar_amount(100.0, 105.0) is True  # +5%
+
+
+def test_is_common_subscription():
+    """Test detection of common subscription amounts"""
+
+    transactions = [
+        Transaction(id=1, user_id="user1", name="Apple", amount=9.99, date="2023-01-01"),
+        Transaction(id=2, user_id="user1", name="Apple", amount=14.99, date="2023-02-01"),
+        Transaction(id=3, user_id="user1", name="Apple", amount=9.9899, date="2023-03-01"),
+        Transaction(id=4, user_id="user1", name="Apple", amount=10.0899, date="2023-01-15"),
+    ]
+    # Exact matches
+    assert is_common_subscription(transactions[0]) is True
+    assert is_common_subscription(transactions[1]) is True
+
+    # Within 1% threshold
+    assert is_common_subscription(transactions[2]) is True  # -0.01%
+    assert is_common_subscription(transactions[3]) is True
