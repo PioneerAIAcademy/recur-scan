@@ -1,3 +1,10 @@
+# Ignore specific CSV files
+scripts/recur_scan_data.csv
+scripts/train_features.csv
+
+# Ignore all CSV files in the scripts directory
+scripts/*.csv
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
