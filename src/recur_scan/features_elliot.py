@@ -13,10 +13,13 @@ from thefuzz import fuzz  # type: ignore
 from recur_scan.transactions import Transaction
 
 
-def parse_date(date_str: str) -> datetime:
-    """Parse a string into a datetime object."""
-    # Cast so mypy knows it's a datetime, not Any
-    return cast(datetime, _du_parser.parse(date_str))
+def parse_date(date_str: str) -> datetime | None:
+    """Parse a string into a datetime object, or return None if invalid."""
+    try:
+        # Cast so mypy knows it's a datetime, not Any
+        return cast(datetime, _du_parser.parse(date_str))
+    except (ValueError, TypeError):
+        return None
 
 
 def get_is_near_same_amount(transaction: Transaction, all_transactions: list[Transaction]) -> bool:
@@ -115,8 +118,12 @@ def is_recurring_based_on_99(transaction: Transaction, all_transactions: list[Tr
     date_occurrences = defaultdict(list)
     for t in all_transactions:
         if t.name.lower() == vendor and (t.amount * 100) % 100 == 99:
-            days = (parse_date(t.date) - datetime(1970, 1, 1)).days
-            date_occurrences[vendor].append(days)
+            parsed_date = parse_date(t.date)
+            days = None
+            if parsed_date:
+                days = (parsed_date - datetime(1970, 1, 1)).days
+            if days is not None:
+                date_occurrences[vendor].append(days)
 
     dates = sorted(date_occurrences[vendor])
     if len(dates) < 3:
@@ -174,7 +181,7 @@ def get_time_regularity_score(txn: dict, txns: list[dict]) -> float:
     if len(same) <= 2:
         return 0.0
     try:
-        dates = sorted(parse_date(t["date"]) for t in same)
+        dates = sorted(d for d in (parse_date(t["date"]) for t in same) if d is not None)
         intervals = [(dates[i] - dates[i - 1]).days for i in range(1, len(dates))]
         if len(intervals) <= 1:
             return 0.0

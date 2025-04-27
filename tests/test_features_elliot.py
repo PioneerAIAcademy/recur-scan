@@ -264,3 +264,32 @@ def test_is_split_transaction():
         # Case 3: Empty DataFrame
         df_empty = pd.DataFrame({"amount": []})
         assert amount_similarity(df_empty) == 0.0
+
+    def parse_date(date_str):
+        """Parse a date string into a datetime object."""
+        from datetime import datetime
+
+        try:
+            return datetime.strptime(date_str, "%Y-%m-%d")
+        except ValueError:
+            try:
+                return datetime.strptime(date_str, "%m/%d/%Y")
+            except ValueError:
+                try:
+                    return datetime.strptime(date_str, "%B %d, %Y")
+                except ValueError:
+                    return None
+
+    def test_parse_date():
+        """Test parse_date function."""
+        from datetime import datetime
+
+        # Valid date strings
+        assert parse_date("2024-01-01") == datetime(2024, 1, 1)
+        assert parse_date("01/01/2024") == datetime(2024, 1, 1)
+        assert parse_date("January 1, 2024") == datetime(2024, 1, 1)
+
+        # Invalid date strings
+        assert parse_date("invalid-date") is None
+        assert parse_date("") is None
+        assert parse_date(None) is None

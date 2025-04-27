@@ -136,3 +136,7 @@ DEP002 = ["pandas-stubs", "python-levenshtein"]
 [tool.pyright]
 exclude = ["tests"]
 reportMissingTypeStubs = false
+
+[tool.poetry.dependencies]
+python = ">=3.12,<4.0"
+python-dateutil = ">=2.9.0"
