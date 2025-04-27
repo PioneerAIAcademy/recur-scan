@@ -12,7 +12,7 @@ from recur_scan.features_adeyinka import (
     get_subscription_keyword_score,
 )
 from recur_scan.features_asimi import (
-    get_amount_pattern_features,
+    # get_amount_pattern_features,
     get_temporal_consistency_features,
     get_user_specific_features,
     get_user_transaction_frequency,
@@ -484,7 +484,7 @@ def get_features(transaction: Transaction, all_transactions: list[Transaction]) 
         # **get_user_vendor_recurrence_rate(transaction, all_transactions),
         # **get_user_vendor_interaction_count(transaction, all_transactions),
         # **get_amount_category(transaction),
-        **get_amount_pattern_features(transaction),
+        # **get_amount_pattern_features(transaction),
         **get_temporal_consistency_features(transaction, all_transactions),
         **get_vendor_recurrence_profile(transaction, all_transactions),
         **get_user_vendor_relationship_features(transaction, all_transactions),

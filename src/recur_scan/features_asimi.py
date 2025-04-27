@@ -1,12 +1,7 @@
 import datetime
-from datetime import timedelta
 from collections import Counter
-from typing import Tuple
-import math
-import numpy as np
-from scipy import stats
 
-from scipy.stats import median_abs_deviation
+import numpy as np
 
 from recur_scan.transactions import Transaction
 
@@ -220,33 +215,6 @@ def get_amount_category(transaction: Transaction) -> dict[str, int]:
         return {"amount_category": 3}
 
 
-def get_amount_pattern_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, float]:
-    """Identify common amount patterns that indicate recurring transactions"""
-    amount = transaction.amount
-    vendor_transactions = [t for t in all_transactions if t.name == transaction.name]
-    vendor_amounts = [t.amount for t in vendor_transactions]
-
-    # Common recurring amount patterns
-    is_common_recurring_amount = (
-        amount in {5.99, 9.99, 14.99, 19.99, 29.99, 39.99, 49.99, 99.99}
-        or (amount - int(amount)) >= 0.98  # Common .99 pricing
-    )
-
-    # Check if amount is one of the top 3 most common amounts for this vendor
-    if vendor_amounts:
-        amount_counts = Counter(vendor_amounts)
-        common_amounts = [amt for amt, _ in amount_counts.most_common(3)]
-        is_common_for_vendor = amount in common_amounts
-    else:
-        is_common_for_vendor = False
-
-    return {
-        "is_common_recurring_amount": int(is_common_recurring_amount),
-        "is_common_for_vendor": int(is_common_for_vendor),
-        "amount_decimal_part": amount - int(amount),
-    }
-
-
 def get_temporal_consistency_features(
     transaction: Transaction, all_transactions: list[Transaction]
 ) -> dict[str, float]:
@@ -340,70 +308,104 @@ def get_user_vendor_relationship_features(
         tenure = 0
 
     return {"user_vendor_dependency": dependency, "user_vendor_tenure": tenure, "user_vendor_transaction_span": tenure}
-#new features
 
-def is_cyclic_amount(transaction: Transaction, all_transactions: list[Transaction]) -> bool:
-    """Check if amounts follow a repeating pattern (e.g., +$5 every transaction)."""
-    user_vendor_txns = [t for t in all_transactions 
-                       if t.user_id == transaction.user_id 
-                       and t.name == transaction.name]
-    if len(user_vendor_txns) < 3: return False
-    
-    amounts = [t.amount for t in user_vendor_txns[-3:]]
-    return (amounts[1] - amounts[0]) == (amounts[2] - amounts[1])
+
+# new features
+
 
 def has_99_cent_pricing(transaction: Transaction) -> bool:
-    """Detect if amount ends with .99 (common in subscriptions)."""
-    return abs((transaction.amount - int(transaction.amount)) - 0.99) < 0.01
+    """More robust version that checks for .99, .95, .00 endings"""
+    cent_part = abs(round(transaction.amount - int(transaction.amount), 2))
+    return cent_part in {0.99, 0.95, 0.00} and transaction.amount < 50  # Ignore large amounts
 
-def get_vendor_transaction_recency(transaction: Transaction, all_transactions: list[Transaction]) -> int:
-    """Calculate the number of days since the last transaction with this vendor."""
-    vendor_transactions = [t for t in all_transactions if t.name == transaction.name]
-    if not vendor_transactions:
-        return 0
-    dates = sorted([datetime.datetime.strptime(t.date, "%Y-%m-%d") for t in vendor_transactions])
-    last_transaction_date = dates[-1]
-    current_date = datetime.datetime.strptime(transaction.date, "%Y-%m-%d")
-    return (current_date - last_transaction_date).days
 
-def get_user_transaction_amount_mad(transaction: Transaction, all_transactions: list[Transaction]) -> float:
-    """Calculate the median absolute deviation (MAD) of transaction amounts for this user."""
-    user_transactions = [t for t in all_transactions if t.user_id == transaction.user_id]
-    if len(user_transactions) < 3:
-        return 0.0
-    amounts = [t.amount for t in user_transactions]
-    return float(median_abs_deviation(amounts))
+def is_apple_subscription_amount(amount: float) -> bool:
+    """Check for ANY consistent amount (not just common ones)"""
+    common_amounts = {0.99, 1.99, 2.99, 4.99, 8.65, 9.99, 10.99, 14.99}  # Added 8.65
+    return any(abs(amount - a) < 0.01 for a in common_amounts)
 
-def amount_pattern_score(transaction, all_transactions: list[Transaction]) -> float:
-    amounts = [t.amount for t in all_transactions 
-              if t.user_id == transaction.user_id 
-              and t.name == transaction.name]
-    
-    if len(amounts) < 2: return 0.0
-    
-    return max(
-        0.4 * int(len(set(amounts)) == 1),  # Fixed amount
-        0.3 * int(all(abs(a%1 - 0.99) < 0.01 for a in amounts)),  # .99 pricing
-        0.3 * (1 - (float(np.std(amounts)) / float(np.mean(amounts))))  # Low variance
+
+def is_annual_subscription(transaction: Transaction, all_transactions: list[Transaction]) -> bool:
+    """Identify annual subscriptions (365±15 day intervals)"""
+    user_vendor_txns = sorted(
+        [t for t in all_transactions if t.user_id == transaction.user_id and t.name == transaction.name],
+        key=lambda x: x.date,
     )
 
-def get_billing_cycle_anchor(transaction: Transaction, all_transactions: list[Transaction]) -> int:
-    """Detect if transactions cluster around 'anchor days' (e.g., always 2 days after payday)."""
-    user_vendor_txns = [t for t in all_transactions 
-                       if t.user_id == transaction.user_id 
-                       and t.name == transaction.name]
-    if len(user_vendor_txns) < 3:
+    if len(user_vendor_txns) < 2:
+        return False
+
+    intervals = []
+    dates = [datetime.datetime.strptime(t.date, "%Y-%m-%d") for t in user_vendor_txns]
+
+    for i in range(1, len(dates)):
+        intervals.append((dates[i] - dates[i - 1]).days)
+
+    return any(350 <= delta <= 380 for delta in intervals)
+
+
+def get_recurrence_streak(transaction: Transaction, all_transactions: list[Transaction]) -> int:
+    vendor_trans = sorted(
+        [t for t in all_transactions if t.user_id == transaction.user_id and t.name == transaction.name],
+        key=lambda x: x.date,
+    )
+
+    if len(vendor_trans) < 2:
         return 0
 
-    payday_anchors = {1, 15, 25}  # Common paydays
-    tx_days = {datetime.datetime.strptime(t.date, "%Y-%m-%d").day for t in user_vendor_txns}
-    
-    for anchor in payday_anchors:
-        offsets = {(day - anchor) % 30 for day in tx_days}
-        if len(offsets) <= 2:  # Transactions occur at consistent offset from anchor
-            return 1
-    
-    return 0
+    streak = 0
+    dates = [datetime.datetime.strptime(t.date, "%Y-%m-%d") for t in vendor_trans]
+    amounts = [t.amount for t in vendor_trans]
+
+    for i in range(1, len(dates)):
+        delta = (dates[i] - dates[i - 1]).days
+        amount_diff = abs(amounts[i] - amounts[i - 1])
+
+        if (25 <= delta <= 35 and amount_diff < 0.1) or (abs(delta - 7) <= 1 and amount_diff < 0.1):
+            streak += 1
+        else:
+            streak = 0  # Reset streak on broken pattern
+
+    return streak
+
+
+def is_common_subscription_amount(amount: float) -> bool:
+    """Check for common subscription pricing patterns across vendors"""
+    cent_part = round(amount - int(amount), 2)
+    common_cents = {0.99, 0.95, 0.00, 0.49}
+    return (
+        cent_part in common_cents
+        or (amount > 4 and abs(cent_part - 0.99) < 0.01)
+        or (amount > 10 and amount % 5 == 0)  # Common for annual subs
+    )
+
+
+def get_amount_frequency_score(transaction: Transaction, all_transactions: list[Transaction]) -> float:
+    user_txns = [t for t in all_transactions if t.user_id == transaction.user_id]
+
+    if len(user_txns) < 5:
+        return 0.0
+
+    # Consider similar amounts (±5%) as matches
+    similar_amounts = [t.amount for t in user_txns if abs(t.amount - transaction.amount) <= transaction.amount * 0.05]
+    freq = len(similar_amounts) / len(user_txns)
+
+    # Add common subscription amount boost
+    if is_common_subscription_amount(transaction.amount):
+        freq = min(freq + 0.2, 1.0)
+
+    return round(freq, 2)
+
+
+def calculate_day_of_month_consistency(dates: list[datetime.datetime]) -> float:
+    """Calculate consistency of transaction day of month (0-1 scale)."""
+    if len(dates) < 3:
+        return 0.0
+    days = [d.day for d in dates]
+    base_day = max(set(days), key=days.count)
+    matches = sum(1 for d in days if abs(d - base_day) <= 3)
+    return matches / len(days)
+
 
 def get_amount_quantum(transaction: Transaction, all_transactions: list[Transaction]) -> int:
     """Detect if amount is a 'quantum' value (e.g., $9.99 → $10.00 after tax)."""
@@ -412,174 +414,92 @@ def get_amount_quantum(transaction: Transaction, all_transactions: list[Transact
         return 0
 
     quantum_pairs = {
-        4.99: 5.35, 9.99: 10.71, 14.99: 16.04, 
-        19.99: 21.39, 29.99: 32.09
+        4.99: 5.35,
+        9.99: 10.71,
+        11.54: 12.00,
+        0.99: 1.08,
+        2.99: 3.21,  # Common .99 upcharges
+        19.99: 21.39,
+        29.99: 32.09,
     }
-    
+
     for pre_tax, post_tax in quantum_pairs.items():
-        if (abs(transaction.amount - post_tax) < 0.05 or
-            any(abs(t.amount - pre_tax) < 0.05 for t in vendor_txns)):
+        if abs(transaction.amount - post_tax) < 0.05 or any(abs(t.amount - pre_tax) < 0.05 for t in vendor_txns):
             return 1
-    
+
     return 0
 
-def get_quantum_entanglement(transaction: Transaction, all_transactions: list[Transaction]) -> float:
-    """Detects hidden relationships between amount decimals and dates"""
-    amount_decimal = round(transaction.amount - int(transaction.amount), 2)
-    day_of_month = int(transaction.date.split('-')[2])
-    
-    prime_days = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31}
-    is_prime_day = int(day_of_month in prime_days)
-    
-    return abs(amount_decimal - (day_of_month % 10)/10) + is_prime_day + int(amount_decimal == day_of_month/100)
 
-def get_amount_palindrome_feature(transaction: Transaction) -> int:
-    """Detects if amount has palindrome-like symmetry (e.g., $12.21)"""
-    amount_str = f"{transaction.amount:.2f}".replace('.', '')
-    return int(amount_str == amount_str[::-1])
+def get_interval_precision(transaction: Transaction, all_transactions: list[Transaction]) -> float:
+    """Calculate precision of transaction intervals (0-1 scale)."""
+    vendor_trans = sorted(
+        [t for t in all_transactions if t.name == transaction.name and t.user_id == transaction.user_id],
+        key=lambda x: x.date,
+    )
 
-def get_day_of_week_entropy(transaction: Transaction, all_transactions: list[Transaction]) -> float:
-    """Measure weekday distribution consistency"""
-    vendor_trans = [t for t in all_transactions if t.name == transaction.name]
-    if len(vendor_trans) < 3: return 0.0
-    
-    weekdays = [datetime.datetime.strptime(t.date, "%Y-%m-%d").weekday() for t in vendor_trans]
-    counts = Counter(weekdays)
-    return float(stats.entropy(list(counts.values())) / math.log(7))  # Normalized
+    if len(vendor_trans) < 3:
+        return 0.0
+
+    dates = [datetime.datetime.strptime(t.date, "%Y-%m-%d") for t in vendor_trans]
+    intervals = [(dates[i + 1] - dates[i]).days for i in range(len(dates) - 1)]
+
+    if transaction.name == "Apple":
+        monthly_intervals = sum(25 <= diff <= 35 for diff in intervals)
+        return min(monthly_intervals / len(intervals) * 1.2, 1.0)
+
+    return sum(28 <= diff <= 31 for diff in intervals) / len(intervals)
+
 
 def get_amount_temporal_consistency(transaction: Transaction, all_transactions: list[Transaction]) -> float:
     """
-    Combines amount consistency AND temporal regularity (0-1 score)
-    True subscriptions have both consistent amounts AND regular intervals
+    Combines amount consistency, temporal regularity, AND day-of-month consistency.
+    Returns a 0-1 score where higher = more subscription-like.
     """
-    vendor_trans = sorted([t for t in all_transactions 
-                         if t.name == transaction.name and
-                         t.user_id == transaction.user_id],
-                         key=lambda x: x.date)
-    
+    vendor_trans = sorted(
+        [t for t in all_transactions if t.name == transaction.name and t.user_id == transaction.user_id],
+        key=lambda x: x.date,
+    )
+
     if len(vendor_trans) < 3:
         return 0.0
-    
-    # Amount consistency
+
+    # Amount consistency (standard deviation)
     amounts = np.array([t.amount for t in vendor_trans])
     amount_std = np.std(amounts)
-    
-    # Temporal regularity
+
+    # Temporal regularity (interval coefficient of variation)
     dates = [datetime.datetime.strptime(t.date, "%Y-%m-%d") for t in vendor_trans]
     intervals = np.diff([d.toordinal() for d in dates])
     interval_cv = np.std(intervals) / (np.mean(intervals) + 1e-9)
-    
-    # Combined score (higher = more subscription-like)
-    return float(1 - (0.5*amount_std + 0.5*interval_cv))
 
-def get_amount_date_pattern(transaction: Transaction) -> float:
-    """
-    Detects if amounts synchronize with dates (e.g., $25 on 25th)
-    Returns: 0 (no pattern) to 1 (strong pattern)
-    """
-    day = int(transaction.date.split('-')[2])
-    amount = transaction.amount
-    
-    # Pattern 1: Amount equals day (e.g., $25 on 25th)
-    pattern1 = int(abs(amount - day) < 0.5)
-    
-    # Pattern 2: Decimal matches day (e.g., $10.25 on 25th)
-    decimal_part = int(round((amount - int(amount)) * 100))
-    pattern2 = int(decimal_part == day)
-    
-    return float(max(pattern1, pattern2))
+    # Day-of-month consistency (new addition)
+    day_consistency = calculate_day_of_month_consistency(dates)
+
+    # Combined score (weighted average)
+    return float(0.4 * (1 - amount_std) + 0.3 * (1 - interval_cv) + 0.3 * day_consistency)
+
 
 def get_burst_score(transaction: Transaction, all_transactions: list[Transaction]) -> float:
     """
     Detects clustered transactions (common in non-subscriptions)
     Returns: 0 (no burst) to 1 (high burstiness)
     """
-    user_trans = sorted([t for t in all_transactions 
-                        if t.user_id == transaction.user_id],
-                        key=lambda x: x.date)
-    
+    user_trans = sorted([t for t in all_transactions if t.user_id == transaction.user_id], key=lambda x: x.date)
+
     if len(user_trans) < 3:
         return 0.0
-    
+
     # Find transactions within 7 days with similar amounts
     current_date = datetime.datetime.strptime(transaction.date, "%Y-%m-%d")
     similar_trans = [
-        t for t in user_trans[-10:]
+        t
+        for t in user_trans[-10:]
         if abs((datetime.datetime.strptime(t.date, "%Y-%m-%d") - current_date).days) <= 7
         and abs(t.amount - transaction.amount) < 2.0
     ]
-    
+
     return float(min(len(similar_trans) / 3.0, 1.0))  # Cap at 1.0
 
-def get_interval_precision(transaction: Transaction, all_transactions: list[Transaction]) -> float:
-    """
-    Catches near-perfect monthly intervals (28-31 days) with 99% accuracy.
-    Fixes cases like BET's 29th->3rd misalignment.
-    """
-    vendor_trans = sorted([t for t in all_transactions 
-                         if t.name == transaction.name and 
-                         t.user_id == transaction.user_id],
-                         key=lambda x: x.date)
-    
-    if len(vendor_trans) < 3: return 0.0
-    
-    dates = [datetime.datetime.strptime(t.date, "%Y-%m-%d") for t in vendor_trans]
-    intervals = [(dates[i+1]-dates[i]).days for i in range(len(dates)-1)]
-    
-    # Score based on how many intervals are within monthly range
-    monthly_intervals = sum(28 <= diff <= 31 for diff in intervals)
-    return float(monthly_intervals / len(intervals))
-
-def get_quantum_strict(transaction: Transaction) -> int:
-    """
-    Hardened version that only flags exact quantum amounts.
-    Catches AfterPay's 21.88->26.72 jumps.
-    """
-    amount = transaction.amount
-    decimal = amount - int(amount)
-    
-    # Only match perfect .00, .99, .95
-    return int(decimal in {0.0, 0.99, 0.95} and amount < 50)
-
-def get_day_anchor_strength(transaction: Transaction, all_transactions: list[Transaction]) -> float:
-    """
-    Measures how tightly transactions anchor to specific calendar days.
-    Fixes Planet Fitness' irregular day selection.
-    """
-    vendor_trans = [t for t in all_transactions 
-                   if t.name == transaction.name and
-                   t.user_id == transaction.user_id]
-    
-    if len(vendor_trans) < 3: return 0.0
-    
-    days = [int(t.date.split('-')[2]) for t in vendor_trans]
-    mode_day = max(set(days), key=days.count)
-    
-    # Percentage of transactions hitting mode day ±1
-    hits = sum(abs(day - mode_day) <= 1 for day in days)
-    return float(hits / len(days))
-
-def get_amount_change_pattern(transaction: Transaction, all_transactions: list[Transaction]) -> int:
-    """
-    Updated for YYYY-MM-DD format
-    """
-    vendor_trans = sorted([t for t in all_transactions 
-                         if t.name == transaction.name and
-                         t.user_id == transaction.user_id],
-                         key=lambda x: x.date)
-    
-    if len(vendor_trans) < 3: return 0
-    
-    amounts = [t.amount for t in vendor_trans]
-    
-    if len(set(amounts)) == 1:
-        return 1
-    
-    diffs = [abs(amounts[i]-amounts[i-1]) for i in range(1,len(amounts))]
-    if max(diffs) > 10 and min(diffs) < 1:
-        return 2
-    
-    return 0
 
 def get_series_duration(transaction: Transaction, all_transactions: list[Transaction]) -> float:
     """
@@ -587,78 +507,176 @@ def get_series_duration(transaction: Transaction, all_transactions: list[Transac
     Longer series are more likely to be true recurring transactions.
     """
     similar_transactions = [
-        t for t in all_transactions 
-        if t.name == transaction.name 
+        t
+        for t in all_transactions
+        if t.name == transaction.name
         # and t.category == transaction.category  # Removed as "category" is not a valid attribute
     ]
-    
+
     if len(similar_transactions) < 2:
         return 0.0
-    
+
     sorted_trans = sorted(similar_transactions, key=lambda x: x.date)
-    duration_days = (datetime.datetime.strptime(sorted_trans[-1].date, "%Y-%m-%d") - 
-                     datetime.datetime.strptime(sorted_trans[0].date, "%Y-%m-%d")).days
-    
+    duration_days = (
+        datetime.datetime.strptime(sorted_trans[-1].date, "%Y-%m-%d")
+        - datetime.datetime.strptime(sorted_trans[0].date, "%Y-%m-%d")
+    ).days
+
     # Normalize score (0-1) where 1 = 1+ year of history
     return round(min(1.0, duration_days / 365), 2)
 
-def get_amount_roundness(transaction: Transaction, all_transactions: list[Transaction]) -> float:
+
+def is_apple_subscription(transaction: Transaction, all_transactions: list[Transaction]) -> bool:
+    """Special handling for Apple's billing quirks with stricter rules."""
+    if transaction.name != "Apple":
+        return False
+
+    vendor_trans = sorted(
+        [t for t in all_transactions if t.user_id == transaction.user_id and t.name == "Apple"], key=lambda x: x.date
+    )
+
+    if len(vendor_trans) < 4:  # Require at least 4 transactions to establish a pattern
+        return False
+
+    dates = [datetime.datetime.strptime(t.date, "%Y-%m-%d") for t in vendor_trans]
+
+    # ===== New Checks =====
+    # 1. Burst Detection - reject if multiple charges in short windows
+    short_gaps = sum((dates[i + 1] - dates[i]).days <= 14 for i in range(len(dates) - 1))
+    if short_gaps > len(dates) * 0.25:  # If >25% of gaps are <=14 days
+        return False
+
+    # 2. Stricter Interval Checking
+    intervals = [(dates[i + 1] - dates[i]).days for i in range(len(dates) - 1)]
+
+    # Check for consistent monthly pattern (28-31 days)
+    monthly_count = sum(28 <= diff <= 31 for diff in intervals)
+    monthly_ratio = monthly_count / len(intervals)
+
+    # Check for biweekly pattern (13-15 days)
+    biweekly_count = sum(13 <= diff <= 15 for diff in intervals)
+
+    # Reject mixed patterns (e.g., some monthly, some biweekly)
+    if monthly_count > 0 and biweekly_count > 0:
+        return False
+
+    # 3. Amount Consistency with tolerance for one-off changes
+    base_amount = vendor_trans[0].amount
+    amount_changes = sum(not is_similar_amount(t.amount, base_amount, threshold=0.01) for t in vendor_trans)
+    if amount_changes > 1:  # Allow at most one amount variation
+        return False
+
+    # ===== Existing Checks (Modified) =====
+    day_consistency = calculate_day_of_month_consistency(dates)
+
+    # Only accept if:
+    # - Strong monthly pattern (>80%) OR strong biweekly pattern (>90%)
+    # - AND day consistency is good
+    # - AND no problematic bursts
+    return (monthly_ratio >= 0.8 or biweekly_count / len(intervals) >= 0.9) and day_consistency >= 0.7
+
+
+def is_afterpay_installment(transaction: Transaction, all_transactions: list[Transaction]) -> bool:
+    """Detect AfterPay's installment payments."""
+    if transaction.name != "AfterPay":
+        return False
+
+    vendor_trans = sorted(
+        [t for t in all_transactions if t.user_id == transaction.user_id and t.name == "AfterPay"], key=lambda x: x.date
+    )
+
+    if len(vendor_trans) < 4:
+        return False
+
+    first_amount = vendor_trans[0].amount
+    return all(is_similar_amount(t.amount, first_amount, threshold=0.05) for t in vendor_trans)
+
+
+def is_similar_amount(a: float, b: float, threshold: float = 0.05) -> bool:
+    """Check if two amounts are within ±threshold% (default: ±5%)."""
+    return abs(a - b) <= max(a, b) * threshold
+
+
+# Use this in your existing amount checks instead of strict equality.
+
+
+def is_afterpay_one_time(transaction: Transaction, all_transactions: list[Transaction]) -> bool:
+    """Filter out one-time AfterPay purchases."""
+    if transaction.name != "AfterPay":
+        return False
+
+    vendor_trans = [t for t in all_transactions if t.user_id == transaction.user_id and t.name == "AfterPay"]
+
+    if len(vendor_trans) <= 2:
+        return True
+
+    amounts = [t.amount for t in vendor_trans]
+    return max(amounts) - min(amounts) > 10
+
+
+def is_common_subscription(transaction: Transaction) -> bool:
+    common_amounts = {
+        0.99,
+        1.99,
+        2.99,
+        4.99,
+        9.99,
+        10.99,
+        11.76,
+        14.99,
+        15.98,
+        19.99,
+    }  # Add more as needed
+    return any(
+        is_similar_amount(transaction.amount, amount, threshold=0.01)  # ±1% for strict matching
+        for amount in common_amounts
+    )
+
+
+def get_apple_interval_score(transaction: Transaction, all_transactions: list[Transaction]) -> float:
     """
-    Returns a score (0-1) for how "round" the amount is, which is common in recurring payments.
-    Uses both the specific transaction and its context in the series.
+    Returns a score (0-1) for how well Apple transactions match monthly intervals.
+    Called as an intermediate feature in your pipeline.
     """
-    def _roundness(amount):
-        """Helper function to calculate roundness of a single amount"""
-        cents = abs(amount - round(amount))
-        if cents == 0:
-            return 1.0
-        elif cents == 0.5:
-            return 0.8
-        elif cents == 0.25 or cents == 0.75:
-            return 0.6
-        elif amount % 1 == 0.99 or amount % 1 == 0.95:  # Common price endings
-            return 0.7
-        else:
-            return max(0, 1 - (cents * 10))  # Linear decay
-    
-    similar_transactions = [
-        t for t in all_transactions 
-        if t.name == transaction.name 
-        # and t.category == transaction.category  # Removed as "category" is not a valid attribute
-    ]
-    
-    if not similar_transactions:
+    if transaction.name != "Apple":
+        return 0.0  # Only for Apple transactions
+
+    vendor_trans = sorted(
+        [t for t in all_transactions if t.user_id == transaction.user_id and t.name == "Apple"], key=lambda x: x.date
+    )
+
+    if len(vendor_trans) < 3:
         return 0.0
-    
-    # Calculate individual and average roundness
-    individual = _roundness(transaction.amount)
-    series_avg = sum(_roundness(t.amount) for t in similar_transactions) / len(similar_transactions)
-    
-    # Weighted combination (give more weight to series consistency)
-    return round(0.3 * individual + 0.7 * series_avg, 2)
+
+    dates = [datetime.datetime.strptime(t.date, "%Y-%m-%d") for t in vendor_trans]
+    intervals = [(dates[i + 1] - dates[i]).days for i in range(len(dates) - 1)]
+
+    # Score: % of intervals that are 25-35 days (Apple's flexible billing cycle)
+    monthly_intervals = sum(28 <= diff <= 31 for diff in intervals)
+    biweekly_intervals = sum(13 <= diff <= 15 for diff in intervals)
+
+    if monthly_intervals > 0 and biweekly_intervals > 0:
+        return 0.0  # Mixed patterns = not a subscription
+
+    return max(monthly_intervals, biweekly_intervals) / len(intervals)
 
 
-
-def get_new_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, int | bool | float]: 
+def get_new_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, int | bool | float]:
     return {
-        "is_cyclic_amount": int(is_cyclic_amount(transaction, all_transactions)),
-        "has_99_cent_pricing": int(has_99_cent_pricing(transaction)),
-        "vendor_transaction_recency": get_vendor_transaction_recency(transaction, all_transactions),
-        "user_transaction_amount_mad": get_user_transaction_amount_mad(transaction, all_transactions),
-        "amount_pattern_score": amount_pattern_score(transaction, all_transactions),
-        "billing_cycle_anchor": get_billing_cycle_anchor(transaction, all_transactions),
-        "amount_quantum": get_amount_quantum(transaction, all_transactions),
-        "quantum_entanglement": get_quantum_entanglement(transaction, all_transactions),
-        "amount_palindrome": get_amount_palindrome_feature(transaction),
-        "day_of_week_entropy": get_day_of_week_entropy(transaction, all_transactions),
+        "amount_frequency_score": get_amount_frequency_score(transaction, all_transactions),
+        "has_99_cent_pricing": has_99_cent_pricing(transaction),
         "interval_precision": get_interval_precision(transaction, all_transactions),
-        "quantum_strict": get_quantum_strict(transaction),
-        "day_anchor": get_day_anchor_strength(transaction, all_transactions),
-        "amt_change_pattern": get_amount_change_pattern(transaction, all_transactions),
-        "amount_date_pattern": get_amount_date_pattern(transaction),
+        "is_apple_subscription_amount": is_apple_subscription_amount(transaction.amount),
+        "is_annual_subscription": is_annual_subscription(transaction, all_transactions),
+        "apple_subscription": is_apple_subscription(transaction, all_transactions),
+        "afterpay_installment": is_afterpay_installment(transaction, all_transactions),
+        "is_afterpay_one_time": is_afterpay_one_time(transaction, all_transactions),
+        "temporal_consistency": get_amount_temporal_consistency(transaction, all_transactions),
+        "recurrence_streak": get_recurrence_streak(transaction, all_transactions),
         "burst_score": get_burst_score(transaction, all_transactions),
-        "amount_temporal_consistency": get_amount_temporal_consistency(transaction, all_transactions),
         "series_duration": get_series_duration(transaction, all_transactions),
-        "amount_roundness": get_amount_roundness(transaction, all_transactions),
-        
+        "amount_quantum": get_amount_quantum(transaction, all_transactions),
+        "apple_interval_score": get_apple_interval_score(transaction, all_transactions),
+        "is_common_subscription": is_common_subscription(transaction),
+        "is_common_subscription_amount": is_common_subscription_amount(transaction.amount),
     }
