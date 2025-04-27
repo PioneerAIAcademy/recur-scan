@@ -31,6 +31,7 @@ dependencies = [
     "thefuzz>=0.22.1",
     "tqdm>=4.67.1",
     "xgboost>=3.0.0",
+    "python-dateutil>=2.9.0"
 ]
 
 [build-system]
@@ -136,7 +137,3 @@ DEP002 = ["pandas-stubs", "python-levenshtein"]
 [tool.pyright]
 exclude = ["tests"]
 reportMissingTypeStubs = false
-
-[tool.poetry.dependencies]
-python = ">=3.12,<4.0"
-python-dateutil = ">=2.9.0"
