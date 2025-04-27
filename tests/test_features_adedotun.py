@@ -3,15 +3,30 @@ import pytest
 
 from recur_scan.features_adedotun import (
     compute_recurring_inputs_at,  # Add missing import
+    get_amount_uniqueness_score_at,
+    get_days_since_last_occurrence_at,
+    get_interval_histogram,
+    get_interval_variance_coefficient,
     get_is_always_recurring_at,
     get_is_communication_or_energy_at,
     get_is_insurance_at,
     get_is_phone_at,
     get_is_utility_at,
     get_n_transactions_same_amount_at,
+    get_n_transactions_same_amount_chris,
+    get_new_features,
+    get_percent_transactions_same_amount_chris,
     get_percent_transactions_same_amount_tolerant,
+    get_same_amount_count_at,
+    get_similar_amount_count_at,
+    get_user_vendor_occurrence_count_at,
+    get_vendor_occurrence_count_at,
+    is_known_recurring_company,
+    is_price_trending,
     is_recurring_allowance_at,
+    is_recurring_based_on_99,
     is_recurring_core_at,
+    is_subscription_amount,
     normalize_vendor_name,  # Add import
     normalize_vendor_name_at,
     preprocess_transactions_at,
@@ -174,3 +189,138 @@ def test_compute_recurring_inputs_at() -> None:
     assert len(user_vendor_txns) == 2
     assert "by_vendor" in preprocessed
     assert "netflix" in preprocessed["by_vendor"]
+
+
+def test_get_vendor_occurrence_count_at(transactions):
+    """Test get_vendor_occurrence_count_at for counting vendor occurrences."""
+    transaction = transactions[0]  # Allstate Insurance
+    assert get_vendor_occurrence_count_at(transaction, transactions) == 2
+    transaction = transactions[3]  # Netflix
+    assert get_vendor_occurrence_count_at(transaction, transactions) == 2
+    transaction = transactions[2]  # Duke Energy
+    assert get_vendor_occurrence_count_at(transaction, transactions) == 1
+
+
+def test_get_user_vendor_occurrence_count_at(transactions):
+    """Test get_user_vendor_occurrence_count_at for user-specific vendor counts."""
+    transaction = transactions[0]  # Allstate Insurance, user1
+    assert get_user_vendor_occurrence_count_at(transaction, transactions) == 2
+    transaction = transactions[3]  # Netflix, user1
+    assert get_user_vendor_occurrence_count_at(transaction, transactions) == 2
+    transaction = transactions[2]  # Duke Energy, user1
+    assert get_user_vendor_occurrence_count_at(transaction, transactions) == 1
+
+
+def test_get_same_amount_count_at(transactions):
+    """Test get_same_amount_count_at for counting transactions with same amount."""
+    transaction = transactions[0]  # Allstate Insurance, 100
+    assert get_same_amount_count_at(transaction, transactions) == 2
+    transaction = transactions[3]  # Netflix, 15.99
+    assert get_same_amount_count_at(transaction, transactions) == 2
+    transaction = transactions[2]  # Duke Energy, 200
+    assert get_same_amount_count_at(transaction, transactions) == 1
+
+
+def test_get_similar_amount_count_at(transactions):
+    """Test get_similar_amount_count_at for counting transactions with similar amounts."""
+    transaction = Transaction(id=8, user_id="user1", name="Netflix", amount=15.50, date="2024-01-01")
+    assert get_similar_amount_count_at(transaction, transactions) == 2  # Within 5% of 15.99
+    transaction = transactions[0]  # Allstate Insurance, 100
+    assert get_similar_amount_count_at(transaction, transactions) == 2
+    transaction = transactions[2]  # Duke Energy, 200
+    assert get_similar_amount_count_at(transaction, transactions) == 1
+
+
+def test_get_days_since_last_occurrence_at(transactions):
+    """Test get_days_since_last_occurrence_at for days since last vendor transaction."""
+    transaction = transactions[5]  # Allstate Insurance, 2024-02-01
+    assert get_days_since_last_occurrence_at(transaction, transactions) == 31
+    transaction = transactions[1]  # AT&T, 2024-01-01
+    assert get_days_since_last_occurrence_at(transaction, transactions) == 5 * 365
+    transaction = transactions[3]  # Netflix, 2024-03-01
+    assert get_days_since_last_occurrence_at(transaction, transactions) == 5 * 365
+
+
+def test_is_recurring_based_on_99(transactions):
+    """Test is_recurring_based_on_99 for detecting .99-ending recurring transactions."""
+    transaction = transactions[3]  # Netflix, 15.99, two occurrences
+    assert is_recurring_based_on_99(transaction, transactions)
+    transaction = transactions[0]  # Allstate Insurance, 100, not .99
+    assert not is_recurring_based_on_99(transaction, transactions)
+
+
+def test_get_interval_variance_coefficient(transactions):
+    """Test get_interval_variance_coefficient for interval consistency."""
+    transaction = transactions[3]  # Netflix, two transactions
+    assert abs(get_interval_variance_coefficient(transaction, transactions) - 0.1) < 0.1  # Low variance
+    transaction = transactions[2]  # Duke Energy, single transaction
+    assert get_interval_variance_coefficient(transaction, transactions) == 1.0
+
+
+def test_is_known_recurring_company(transactions):
+    """Test is_known_recurring_company for known recurring vendors."""
+    transaction = transactions[3]  # Netflix
+    assert is_known_recurring_company(transaction, transactions)
+    transaction = transactions[2]  # Duke Energy
+    assert not is_known_recurring_company(transaction, transactions)
+
+
+def test_is_price_trending(transactions):
+    """Test is_price_trending for stable or trending amounts."""
+    transaction = transactions[3]  # Netflix, stable
+    assert is_price_trending(transaction, transactions)
+    transaction = transactions[2]  # Duke Energy, single transaction
+    assert not is_price_trending(transaction, transactions)
+
+
+def test_get_n_transactions_same_amount_chris(transactions):
+    """Test get_n_transactions_same_amount_chris for counting similar amounts."""
+    transaction = transactions[3]  # Netflix, 15.99
+    assert get_n_transactions_same_amount_chris(transaction, transactions, "Netflix") == 2
+    transaction = transactions[2]  # Duke Energy, 200
+    assert get_n_transactions_same_amount_chris(transaction, transactions, "Duke Energy") == 1
+
+
+def test_get_percent_transactions_same_amount_chris(transactions):
+    """Test get_percent_transactions_same_amount_chris for percentage of similar amounts."""
+    transaction = transactions[3]  # Netflix, 15.99
+    assert get_percent_transactions_same_amount_chris(transaction, transactions, "Netflix") == 100.0
+    transaction = transactions[2]  # Duke Energy, 200
+    assert get_percent_transactions_same_amount_chris(transaction, transactions, "Duke Energy") == 100.0
+
+
+def test_is_subscription_amount():
+    """Test is_subscription_amount for common subscription amounts."""
+    assert is_subscription_amount(14.99)  # Common subscription price
+    assert is_subscription_amount(10.00)
+    assert not is_subscription_amount(15.99)  # Adjust based on function behavior
+    assert not is_subscription_amount(17.23)
+
+
+def test_get_new_features(transactions):
+    """Test get_new_features for returning all feature values."""
+    features = get_new_features(transactions[3], transactions)  # Netflix
+    assert features["is_known_recurring"] is True
+    assert features["is_one_time_vendor"] is False
+    assert features["vendor_occurrence_count"] == 2
+    assert features["same_amount_count"] == 2
+    assert features["is_weekend"] is False
+    assert features["is_entertainment"] is False
+    assert features["is_recurring_based_on_99_at"] is True
+    assert features["amount_variability_score_refine"] < 2.5
+
+
+def test_get_amount_uniqueness_score_at(transactions):
+    """Test get_amount_uniqueness_score_at for calculating amount uniqueness."""
+    transaction = transactions[3]  # Netflix, 15.99
+    assert get_amount_uniqueness_score_at(transaction, transactions) == 0.0  # 2/2 similar
+    transaction = transactions[2]  # Duke Energy, 200
+    assert get_amount_uniqueness_score_at(transaction, transactions) == 0.0  # 1/1 similar, self-match
+
+
+def test_get_interval_histogram(transactions):
+    """Test get_interval_histogram for periodicity score."""
+    transaction = transactions[3]  # Netflix
+    score = get_interval_histogram(transaction, transactions)
+    assert 0.0 <= score <= 1.0
+    assert score == 0.0  # Only one other matching transaction after filtering, no intervals
