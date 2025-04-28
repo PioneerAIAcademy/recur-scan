@@ -660,6 +660,41 @@ def get_apple_interval_score(transaction: Transaction, all_transactions: list[Tr
 
     return max(monthly_intervals, biweekly_intervals) / len(intervals)
 
+def get_loan_repayment_score(transaction: Transaction, all_transactions: list[Transaction]) -> float:
+    """
+    Returns a score (0-1) for how likely this transaction is a recurring loan payment.
+    - Score 1.0: Perfect match (fixed amount, strict weekly intervals).
+    - Score 0.0: No pattern detected.
+    """
+    # Step 1: Filter this user's transactions from the same merchant
+    user_transactions = [
+        t for t in all_transactions 
+        if t.user_id == transaction.user_id 
+        and t.name == transaction.name  # Same merchant
+    ]
+    
+    # Need at least 3 transactions to detect a pattern
+    if len(user_transactions) < 3:
+        return 0.0
+    
+    # Step 2: Check amount consistency (allow ±$0.10 variance)
+    amounts = [t.amount for t in user_transactions]
+    avg_amount = sum(amounts) / len(amounts)
+    amount_variance = max(abs(t.amount - avg_amount) for t in user_transactions)
+    
+    if amount_variance > 0.10:
+        return 0.0  # Amounts vary too much for a loan repayment
+    
+    # Step 3: Check interval consistency (weekly = ~7 days)
+    dates = sorted([datetime.datetime.strptime(t.date, "%Y-%m-%d") for t in user_transactions])
+    intervals = [(dates[i+1] - dates[i]).days for i in range(len(dates)-1)]
+    
+    # Allow ±1 day flexibility (e.g., 6-8 days for weekly payments)
+    weekly_intervals = sum(6 <= diff <= 8 for diff in intervals)
+    interval_confidence = weekly_intervals / len(intervals)  # % of intervals that match
+    
+    # Step 4: Final score (weight amount + interval confidence)
+    return interval_confidence  # Since amount is already fixed, this is the key factor
 
 def get_new_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, int | bool | float]:
     return {
@@ -679,4 +714,5 @@ def get_new_features(transaction: Transaction, all_transactions: list[Transactio
         "apple_interval_score": get_apple_interval_score(transaction, all_transactions),
         "is_common_subscription": is_common_subscription(transaction),
         "is_common_subscription_amount": is_common_subscription_amount(transaction.amount),
+        "loan_repayment_score": get_loan_repayment_score(transaction, all_transactions),
     }
