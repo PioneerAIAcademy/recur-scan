@@ -105,6 +105,36 @@ def write_transactions(output_path: str, transactions: list[Transaction], y: lis
                 writer.writerow(row)
 
 
+def write_labeled_transactions(
+    output_path: str,
+    transactions: list[Transaction],
+    y: list[int | str],
+    labels: list[str],
+) -> None:
+    """
+    Save transactions to a CSV file.
+
+    Args:
+        output_path: Path to save the CSV file
+        misclassified_transactions: List of Transaction objects
+        y: List of true labels
+    """
+    with open(output_path, "w", newline="") as f:
+        if transactions:
+            # Get all fields from the Transaction dataclass plus the label
+            fieldnames = [field.name for field in fields(Transaction)]
+            fieldnames.extend(["recurring"])
+            fieldnames.extend(["label"])
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            for transaction, label in zip(transactions, labels, strict=True):
+                # convert transaction to dictionary using asdict()
+                row = asdict(transaction)
+                row["recurring"] = y[transaction.id]
+                row["label"] = label
+                writer.writerow(row)
+
+
 def read_test_transactions(path: str) -> list[Transaction]:
     """
     Read test transactions from a CSV file with different column headers.
