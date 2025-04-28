@@ -27,13 +27,9 @@ from sklearn.model_selection import GridSearchCV, GroupKFold, RandomizedSearchCV
 from tqdm import tqdm
 
 from recur_scan.features import get_features
-from recur_scan.features_original import get_new_features
-from recur_scan.transactions import (
-    group_transactions,
-    read_labeled_transactions,
-    write_labeled_transactions,
-    write_transactions,
-)
+
+from recur_scan.features_segun import get_new_features
+from recur_scan.transactions import group_transactions, read_labeled_transactions, write_transactions
 
 # %%
 # configure the script
@@ -46,9 +42,12 @@ search_type = "random"  # "grid" or "random"
 n_hpo_iters = 200  # number of hyperparameter optimization iterations
 n_jobs = -1  # number of jobs to run in parallel (set to 1 if your laptop gets too hot)
 
-in_path = "../../data/train.csv"
-precomputed_features_path = "../../data/train_features.csv"
-out_dir = "../../data/training_out"
+
+in_path = "scripts/train.csv"  # path to the input CSV file containing transactions
+precomputed_features_path = "scripts/precomputed.csv"
+out_dir = "output directory"
+
+
 
 # %%
 # parse script arguments from command line
