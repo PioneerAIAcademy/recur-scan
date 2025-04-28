@@ -17,6 +17,7 @@ from recur_scan.features_asimi import (
     get_burst_score,
     get_frequency_features,
     get_interval_precision,
+    get_loan_repayment_score,
     get_recurrence_streak,
     get_series_duration,
     get_temporal_consistency_features,
@@ -44,7 +45,6 @@ from recur_scan.features_asimi import (
     is_common_subscription_amount,
     is_similar_amount,
     is_valid_recurring_transaction,
-    get_loan_repayment_score
 )
 from recur_scan.features_original import get_percent_transactions_same_amount
 from recur_scan.transactions import Transaction
@@ -685,6 +685,7 @@ def test_is_common_subscription():
     assert is_common_subscription(transactions[2]) is True  # -0.01%
     assert is_common_subscription(transactions[3]) is True
 
+
 def test_get_loan_repayment_score() -> None:
     """Test that get_loan_repayment_score correctly identifies weekly loan patterns."""
     # Create test transactions with weekly pattern (7 day intervals)
@@ -699,7 +700,7 @@ def test_get_loan_repayment_score() -> None:
 
     # Test with the middle transaction
     score = get_loan_repayment_score(transactions[2], transactions)
-    
+
     # Verify score is within valid range
     assert 0.0 <= score <= 1.0
     # Should be perfect score for consistent weekly payments
