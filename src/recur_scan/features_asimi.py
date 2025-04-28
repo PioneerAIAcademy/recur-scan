@@ -660,6 +660,7 @@ def get_apple_interval_score(transaction: Transaction, all_transactions: list[Tr
 
     return max(monthly_intervals, biweekly_intervals) / len(intervals)
 
+
 def get_new_features(transaction: Transaction, all_transactions: list[Transaction]) -> dict[str, int | bool | float]:
     return {
         "amount_frequency_score": get_amount_frequency_score(transaction, all_transactions),
