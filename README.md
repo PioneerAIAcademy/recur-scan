@@ -13,6 +13,10 @@ Recur-scan analyzes transaction history to automatically detect recurring paymen
 
 The system processes transaction data from multiple sources, extracts relevant features, and trains models to classify transactions as recurring or non-recurring with high accuracy.
 
+## Contributors
+
+Although there are only 3 contributors listed in the commits, everyone developed and tested the features listed in `features_<github_username>.py` in the `src/recur_scan` directory. If you want to review the features everyone contributed to the recurring transaction ML model, please look at those files. And if you want to get an idea of the features that made the final cut after pruning, look at `src/recur_scan/features.py`.
+
 ## Development instructions
 
 ### Pre-requisites
