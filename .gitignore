@@ -184,6 +184,3 @@ node_modules/
 **/*.pth
 **/*.pth.tar
 **/*.pth.tar.gz
-branch_structure.json
-temp_auto_push.bat
-temp_interactive_push.bat
